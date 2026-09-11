@@ -1,7 +1,7 @@
-# Unmanaged top-level l* directories remain independent repositories.
-# l4 repositories under station_projects/ are tracked as Git submodules;
-# l3-dispatcher-planner is vendored as a git subtree under drone_projects/.
+# Unmanaged top-level l* directories remain independent repositories;
+# l3-dispatcher-planner is the built-in tracked subtree of this repo (AGENTS.md).
 /l*/
+!l3-dispatcher-planner/
 /lx-sim-k3s/
 /diff-netbird/
 !specs/l2/
