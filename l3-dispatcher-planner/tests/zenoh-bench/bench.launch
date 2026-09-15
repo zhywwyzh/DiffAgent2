@@ -1,0 +1,8 @@
+<launch>
+  <!-- zenoh-bench: single dispatcher node with explicit config; mocks and
+       roscore are started by verify_routing.py outside this launch. -->
+  <arg name="config_path" default="$(find bringup)/config/vla/real.yaml"/>
+  <node pkg="dispatcher" type="dispatcher_node.py" name="uav_policy_node" output="screen" launch-prefix="stdbuf -oL">
+    <param name="config_path" value="$(arg config_path)"/>
+  </node>
+</launch>

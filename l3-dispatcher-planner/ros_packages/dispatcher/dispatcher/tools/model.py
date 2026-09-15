@@ -6,29 +6,12 @@ from dataclasses import dataclass
 from typing import Any
 
 
-class ToolProtocolError(Exception):
-    """Reject a tool request before it enters the execution runtime."""
-
-    def __init__(self, code: int, message: str, data: dict | None = None) -> None:
-        super().__init__(message)
-        self.code = int(code)
-        self.message = str(message)
-        self.data = dict(data or {})
-
-    def to_dict(self) -> dict:
-        result = {"code": self.code, "message": self.message}
-        if self.data:
-            result["data"] = dict(self.data)
-        return result
-
-
 @dataclass(frozen=True)
 class ToolCall:
     """One validated invocation admitted to the runtime."""
 
     call_id: str
     name: str
-    task_id: int
     arguments: dict
     flight_session_id: str
     step_id: str
@@ -79,7 +62,6 @@ class ToolSpec:
     """Discoverable metadata plus the private argument validator."""
 
     name: str
-    task_id: int
     title: str
     description: str
     input_schema: dict
@@ -105,7 +87,6 @@ class ToolSpec:
                 "idempotentHint": self.idempotent,
             },
             "_meta": {
-                "lx.task_id": self.task_id,
                 "lx.completion": self.completion,
                 "lx.concurrency": "flight-exclusive",
             },

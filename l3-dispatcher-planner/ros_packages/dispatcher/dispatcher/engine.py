@@ -13,32 +13,21 @@ from __future__ import annotations
 
 import json
 import time
-import threading
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
 
-import rospy
-from std_msgs.msg import String, Empty, Bool
-
-from dispatcher.state import COMMAND_TYPE, COMMAND_STATUS, DISPATCHER_STATE
-from dispatcher.config import (
-    CONFIG_KEY_ALIASES,
-    UAV_POLICY_DEFAULTS,
-    load_yaml,
-    set_ros_params,
-    set_defaults,
-    apply_config,
-    merge_config_sections,
-    get_nested_config,
-    flatten_leaf_params,
-    merge_pointcloud_mode_params,
-)
-from dispatcher.skill_api import SkillVerdict
-from dispatcher.slog import StructuredLogger
-from dispatcher.tools.model import SkillCommand, ToolCall
+from dispatcher.utils.state import COMMAND_TYPE, COMMAND_STATUS, DISPATCHER_STATE
+from dispatcher.utils.config import UAV_POLICY_DEFAULTS, set_defaults
+from dispatcher.tools.skill_api import SkillVerdict
+from dispatcher.core.ports import CoreChannels, RuntimeClock, LogSink
+from dispatcher.core.telemetry import RunTelemetry
+from dispatcher.core.task_phase import TaskPhaseBridge
+from dispatcher.core.skill_router import SkillRouter
+from dispatcher.core.workflow import ToolWorkflowHost
+from dispatcher.core.actuators import PlannerActuators
 
 from dispatcher.perception.base_policy import BasePolicyNode
 
@@ -78,9 +67,30 @@ class DispatcherEngine(
 ):
     """任务编排与执行主节点。"""
 
-    def __init__(self):
-        """初始化节点状态、ROS 通信对象与后台线程。"""
+    def __init__(
+        self,
+        *,
+        headless: bool,
+        telemetry_node_name: str,
+        telemetry_level: str,
+        telemetry_stdout_en: bool,
+        log_dir_root: Path,
+        channels: CoreChannels,
+        clock: RuntimeClock,
+        log: LogSink,
+    ):
+        """初始化节点状态、协作对象与后台线程。
+
+        ROS 面（四类 core 通道、节律关停、运行日志）经端口注入（S3 §4.7）：
+        实现由 composition root（dispatcher_node.py）构造并传入，engine 与
+        core 只持端口引用，自身零 rospy（G7/G8）。
+        """
         super().__init__()
+
+        # 端口注入（engine 属性命名见 S3 §4.4）
+        self.channels = channels  # 四类 core 通道出站端口（急停/yaw/监控/相位）
+        self.clock = clock  # 节律与关停端口（rate/is_shutdown/request_shutdown）
+        self.runlog = log  # 运行日志端口（info/warn/err/warn_throttle）
 
         # 默认配置
         set_defaults(self, UAV_POLICY_DEFAULTS)  # 加载默认配置到节点属性
@@ -131,89 +141,53 @@ class DispatcherEngine(
 
         self.global_stop_active = False  # 全局停止是否激活
         self.task_generation = 0  # 任务代次，用于丢弃急停/覆盖前的旧推理结果
-        self.telemetry = StructuredLogger(
-            rospy.get_name(),
-            rospy.get_param("~telemetry/level", "info"),
-            rospy.get_param("~telemetry/stdout_en", True),
+        # 运行遥测（S3 §2.4/§5 迁入 core/telemetry.py）：slog/trace/监控/等待
+        # 诊断；构造期覆盖开头的 runlog 端口占位（绑定同一 LogSink）。
+        self.runlog = RunTelemetry(
+            node_name=telemetry_node_name,
+            level=telemetry_level,
+            stdout_en=telemetry_stdout_en,
+            log_root=log_dir_root,
+            headless=headless,
+            log=log,
+            channels=channels,
         )
 
         # 过程记录与动作日志
         self.previous_return_record_cursor = None
-        # Frame_id of the AgentPrompt that OWNS the currently active task. Set
-        # in _start_prompt_task; every task-phase event (incl. terminals) must
-        # use it instead of latest_agent_prompt_frame_id so a late fail is
-        # correlated to the ORIGINAL step_id/request_id, not to a later
-        # prompt's frame (L4 cancel "急停" overwrites the latest frame).
-        self._active_task_frame_id = "Null"
-        self._task_result_stash = None  # 技能暂存的任务级结果（stash/pop_task_result 端口背后字段）
-        # lx patch: log root is ~log_dir (default ~/.ros/log/dispatcher) because the
-        # install location (devel space) is mounted read-only at runtime.
-        log_root = Path(rospy.get_param("~log_dir", str(Path.home() / ".ros" / "log" / "dispatcher")))
-        log_dir = log_root / "dispatcher"
-        log_dir.mkdir(parents=True, exist_ok=True)
-        session_tag = time.strftime("%Y%m%d_%H%M%S")
-        self.log_session_tag = session_tag
-        # Decision trace sink (replay/attribution source of truth): one
-        # append-only JSONL per session under ~log_dir/trace.
-        self.telemetry.attach_trace(
-            log_dir / "trace" / f"trace_{session_tag}.jsonl",
-            session_tag=session_tag,
-        )
-        self._telemetry(
-            "info",
-            "dispatcher_started",
-            headless=bool(rospy.get_param("~headless", False)),
-            log_dir=str(log_root),
+        # 任务相位桥（S3 §2.5/§5 迁入 core/task_phase.py）：_active_task_frame_id
+        # 与 _task_phase_progress 字段随桥持有（原注释见该文件）。
+        self.task_phase = TaskPhaseBridge(channels=channels, runlog=self.runlog)
+
+        # 技能注册表（S3 §2.6/§5 迁入 core/skill_router.py）：查表/分发/
+        # 归属快照/结果暂存；_active_tool_name 读值经回调（指向 workflow
+        # 宿主的同名字段，lambda 延迟求值）。
+        self.skills = SkillRouter(active_tool_name=lambda: self.tools._active_tool_name)
+
+        # 工具执行缝宿主（S3 §2.7/§5 迁入 core/workflow.py）：3 缝 + 6 字段；
+        # 全局停止与任务代次经回调注入（workflow 不回引 engine）。
+        self.tools = ToolWorkflowHost(
+            runlog=self.runlog,
+            task_phase=self.task_phase,
+            skills=self.skills,
+            enter_global_stop=self._enter_global_stop,
+            task_generation=lambda: self.task_generation,
         )
 
-        # 设为 None 可关闭调试落盘；设为目录路径则开启保存并在下一轮前清理上一轮。
-        self.thinking_debug_dir = log_root / "debug" / "thinking_multi"
-        self.last_thinking_debug_dir = None
-        if self.thinking_debug_dir is not None:
-            self.thinking_debug_dir.mkdir(parents=True, exist_ok=True)
-            rospy.loginfo(f"[Thinking-Debug] 已开启，目录: {self.thinking_debug_dir}")
-
-        # ROS Subscriber（保留句柄避免被回收）
-        self._active_tool_name = ""
-        self.zenoh_middleware = None
-
-        # P3.4 动作归属绑定（patch 20/21 note b 修复）：完成门/verdict 挂到
-        # 「发布该动作的技能实例」上，而非 _active_tool_name 字符串解析
-        self._current_plan_skill = None  # 本轮 DISPATCH 分发命中的技能
-        self._action_owner_skill = None  # 进入 WAIT_ACTION_FINISH 时的技能快照
-        # P3 技能注册表（本轮迁入为空表：vla/flight/scene_nav/grasp 技能族
-        # 未随本轮迁移，_handle_plan_tool/_action_done/_handle_post_action/
-        # WAIT_ACTION_FINISH 的注册表查找按原 None 守卫走通用回退路径；
-        # 后续轮次技能迁入时在此注册表恢复注册）。
-        self._skills: dict = {}
+        # planner 动作面（S3 §2.8/§5 迁入 core/actuators.py）：yaw 模式切换；
+        # 守卫初值取 engine 配置快照（set_defaults 已装 if_handle_yaw）。
+        self.actuators = PlannerActuators(
+            channels=channels,
+            runlog=self.runlog,
+            if_handle_yaw=bool(getattr(self, "if_handle_yaw", True)),
+        )
 
         ## 点云环境订阅
-        self.headless = bool(rospy.get_param("~headless", False))  # headless模式: 不订阅任何传感器
+        self.headless = bool(headless)  # headless模式: 不订阅任何传感器（值经注入，S3 §4.7）
 
-        # ROS Publisher
-        ## 指令控制发布
-        self.emergency_stop_topic = (
-            str(rospy.get_param("~emergency_stop_topic", "/command/emergency_stop")).strip()
-            or "/command/emergency_stop"
-        )
-        self.emergency_stop_pub = rospy.Publisher(  # 急停发布器
-            self.emergency_stop_topic, Empty, queue_size=10
-        )
-
-        self.if_handle_yaw_pub = rospy.Publisher(  # 底层 ego planner yaw 处理开关发布器
-            "if_handle_yaw", Bool, queue_size=10
-        )
-
-        ## 监控状态发布
-        self.command_content_pub = rospy.Publisher(  # 监控：命令内容
-            "monitor/command_content", String, queue_size=10
-        )
-        self.task_phase_pub = rospy.Publisher(  # 任务生命周期（l4 桥消费）
-            rospy.get_param("~task_phase_topic", "/agent_task_phase"),
-            String,
-            queue_size=10,
-        )
-        self._task_phase_progress = 0  # 当前 prompt 已完成的原始动作计数
+        # 四类 core 通道发布器已迁 dispatcher/ros_adapter/core_channels_ros.py
+        # （S3 §4.6，端口化，禁止二次搬迁）；engine 只持 self.channels 引用；
+        # _task_phase_progress 死字段随任务相位桥持有（core/task_phase.py）。
 
     # 任务编排与命令解析模块函数
     ## 任务缓存同步
@@ -228,7 +202,7 @@ class DispatcherEngine(
             if isinstance(entry, tuple) and len(entry) == 2:
                 valid_entries.append(entry)
             else:
-                rospy.logerr(
+                self.runlog.err(
                     "[PREPARE] 丢弃非法 prepare_content[%d]（期望 (prompt, SkillCommand) 元组）: %r",
                     index,
                     entry,
@@ -244,17 +218,6 @@ class DispatcherEngine(
     # 发布模块函数
 
     ## 指令与任务状态发布
-    def _telemetry(self, level: str, event: str, **fields) -> None:
-        """Emit a slog-compatible dispatcher decision event."""
-        self.telemetry.emit(level, event, **fields)
-
-    def publish_command_content(self, command_content):
-        """发布当前指令内容（保持字符串列表 schema，从队列元组中取 prompt）"""
-        content_msg = String()
-        prompts = [entry[0] for entry in command_content]
-        content_msg.data = json.dumps(prompts, ensure_ascii=False)
-        self.command_content_pub.publish(content_msg)
-
     def _set_dispatcher_state(self, new_state, *, reason: str = ""):
         """统一设置状态，并在切回 WAIT_FOR_MISSION 时记录调用位置。"""
 
@@ -271,7 +234,7 @@ class DispatcherEngine(
         state_name = _state_name(new_state)
         old_state_name = _state_name(old_state)
         if old_state != new_state:
-            self._telemetry(
+            self.runlog.emit(
                 "info",
                 "dispatcher_state_transition",
                 from_state=old_state_name,
@@ -283,89 +246,6 @@ class DispatcherEngine(
             )
         if new_state != DISPATCHER_STATE.WAIT_FOR_MISSION:
             return
-        # rospy.logwarn(
-        #     "[DISPATCHER_STATE] %s -> %s at %s:%d reason=%s "
-        #     "action_in_progress=%s action_finish=%s command_status=%s cmd_head=%r",
-        #     old_state_name,
-        #     state_name,
-        #     filename,
-        #     lineno,
-        #     reason or "-",
-        #     self.action_in_progress,
-        #     self.action_finish,
-        #     self.command_status,
-        #     self.command_content[0] if self.command_content else None,
-        # )
-
-    @staticmethod
-    def _fmt_wait_age(age) -> str:
-        """健康年龄格式化：None = 从未收到（区别于慢）。"""
-        return "never" if age is None else f"{age:.1f}s"
-
-    def _decision_chain_wait_diag(self) -> str:
-        """决策链输入通道的诊断串：channel=topic:age 逐路点名。
-
-        未启用的可选通道不进入健康表，也不在此
-        显示——缺席即关闭，区别于“在但死”。
-        """
-        try:
-            health = self.get_sensor_input_health()
-        except Exception:
-            return "input_health_unavailable"
-        return " ".join(
-            f"{channel}={topic}:{self._fmt_wait_age(age)}" for channel, (topic, age) in health.items()
-        )
-
-    def _publish_task_phase(
-        self,
-        phase: str,
-        *,
-        progress: int | None = None,
-        detail: str = "",
-        message: str | None = None,
-        result: dict | None = None,
-        error: dict | None = None,
-        status: str | None = None,
-        frame_id: str | None = None,
-    ) -> None:
-        """发布任务生命周期事件（std_msgs/String JSON）到 /agent_task_phase。
-
-        frame_id 缺省用 _active_task_frame_id（发起当前任务的 AgentPrompt 快照），
-        保证终态关联到原始 step_id/request_id；直接通道（起降/返回/急停/抓取/
-        chain_not_ready）同步响应当前 prompt，显式传 latest_agent_prompt_frame_id。
-        """
-        effective_frame = (
-            frame_id
-            if frame_id is not None
-            else str(getattr(self, "_active_task_frame_id", "Null") or "Null")
-        )
-        payload = {
-            "frame_id": effective_frame,
-            "phase": phase,
-            "progress": progress,
-            "detail": detail,
-        }
-        if message is not None:
-            payload["message"] = message
-        if result is not None:
-            payload["result"] = result
-        if error is not None:
-            payload["error"] = error
-        if status is not None:
-            payload["status"] = status
-        try:
-            if self.zenoh_middleware is not None:
-                self.zenoh_middleware.on_tool_phase(payload)
-            self.task_phase_pub.publish(String(data=json.dumps(payload, ensure_ascii=False)))
-            self._telemetry(
-                "info",
-                "task_phase_published",
-                phase=phase,
-                frame_id=payload["frame_id"],
-                detail=str(detail or ""),
-            )
-        except Exception:
-            rospy.logwarn("[TASK_PHASE] publish failed phase=%s", phase)
 
     def _handle_get_pre_command(self) -> None:
         """处理 GET_PRE：从准备队列推进到执行队列。"""
@@ -385,8 +265,8 @@ class DispatcherEngine(
         # 将下一条准备任务推进到 command_content（元素为 (prompt, SkillCommand) 元组）
         self.replan_content = self.prepare_content.pop(0)
         self.command_content.append(self.replan_content)
-        rospy.loginfo(f"Current task: prompt={self.replan_content[0]}")
-        self.publish_command_content(self.command_content)
+        self.runlog.info(f"Current task: prompt={self.replan_content[0]}")
+        self.runlog.publish_command_content(self.command_content)
         self.if_plan = True
         # time.sleep(0.5)
         self.command_status = COMMAND_STATUS.RUNNING
@@ -398,10 +278,10 @@ class DispatcherEngine(
         if not self.prepare_content:
             self.if_plan = False
             if not self._task_sequence_failed:
-                pending = self.pop_task_result()
-                self._publish_task_phase(
+                pending = self.skills.pop_task_result()
+                self.task_phase.publish(
                     "done",
-                    progress=self._task_phase_progress,
+                    progress=self.task_phase._task_phase_progress,
                     detail="prompt sequence finished",
                     result=dict(pending) if isinstance(pending, dict) else None,
                 )
@@ -411,61 +291,11 @@ class DispatcherEngine(
         # self._set_dispatcher_state(DISPATCHER_STATE.WAIT_FOR_MISSION, reason="load_next_prompt:prepared_next")
         return True
 
-    def _validate_active_tool(self, call: ToolCall) -> bool:
-        """Reject DISPATCH work that did not originate from the registered runtime."""
-        if self._active_tool_name:
-            return True
-        rospy.logwarn(
-            "DISPATCH has no active registered tool, prompt=%r",
-            str(call.display_text or call.name),
-        )
-        self._advance_to_next_prompt()
-        return False
-
-    def _set_if_handle_yaw(self, enabled: bool) -> None:
-        """按任务类型切换底层 ego planner 的 yaw 处理逻辑。"""
-        enabled = bool(enabled)
-        if bool(getattr(self, "if_handle_yaw", True)) == enabled:
-            return
-        msg = Bool()
-        msg.data = enabled
-        self.if_handle_yaw_pub.publish(msg)
-        self.if_handle_yaw = enabled
-        rospy.loginfo("Publish if_handle_yaw=%s", "true" if enabled else "false")
-
-    def _handle_plan_tool(self, cmd, skill_command: SkillCommand) -> bool:
-        """Continue the active registered tool through its workflow adapter."""
-        # P3.8：技能解析键直接取随 prompt 穿越队列的原生 ToolCall.name
-        # （normalize_call 保证恒非空；原 SkillCommand.tool_name 字段已删除，
-        # or 链仅为形式保留——_active_tool_name 兜底永不可达）
-        tool_name = str(skill_command.call.name or self._active_tool_name or "")
-        self._set_if_handle_yaw(True)
-        # P3.4：本轮 DISPATCH 分发命中技能复位；命中注册表技能时记录实例，供
-        # arm_action 快照为 _action_owner_skill（完成门/verdict 归属）
-        self._current_plan_skill = None
-
-        # P3 技能注册表分发：异步技能（flight.* → FlightSkill，P3.2；
-        # scene.* → SceneNavSkill，P3.3；navigation.vla_reach → VlaSkill，
-        # P3.4）经 plan_tick 推进；同步技能（graph.*）不入队，永不走到
-        # 这里（synchronous 守卫）
-        skill = self._skills.get(tool_name)
-        if skill is not None and not skill.synchronous:
-            self._current_plan_skill = skill
-            return skill.plan_tick(skill_command)
-
-        rospy.logwarn(
-            "Unregistered active tool in DISPATCH: name=%r prompt=%r",
-            tool_name,
-            str(skill_command.call.display_text or skill_command.call.name),
-        )
-        self._advance_to_next_prompt()
-        return True
-
     ## 全局状态控制
     def _bump_task_generation(self, reason: str = "") -> int:
         """推进任务代次，使阻塞推理返回的旧结果失效。"""
         self.task_generation = int(getattr(self, "task_generation", 0)) + 1
-        rospy.loginfo(
+        self.runlog.info(
             "Task generation advanced to %d (%s)",
             int(self.task_generation),
             reason or "unspecified",
@@ -493,10 +323,10 @@ class DispatcherEngine(
         self._bump_task_generation(f"global_stop:{reason or 'requested'}")
         self.global_stop_active = bool(shutdown_program)
         if shutdown_program:
-            rospy.logwarn(f"Global stop activated: {reason or 'requested'}")
+            self.runlog.warn(f"Global stop activated: {reason or 'requested'}")
         else:
             if emit_soft_stop_log:
-                rospy.logwarn(
+                self.runlog.warn(
                     f"Emergency stop: cancel current mission and wait for new command ({reason or 'requested'})"
                 )
         self.command_content = []
@@ -510,19 +340,13 @@ class DispatcherEngine(
         self.command_status = COMMAND_STATUS.ADVANCE_READY
         self.if_plan = False
         if publish_hold:
-            self.emergency_stop_pub.publish(Empty())
+            self.channels.publish_emergency_stop()
         if shutdown_program:
             self.command_type = COMMAND_TYPE.STOP
             self.dispatcher_state = DISPATCHER_STATE.STOP
         else:
             self.command_type = COMMAND_TYPE.WAIT
             self._set_dispatcher_state(DISPATCHER_STATE.WAIT_FOR_MISSION, reason=f"global_stop:{reason}")
-
-    def pop_task_result(self):
-        """SkillHost 任务结果口：取走并清空暂存的任务级结果。"""
-        result = self._task_result_stash
-        self._task_result_stash = None
-        return result
 
     def _action_done(self) -> bool:
         """基于触发信号与最小等待时间判断动作是否完成。"""
@@ -531,10 +355,9 @@ class DispatcherEngine(
         # 分别迁入 FlightSkill/SceneNavSkill）；None = 无门，走下方通用判定。
         # P3.4：技能实例优先取 _action_owner_skill（发布动作时的归属快照），
         # 字符串注册表解析仅作未绑定路径（壳内直发动作）的回退
+        # （S3 起查表委托 self.skills.owner_skill）
         if self.action_in_progress:
-            gate_skill = self._action_owner_skill
-            if gate_skill is None:
-                gate_skill = self._skills.get(str(self._active_tool_name or ""))
+            gate_skill = self.skills.owner_skill()
             if gate_skill is not None:
                 gate_verdict = gate_skill.action_done_gate()
                 if gate_verdict is not None:
@@ -544,12 +367,12 @@ class DispatcherEngine(
             return False
         # 拒绝旧代次的 action result（任务切换/新动作发布会增代）
         if self._action_finish_generation != self._action_generation:
-            rospy.loginfo(
+            self.runlog.info(
                 "[ActionDone] reject stale action result (gen=%d != current=%d)",
                 self._action_finish_generation,
                 self._action_generation,
             )
-            self._telemetry(
+            self.runlog.emit(
                 "info",
                 "task_action_result_ignored",
                 reason="stale_generation",
@@ -577,7 +400,7 @@ class DispatcherEngine(
         if len(self.prepare_content) > 1:
             # 队列元素为 (prompt, SkillCommand) 元组，日志只取 prompt 文本
             next_prompt = str(self.prepare_content[1][0] or "")
-        self._telemetry(
+        self.runlog.emit(
             "info",
             "prompt_advanced",
             next_prompt=next_prompt,
@@ -614,9 +437,7 @@ class DispatcherEngine(
         - NEW_ACTION：技能已自行武装并发布新动作（landing 贴地腿经
           VlaSkill._dispatch_waypoint：arm_action + 立即发 goal），壳不动。
         """
-        owner = self._action_owner_skill
-        if owner is None:
-            owner = self._skills.get(str(self._active_tool_name or ""))
+        owner = self.skills.owner_skill()
         if owner is not None:
             verdict = owner.on_action_result(self._last_action_result)
         elif self.command_status == COMMAND_STATUS.ADVANCE_READY:
@@ -641,6 +462,29 @@ class DispatcherEngine(
             return
 
         self._set_dispatcher_state(DISPATCHER_STATE.WAIT_FOR_MISSION, reason="post_action:no_advance_ready")
+
+    def _fail_unregistered_dispatch(self, *, tool_name: str, frame_id: str) -> None:
+        """分发未命中已注册技能：上报 fail 并停在 WAIT_FOR_MISSION。
+
+        B5：不得排空队列后回报完成——本方法不 pop command_content、不清
+        prepare_content、不调用 _advance_to_next_prompt；
+        O3：fail 载荷携带未命中的工具名（detail 与 error.message）。
+        """
+        self.task_phase.publish(
+            "fail",
+            detail=f"tool not registered: {tool_name}",
+            error={
+                "code": "tool_not_registered",
+                "message": f"tool not registered: {tool_name}",
+            },
+            frame_id=str(frame_id or "Null"),
+        )
+        self._task_sequence_failed = True
+        self.if_plan = False
+        self._set_dispatcher_state(
+            DISPATCHER_STATE.WAIT_FOR_MISSION,
+            reason="plan:tool_not_registered",
+        )
 
     # 主状态机模块函数
     ## 推理与执行主循环
@@ -692,21 +536,28 @@ class DispatcherEngine(
         - 若状态枚举异常或未覆盖，短暂 sleep 后继续下一轮，避免 CPU 忙等。
         """
         # 主循环固定 20Hz，真正的等待节奏由各状态内部按需 sleep 控制。
-        rate = rospy.Rate(20)
+        rate = self.clock.rate(20)
         self.dispatcher_state = DISPATCHER_STATE.INIT
         self.last_plan_time = None
-        rospy.loginfo("Waiting for sensor readiness...")
+        self.runlog.info("Waiting for sensor readiness...")
 
         # 节点刚启动时，先等到第一帧同步数据到达。
         # 这里不直接进入 INIT 分支，是为了避免 first_image 在空 frame 上取值。
         # 等待期间以 dispatcher_wait_cloud 节流信号点名死通道（issue #90）——
         # 曾经这里整场静默，fluent-bit 流里看不到任何等待原因。
         if not self.headless:
-            while not rospy.is_shutdown() and self.get_frame_snapshot() is None:
-                rospy.logwarn_throttle(
+            while not self.clock.is_shutdown() and self.get_frame_snapshot() is None:
+                # 等待诊断（S3 §5）：health 由外部取值并兜底异常（与迁移前
+                # _decision_chain_wait_diag 的 try/except 语义一致），串组装
+                # 在 RunTelemetry.wait_diag。
+                try:
+                    wait_diag = self.runlog.wait_diag(self.get_sensor_input_health())
+                except Exception:
+                    wait_diag = "input_health_unavailable"
+                self.runlog.warn_throttle(
                     2.0,
                     "dispatcher_wait_cloud context=first_frame %s",
-                    self._decision_chain_wait_diag(),
+                    wait_diag,
                 )
                 time.sleep(1)
             self.frame = self.get_frame_snapshot()
@@ -715,9 +566,9 @@ class DispatcherEngine(
         else:
             self.frame = None
             self.first_image = None
-        rospy.loginfo("Mission start")
+        self.runlog.info("Mission start")
 
-        while not rospy.is_shutdown():
+        while not self.clock.is_shutdown():
             # STOP 具有最高优先级，任何状态下都允许抢占当前流程。
             if self.command_type == COMMAND_TYPE.STOP and self.dispatcher_state != DISPATCHER_STATE.STOP:
                 self._enter_global_stop("stop")
@@ -739,15 +590,20 @@ class DispatcherEngine(
                 frame = self.get_frame_snapshot()
                 if frame is not None and frame.cloud_xyz is not None:
                     print("Initialization complete")
-                    self.emergency_stop_pub.publish(Empty())
+                    self.channels.publish_emergency_stop()
                     self._set_dispatcher_state(DISPATCHER_STATE.WAIT_FOR_MISSION, reason="init:ready")
                 else:
                     # INIT 等待的可观测信号（issue #90）：与 mission 侧
                     # fsm_wait_* 家族对齐的节流 warn，2s 一条点名死通道。
-                    rospy.logwarn_throttle(
+                    # （等待诊断取值兜底同 first_frame 处，S3 §5）
+                    try:
+                        wait_diag = self.runlog.wait_diag(self.get_sensor_input_health())
+                    except Exception:
+                        wait_diag = "input_health_unavailable"
+                    self.runlog.warn_throttle(
                         2.0,
                         "dispatcher_wait_cloud context=init_cloud %s",
-                        self._decision_chain_wait_diag(),
+                        wait_diag,
                     )
                     rate.sleep()
                     continue
@@ -795,7 +651,7 @@ class DispatcherEngine(
                 # 预派生，vla 场景由 skill 内部现算，此处恒空串保留键——
                 # slog 事件名与键集不变原则，字段值变化可接受）
                 call = skill_command.call
-                self._telemetry(
+                self.runlog.emit(
                     "info",
                     "prompt_parsed",
                     prompt=cmd,
@@ -808,18 +664,41 @@ class DispatcherEngine(
                 # （原「全局控制命令预检」调用点已删除：急停在
                 # forward_emergency_stop_tool 直发路径处理，kind 守卫与
                 # DISPATCH 队列内容恒不重叠，属死检查——见 P3.8 迁移注记）
-                if not self._validate_active_tool(call):
+                if not self.skills.validate_active_tool(call):
+                    # 未命中已注册运行时：fail 上报并停在 WAIT_FOR_MISSION
+                    # （B5/O3；S6 §4.2 写法 B，router 只判定不推进）。
+                    self.runlog.warn(
+                        "DISPATCH has no active registered tool, prompt=%r",
+                        str(call.display_text or call.name),
+                    )
+                    self._fail_unregistered_dispatch(
+                        tool_name=str(call.name or call.display_text or ""),
+                        frame_id=call.frame_id,
+                    )
                     continue
 
                 # origin 只在首次收到任务时记录一次，后续 return to origin 依赖此记录。
 
-                # 经技能注册表分发到命中的技能。
-                if self._handle_plan_tool(cmd, skill_command):
-                    continue
-
-                # 未命中任何分支时，不强行报错，先回到 WAIT_FOR_MISSION，
-                # 让外部有机会刷新任务或注入新 prompt。
-                self._set_dispatcher_state(DISPATCHER_STATE.WAIT_FOR_MISSION, reason="plan:unhandled_prompt")
+                # 经技能注册表分发到命中的技能（yaw 模式切换随原
+                # _handle_plan_tool 首步动作面，S3 §5 明示改写点：经
+                # actuators 发布）。
+                self.actuators.set_if_handle_yaw(True)
+                if not self.skills.dispatch_plan(cmd, skill_command):
+                    # 未注册回退（S3 §4.10：dispatch_plan False=未命中，
+                    # 不自行推进、不发任何相位）：fail 上报并停在
+                    # WAIT_FOR_MISSION（B5/O3，S6 §4.2 写法 B）。
+                    self.runlog.warn(
+                        "Unregistered active tool in DISPATCH: name=%r prompt=%r",
+                        str(skill_command.call.name or self.skills.active_tool_name() or ""),
+                        str(skill_command.call.display_text or skill_command.call.name),
+                    )
+                    self._fail_unregistered_dispatch(
+                        tool_name=str(skill_command.call.name or ""),
+                        frame_id=skill_command.call.frame_id,
+                    )
+                # §4.10 冻结接口：True=已处理（原 _handle_plan_tool 返回 True
+                # 的 continue 语义），进入下一轮。
+                continue
 
                 # WAIT_ACTION_FINISH:
                 # 已经把动作发出去了，现在只关心规划器/飞控是否完成。
@@ -827,9 +706,7 @@ class DispatcherEngine(
                 # P3.4：等待期技能钩（VLA reacquire 到期重启搜索等，已迁入
                 # VlaSkill.wait_action_tick）在完成门判定之前每 tick 调用；
                 # 技能切态（如回 WAIT_FOR_MISSION）则本轮不再判停
-                wait_skill = self._action_owner_skill
-                if wait_skill is None:
-                    wait_skill = self._skills.get(str(self._active_tool_name or ""))
+                wait_skill = self.skills.owner_skill()
                 if wait_skill is not None:
                     wait_skill.wait_action_tick()
                     if self.dispatcher_state != DISPATCHER_STATE.WAIT_ACTION_FINISH:
@@ -858,7 +735,7 @@ class DispatcherEngine(
 
                 # STOP 直接结束节点。
             elif self.dispatcher_state == DISPATCHER_STATE.STOP:
-                rospy.signal_shutdown("Stopped by command")
+                self.clock.request_shutdown("Stopped by command")
                 break
 
                 # 未知状态：仅短暂休眠，下一轮继续。
@@ -882,7 +759,7 @@ class DispatcherEngine(
             self.command_content.clear()
             self.prepare_content.clear()
             self.pending_action.clear()
-            self._telemetry("error", "inference_thread_recovered", detail=str(exc))
+            self.runlog.emit("error", "inference_thread_recovered", detail=str(exc))
         except Exception:  # noqa: BLE001
             pass
 
@@ -893,64 +770,14 @@ class DispatcherEngine(
         瘫痪（prompt_parsed/map_search 消失、结果不返回 l4）。这里记录错误、
         复位到 WAIT_FOR_MISSION 后重启循环，保证 FSM 永远可被新任务唤醒。
         """
-        while not rospy.is_shutdown():
+        while not self.clock.is_shutdown():
             try:
                 self._run_inference_loop()
                 return
             except Exception as exc:  # noqa: BLE001
                 self._recover_inference_after_exception(exc)
-                rospy.logerr(
+                self.runlog.err(
                     "[INFERENCE] run_inference crashed (recovering after 1s): %s",
                     exc,
                 )
                 time.sleep(1.0)
-
-
-def create_dispatcher_engine(config_path: str):
-    """Build and configure the task-0 engine without starting process lifecycle."""
-    cfg = load_yaml(config_path)
-
-    variant = str(cfg.get("variant", "real")).strip().lower()
-    ros_params = {}
-    ros_params.update(merge_config_sections(cfg, ["ros.topics", "ros.sync", "ros.publishers", "ros.camera"]))
-    ros_params.update(merge_pointcloud_mode_params(get_nested_config(cfg, "ros.pointcloud")))
-    ros_params.update(flatten_leaf_params(get_nested_config(cfg, "policy.mission")))
-    ros_params["variant"] = variant
-
-    if ros_params:
-        set_ros_params(ros_params)
-
-    node = DispatcherEngine()
-    apply_config(
-        node,
-        merge_config_sections(cfg, ["base_policy", "policy.base"]),
-        section_name="base_policy",
-        key_aliases=CONFIG_KEY_ALIASES,
-    )
-    apply_config(
-        node,
-        merge_config_sections(
-            cfg,
-            [
-                "uav_policy",
-                "policy.mission",
-                "policy.motion",
-                "policy.safety",
-                "policy.search",
-                "policy.planner",
-                "policy.scene_nav",
-                "policy.overdepth",
-            ],
-        ),
-        section_name="uav_policy",
-        key_aliases=CONFIG_KEY_ALIASES,
-    )
-    node.sync_task_buffers_from_prepare()
-    return node
-
-
-def start_dispatcher_workers(node):
-    """Start task-0 workflow workers and return the non-daemon inference thread."""
-    inference_thread = threading.Thread(target=node.run_inference)
-    inference_thread.start()
-    return inference_thread

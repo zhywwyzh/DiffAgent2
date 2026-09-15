@@ -330,7 +330,7 @@ B 级 5 个包内 import 与 `dispatcher.perception.base_policy` 原样保留（
 **步骤 0：基线快照与断言**
 
 ```bash
-cd /home/zhywwyzh/workspace/Diff-Agent2.0
+cd <new-repo-root>
 F=l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py
 cp "$F" /tmp/engine.py.narrow-core-baseline
 test "$(grep -c 'def ' "$F")" = "48" || { echo 'BASELINE MISMATCH'; exit 1; }
@@ -394,7 +394,7 @@ from std_msgs.msg import String, Empty, Bool
 
 ```bash
 python3 -m py_compile \
-  /home/zhywwyzh/workspace/Diff-Agent2.0/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py
+  <new-repo-root>/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py
 ```
 
 - [x] **V2 负向 grep**（活代码零残留；命中行若为注释/docstring 则按白名单
@@ -402,7 +402,7 @@ python3 -m py_compile \
 
 ```bash
 grep -nE '\b(publish_monitor_status|send_task_goal|_intercept_task_goal|_task_action_done_cb|publish_mode_burst|_pause_for_new_agent_prompt|_has_active_task_to_override|_decision_chain_not_ready_reason|consume_head_prompt|advance_prompt|_start_prompt_task|_finish_external_task_dispatch|_latest_prompt_frame|_capture_task_generation|_task_generation_valid|_can_accept_new_action|arm_action|capture_task_generation|task_generation_valid|stash_task_result)\b|\b(monitor_timer|monitor_command_type_pub|monitor_dispatcher_state_pub|monitor_command_status_pub|finish_mission_pub|finish_command_pub|action_in_progress_pub|if_plan_pub|planner_mode_pub|task_action_client|first_image_pub|current_image_pub|dry_run_enabled|dry_run_result|dry_run_goal_pub|latest_agent_prompt_frame_id|_active_tool_call|_last_action_time|last_published_waypoint|origin_state|action_finish_time|task_generation_guard_enabled)\b|\b(SimpleActionClient|GoalStatus|TaskActionAction|TaskActionGoal|TaskActionResult|Instruction|Point|Int32|Image)\b|^import os$' \
-  /home/zhywwyzh/workspace/Diff-Agent2.0/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py
+  <new-repo-root>/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py
 ```
 
 注释/docstring 白名单（预期仅这 8 处，均位于保留方法的说明文本内，描述
@@ -422,8 +422,8 @@ L644/L700/L701/L718，复跑时按内容锚定）：
 ```bash
 python3 - <<'EOF'
 import ast
-ENG = "/home/zhywwyzh/workspace/Diff-Agent2.0/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py"
-BASE = "/home/zhywwyzh/workspace/Diff-Agent2.0/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/perception/base_policy.py"
+ENG = "<new-repo-root>/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py"
+BASE = "<new-repo-root>/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/perception/base_policy.py"
 EXPECT = {"run_inference","_run_inference_loop","_recover_inference_after_exception",
 "_enter_global_stop","_reset_plan_cycle_if_needed","_validate_active_tool",
 "_handle_plan_tool","_action_done","_handle_post_action","_advance_to_next_prompt",
@@ -466,8 +466,8 @@ EOF
 ```bash
 python3 - <<'EOF'
 import ast
-ENG = "/home/zhywwyzh/workspace/Diff-Agent2.0/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py"
-BASE = "/home/zhywwyzh/workspace/Diff-Agent2.0/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/perception/base_policy.py"
+ENG = "<new-repo-root>/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py"
+BASE = "<new-repo-root>/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/perception/base_policy.py"
 CONFIG_KEYS = set("""prepare_content nav_tools segment_nav_enabled
 search_thinking_enabled inference_timeout task_generation_guard_enabled
 _min_action_wait return_publish_mode return_start_timeout_s
@@ -509,7 +509,7 @@ EOF
 python3 - <<'EOF'
 import difflib
 OLD = open("/tmp/engine.py.narrow-core-baseline", encoding="utf-8").read().splitlines()
-NEW = open("/home/zhywwyzh/workspace/Diff-Agent2.0/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py", encoding="utf-8").read().splitlines()
+NEW = open("<new-repo-root>/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py", encoding="utf-8").read().splitlines()
 adds = [l for l in difflib.unified_diff(OLD, NEW, lineterm="", n=0)
         if l.startswith("+") and not l.startswith("+++") and l.strip() != "+"]
 allowed = {"+from std_msgs.msg import String, Empty, Bool"}

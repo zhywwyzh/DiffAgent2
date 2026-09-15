@@ -11,8 +11,8 @@
 | 状态 | done（2026-09-11 执行并评审放行，验收 V1-V8 全过，见附录） |
 | 关联文档 | 姊妹篇：`design-dispatcher-core-inference-migration.md`（首轮迁入，其 §4.3 B 级断裂分级与 §4.6 决策 15 注解惰性化先例为本轮沿用）；`design-dispatcher-engine-narrow-core-trim.md`（二次裁剪，其 §4.3 断裂台账、§4.5 语义声明惯例与附录勘误惯例为本轮沿用）；模板：`doc/l3-dispatcher-planner/iteration/_TEMPLATE.md` |
 | 对照基准 | 旧仓库文件仅作迁移源与语义参考；**engine.py 全部行号以新仓库 987 行当前文件为准**，5 个迁入文件行号以旧仓库源文件为准 |
-| 源（旧仓库） | `/home/zhywwyzh/workspace/Diff-Agent2/diff-dockers/drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/`（下称 `OLD/`） |
-| 目标（新仓库） | `/home/zhywwyzh/workspace/Diff-Agent2.0/l3-dispatcher-planner/ros_packages/dispatcher/`（下称 `NEW/`） |
+| 源（旧仓库） | `<old-repo-root>/diff-dockers/drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/`（下称 `OLD/`） |
+| 目标（新仓库） | `<new-repo-root>/l3-dispatcher-planner/ros_packages/dispatcher/`（下称 `NEW/`） |
 
 ## 1. 背景与动机
 
@@ -233,7 +233,7 @@ ros_packages/dispatcher/dispatcher/
 **步骤 0：基线快照与断言**
 
 ```bash
-cd /home/zhywwyzh/workspace/Diff-Agent2.0
+cd <new-repo-root>
 F=l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py
 cp "$F" /tmp/engine.py.taskid-baseline
 test "$(grep -c 'def ' "$F")" = "28" || { echo 'BASELINE MISMATCH'; exit 1; }
@@ -242,8 +242,8 @@ test "$(grep -c 'def ' "$F")" = "28" || { echo 'BASELINE MISMATCH'; exit 1; }
 **步骤 1：五文件迁入（cp 命令）**
 
 ```bash
-OLD=/home/zhywwyzh/workspace/Diff-Agent2/diff-dockers/drone_projects/l3-dispatcher-planner/ros_packages/dispatcher
-NEW=/home/zhywwyzh/workspace/Diff-Agent2.0/l3-dispatcher-planner/ros_packages/dispatcher
+OLD=<old-repo-root>/diff-dockers/drone_projects/l3-dispatcher-planner/ros_packages/dispatcher
+NEW=<new-repo-root>/l3-dispatcher-planner/ros_packages/dispatcher
 cp "$OLD/dispatcher/state.py"        "$NEW/dispatcher/state.py"
 cp "$OLD/dispatcher/config.py"       "$NEW/dispatcher/config.py"
 cp "$OLD/dispatcher/slog.py"         "$NEW/dispatcher/slog.py"
@@ -309,22 +309,22 @@ if TYPE_CHECKING:
 
 ```bash
 python3 -m py_compile \
-  /home/zhywwyzh/workspace/Diff-Agent2.0/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py \
-  /home/zhywwyzh/workspace/Diff-Agent2.0/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/state.py \
-  /home/zhywwyzh/workspace/Diff-Agent2.0/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/config.py \
-  /home/zhywwyzh/workspace/Diff-Agent2.0/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/slog.py \
-  /home/zhywwyzh/workspace/Diff-Agent2.0/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/skill_api.py \
-  /home/zhywwyzh/workspace/Diff-Agent2.0/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/perception/pointcloud_accumulator.py \
-  /home/zhywwyzh/workspace/Diff-Agent2.0/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/perception/base_policy.py \
-  /home/zhywwyzh/workspace/Diff-Agent2.0/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/__init__.py \
-  /home/zhywwyzh/workspace/Diff-Agent2.0/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/perception/__init__.py
+  <new-repo-root>/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py \
+  <new-repo-root>/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/state.py \
+  <new-repo-root>/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/config.py \
+  <new-repo-root>/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/slog.py \
+  <new-repo-root>/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/skill_api.py \
+  <new-repo-root>/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/perception/pointcloud_accumulator.py \
+  <new-repo-root>/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/perception/base_policy.py \
+  <new-repo-root>/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/__init__.py \
+  <new-repo-root>/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/perception/__init__.py
 ```
 
 - [x] **V2 原样迁入字节级一致（4 文件；输出为空即通过）**：
 
 ```bash
-OLD=/home/zhywwyzh/workspace/Diff-Agent2/diff-dockers/drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher
-NEW=/home/zhywwyzh/workspace/Diff-Agent2.0/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher
+OLD=<old-repo-root>/diff-dockers/drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher
+NEW=<new-repo-root>/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher
 cmp "$OLD/state.py"        "$NEW/state.py"
 cmp "$OLD/config.py"       "$NEW/config.py"
 cmp "$OLD/slog.py"         "$NEW/slog.py"
@@ -341,7 +341,7 @@ diff -u "$OLD/skill_api.py" "$NEW/skill_api.py"   # 预期唯一 hunk：删运�
 
 ```bash
 grep -nE '\b(task_id|TASK_ID)\b|prepare_task_ids|current_task_id|_is_aggregated_task_id' \
-  /home/zhywwyzh/workspace/Diff-Agent2.0/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py
+  <new-repo-root>/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py
 ```
 
 （预期零命中：全部触点含注释已删；`_task_sequence_failed`/`task_generation`/`task_phase` 等不含 `task_id` 子串，不误伤。）
@@ -351,8 +351,8 @@ grep -nE '\b(task_id|TASK_ID)\b|prepare_task_ids|current_task_id|_is_aggregated_
 ```bash
 python3 - <<'EOF'
 import ast
-ENG = "/home/zhywwyzh/workspace/Diff-Agent2.0/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py"
-BASE = "/home/zhywwyzh/workspace/Diff-Agent2.0/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/perception/base_policy.py"
+ENG = "<new-repo-root>/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py"
+BASE = "<new-repo-root>/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/perception/base_policy.py"
 EXPECT = {"run_inference","_run_inference_loop","_recover_inference_after_exception",
 "_enter_global_stop","_reset_plan_cycle_if_needed","_validate_active_tool",
 "_handle_plan_tool","_action_done","_handle_post_action","_advance_to_next_prompt",
@@ -394,7 +394,7 @@ EOF
 - [x] **V8 import 冒烟（可选，按主机环境分级；这是 B 级断裂清零后的首次真实 import 验收）**：
 
 ```bash
-cd /home/zhywwyzh/workspace/Diff-Agent2.0/l3-dispatcher-planner/ros_packages/dispatcher
+cd <new-repo-root>/l3-dispatcher-planner/ros_packages/dispatcher
 # 分级一（零 ROS 依赖子集，主机必跑）：
 PYTHONPATH=. python3 -c "import dispatcher.state, dispatcher.slog, dispatcher.skill_api; print('SMOKE-L1-OK')"
 # 分级二（判定条件：python3 -c 'import rospy, yaml, numpy' 退出码为 0 时执行，否则跳过并记录）：

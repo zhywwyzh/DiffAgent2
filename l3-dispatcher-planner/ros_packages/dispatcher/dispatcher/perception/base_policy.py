@@ -32,7 +32,7 @@ import math
 import time
 import cv_bridge
 import re
-from dispatcher.state import MISSION_TYPE
+from dispatcher.utils.state import MISSION_TYPE
 from dispatcher.perception.pointcloud_accumulator import (
     PointCloudAccumulator,
     PointCloudTimeWindow,

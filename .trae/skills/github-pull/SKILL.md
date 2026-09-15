@@ -21,7 +21,7 @@ description: "从 GitHub（默认 https://github.com/zhywwyzh/DiffAgent2）拉�
 满足以下任一条件时，将仓库 clone 到 Diff-Agent2.0 下的子目录，并绑定到
 多根工作区：
 
-1. 当前目录是 `Diff-Agent2.0` 本身（`/home/zhywwyzh/workspace/Diff-Agent2.0`）；
+1. 当前目录是 `Diff-Agent2.0` 本身（`<new-repo-root>`）；
 2. 当前目录已经是 Diff-Agent2.0 的一个分工作区（即在 Diff-Agent2.0 的子目录内）；
 3. 用户明确要求“在当前目录制作分工作区”或“绑定到分工作区”。
 
@@ -29,12 +29,12 @@ description: "从 GitHub（默认 https://github.com/zhywwyzh/DiffAgent2）拉�
 
 1. 从 URL 推导仓库名：取路径最后一段并去掉 `.git` 后缀
    - `zhywwyzh/l3-uss-nav.git` → `l3-uss-nav`
-2. clone 到 `/home/zhywwyzh/workspace/Diff-Agent2.0/<repo-name>/`
+2. clone 到 `<new-repo-root>/<repo-name>/`
    ```bash
-   git clone https://github.com/<owner>/<repo> /home/zhywwyzh/workspace/Diff-Agent2.0/<repo-name>
+   git clone https://github.com/<owner>/<repo> <new-repo-root>/<repo-name>
    ```
 3. 更新多根工作区文件
-   `/home/zhywwyzh/workspace/Diff-Agent2.0/Diff-Agent2.0.code-workspace`：
+   `<new-repo-root>/Diff-Agent2.0.code-workspace`：
    - 在 `folders` 数组末尾追加 `{ "name": "<repo-name>", "path": "<repo-name>" }`
    - 若该仓库名已在 `folders` 中则跳过，避免重复
    - 保持 JSON 合法（注意逗号与引号）

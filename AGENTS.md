@@ -25,7 +25,7 @@
 > 编排定位的说法，具体内容暂不迁移。
 
 - 本仓库（GitHub `zhywwyzh/DiffAgent2`，本地
-  `/home/zhywwyzh/workspace/Diff-Agent2.0`）是一个**编排仓库**：
+  `<new-repo-root>`）是一个**编排仓库**：
   统一 spec 注册表 `specs/`、agent 技能 `.trae/skills/`，以及内置
   的 `l3-dispatcher-planner` 子树。
 - 原 diff-dockers 编排仓库中的 `specs/`、`docker_registry/`、
@@ -36,9 +36,9 @@
 
 > 严格区分两个仓库，避免在文档与交流中混淆。
 
-- **本仓库**（`/home/zhywwyzh/workspace/Diff-Agent2.0`，GitHub
+- **本仓库**（`<new-repo-root>`，GitHub
   `zhywwyzh/DiffAgent2`）= **DiffAgent2 新版**。
-- **另一个仓库**（`/home/zhywwyzh/workspace/Diff-Agent2`）=
+- **另一个仓库**（`<old-repo-root>`）=
   **DiffAgent2 旧版**。
 
 在文档、spec、issue 与对话中提到二者时，一律用“DiffAgent2 新版 /
@@ -51,13 +51,25 @@ DiffAgent2 旧版”称呼，不混用路径或简称。
 `specs/` > 本文件。冲突时 spec 优先，并修正本文件。`specs/README.md`
 是 spec 注册表及其规则。
 
+## 契约加载
+
+> 本文件不重复契约内容，只声明读取入口。
+
+- **l3 相关任务**（任务分发 / 下行执行 / 运动规划）：开工前先读
+  `specs/implemented/l3-dispatcher.spec.md`，并按其 `## Inner contracts`
+  表读完列出的全部叶契约。
+- **其他领域任务**：先列 `specs/implemented/` 下的根契约，按领域选读；
+  根契约的 `## Inner contracts` 表是其叶契约的权威清单。
+
 ## 硬性约束
 
 > 本仓库交付/共享时的不可协商约束。
 
-1. **文档不写个人凭据**：`*.md`（spec、docs、本文件）只写角色名；
-   个人用户名、密码、令牌绝不进入纳入版本控制的文件，只放在被忽略的
-   主机本地区（如 `.local.env`）。
+1. **文档不写主机本地凭据与机器特定值**：`*.md`（spec、docs、本文件）只写
+   角色名（`specs/implemented/inner/entity-naming.spec.md` 的实体词汇）；密码、
+   令牌、私钥，以及主机绝对路径、个人用户名等**机器特定值**，绝不进入纳入
+   版本控制的文件，只放在被忽略的主机本地区（如 `.local.env`）。**公开服务
+   标识**——公开仓库 URL 与其仓主名、服务角色名——不属凭据，可入库。
 2. **提交前隐私门禁**：每次提交/推送前，对纳入版本控制的文件跑隐私
    检索（个人用户名/密码/令牌），必须无匹配。检索模式维护在主机本地，
    不写入纳入版本控制的文件。

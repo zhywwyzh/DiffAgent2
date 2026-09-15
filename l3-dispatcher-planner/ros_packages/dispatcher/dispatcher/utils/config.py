@@ -8,12 +8,31 @@ Single consumer: DispatcherEngine (`apply_config` boot path). The former
 
 from __future__ import annotations
 
+import logging
 import os
 from copy import deepcopy
 from typing import Any, Dict, Iterable
 
-import rospy
 import yaml
+
+
+class _LocalLog:
+    """log 端口的本地回退：告警走 stdlib logging（S4a P2）。
+
+    生产路径由组合根注入 ``ros_adapter.clock_ros.RosLog``（/rosout）；
+    本回退仅供无 ROS 环境的调用方使用。
+    """
+
+    def __init__(self) -> None:
+        self._logger = logging.getLogger(__name__)
+
+    def warn(self, msg: str, *args: object) -> None:
+        self._logger.warning(msg, *args)
+
+
+def _resolve_log(log):
+    """解析 log 端口：未注入时返回本地 stdlib 回退。"""
+    return log if log is not None else _LocalLog()
 
 
 def merge_dicts(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
@@ -29,8 +48,9 @@ def merge_dicts(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any
     return merged
 
 
-def load_yaml(path: str, _seen: set = None, base_dir: str = None) -> Dict[str, Any]:
+def load_yaml(path: str, _seen: set = None, base_dir: str = None, *, log=None) -> Dict[str, Any]:
     """加载 YAML 配置并处理 extends 继承链。"""
+    log = _resolve_log(log)
     if not path:
         return {}
     if not os.path.isabs(path):
@@ -38,7 +58,7 @@ def load_yaml(path: str, _seen: set = None, base_dir: str = None) -> Dict[str, A
         root_dir = base_dir or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         path = os.path.join(root_dir, path)
     if not os.path.exists(path):
-        rospy.logwarn(f"config_path not found: {path}")
+        log.warn(f"config_path not found: {path}")
         return {}
     if _seen is None:
         _seen = set()
@@ -53,24 +73,19 @@ def load_yaml(path: str, _seen: set = None, base_dir: str = None) -> Dict[str, A
     if base_ref:
         if not os.path.isabs(base_ref):
             base_ref = os.path.join(os.path.dirname(path), base_ref)
-        base_data = load_yaml(base_ref, _seen=_seen, base_dir=base_dir)
+        base_data = load_yaml(base_ref, _seen=_seen, base_dir=base_dir, log=log)
         data = merge_dicts(base_data, data)
     return data
 
 
-def set_ros_params(params: Dict[str, Any]) -> None:
-    """把字典写入当前节点私有参数空间(~key)。"""
-    for key, value in params.items():
-        rospy.set_param(f"~{key}", value)
-
-
-def flatten_leaf_params(cfg: Dict[str, Any], *, _path: str = "") -> Dict[str, Any]:
+def flatten_leaf_params(cfg: Dict[str, Any], *, _path: str = "", log=None) -> Dict[str, Any]:
     """递归展开结构化配置，使用叶子字段名作为最终参数名。
 
     该函数用于把 YAML 中的功能分组配置转换为现有 ROS 私有参数格式。
     例如 tracking.kalman.tracking_kalman_enabled 会展开为
     ~tracking_kalman_enabled，避免业务代码到处改 rospy.get_param 名称。
     """
+    log = _resolve_log(log)
     if not isinstance(cfg, dict):
         return {}
 
@@ -79,10 +94,10 @@ def flatten_leaf_params(cfg: Dict[str, Any], *, _path: str = "") -> Dict[str, An
         key = str(key)
         next_path = key if not _path else f"{_path}.{key}"
         if isinstance(value, dict):
-            nested = flatten_leaf_params(value, _path=next_path)
+            nested = flatten_leaf_params(value, _path=next_path, log=log)
             for leaf_key, leaf_value in nested.items():
                 if leaf_key in flat:
-                    rospy.logwarn(
+                    log.warn(
                         "Duplicate flattened config key %s from %s overrides previous value.",
                         leaf_key,
                         next_path,
@@ -90,7 +105,7 @@ def flatten_leaf_params(cfg: Dict[str, Any], *, _path: str = "") -> Dict[str, An
                 flat[leaf_key] = leaf_value
             continue
         if key in flat:
-            rospy.logwarn(
+            log.warn(
                 "Duplicate flattened config key %s from %s overrides previous value.",
                 key,
                 next_path,
@@ -99,7 +114,7 @@ def flatten_leaf_params(cfg: Dict[str, Any], *, _path: str = "") -> Dict[str, An
     return flat
 
 
-def merge_pointcloud_mode_params(pointcloud_cfg: Dict[str, Any]) -> Dict[str, Any]:
+def merge_pointcloud_mode_params(pointcloud_cfg: Dict[str, Any], *, log=None) -> Dict[str, Any]:
     """合并 pointcloud.common 与当前 mode 专属参数。
 
     新配置中 ros.pointcloud.mode 决定 waypoint 几何源。只加载 common 和
@@ -123,7 +138,7 @@ def merge_pointcloud_mode_params(pointcloud_cfg: Dict[str, Any]) -> Dict[str, An
 
     params = merge_dicts(deepcopy(common), deepcopy(mode_cfg))
     params["depth_source"] = str(params.get("depth_source", mode)).strip().lower() or mode
-    return flatten_leaf_params(params)
+    return flatten_leaf_params(params, log=log)
 
 
 def set_defaults(obj: Any, defaults: Dict[str, Any]) -> None:
@@ -137,8 +152,11 @@ def apply_config(
     cfg: Dict[str, Any],
     section_name: str = "config",
     key_aliases: Dict[str, str] = None,
+    *,
+    log=None,
 ) -> None:
     """将配置块应用到对象，并处理字段别名映射。"""
+    log = _resolve_log(log)
     key_aliases = key_aliases or {}
     for key, value in cfg.items():
         target_key = key
@@ -147,7 +165,7 @@ def apply_config(
             if alias and hasattr(obj, alias):
                 target_key = alias
             else:
-                rospy.logwarn(f"Unknown {section_name} key skipped: {key}")
+                log.warn(f"Unknown {section_name} key skipped: {key}")
                 continue
         if isinstance(value, dict):
             cur = getattr(obj, target_key, None)

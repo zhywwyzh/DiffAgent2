@@ -15,8 +15,8 @@
 | 目标路径 | `l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/` |
 | 状态 | done（2026-09-10 执行并评审放行，验收 V1-V6 全过，见附录） |
 | 关联文档 | 方案模板 `doc/l3-dispatcher-planner/iteration/_TEMPLATE.md`；无姊妹篇（本轮为首迁） |
-| 源（旧仓库） | `/home/zhywwyzh/workspace/Diff-Agent2/diff-dockers/drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/`（下称 `OLD/`） |
-| 目标（新仓库） | `/home/zhywwyzh/workspace/Diff-Agent2.0/l3-dispatcher-planner/ros_packages/dispatcher/`（下称 `NEW/`） |
+| 源（旧仓库） | `<old-repo-root>/diff-dockers/drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/`（下称 `OLD/`） |
+| 目标（新仓库） | `<new-repo-root>/l3-dispatcher-planner/ros_packages/dispatcher/`（下称 `NEW/`） |
 
 ## 1. 背景与动机
 
@@ -364,12 +364,12 @@ core-only 状态下无引擎内调用方（调用方是未迁的技能/中间件
 **步骤 1：目录与骨架**
 
 ```bash
-cd /home/zhywwyzh/workspace/Diff-Agent2.0
+cd <new-repo-root>
 git status   # 确认工作区干净、位于预期迭代分支
 mkdir -p doc/l3-dispatcher-planner/iteration
 mkdir -p l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/perception
-OLD=/home/zhywwyzh/workspace/Diff-Agent2/diff-dockers/drone_projects/l3-dispatcher-planner/ros_packages/dispatcher
-NEW=/home/zhywwyzh/workspace/Diff-Agent2.0/l3-dispatcher-planner/ros_packages/dispatcher
+OLD=<old-repo-root>/diff-dockers/drone_projects/l3-dispatcher-planner/ros_packages/dispatcher
+NEW=<new-repo-root>/l3-dispatcher-planner/ros_packages/dispatcher
 cp "$OLD/dispatcher/__init__.py"              "$NEW/dispatcher/__init__.py"
 cp "$OLD/dispatcher/perception/__init__.py"   "$NEW/dispatcher/perception/__init__.py"
 cp "$OLD/dispatcher/perception/base_policy.py" "$NEW/dispatcher/perception/base_policy.py"
@@ -538,15 +538,15 @@ from dispatcher.perception.base_policy import BasePolicyNode
 
 ```bash
 python3 -m py_compile \
-  /home/zhywwyzh/workspace/Diff-Agent2.0/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py \
-  /home/zhywwyzh/workspace/Diff-Agent2.0/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/perception/base_policy.py
+  <new-repo-root>/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py \
+  <new-repo-root>/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/perception/base_policy.py
 ```
 
 - [x] **V2 字节级一致性**（三个原样文件零差异；输出为空即通过）：
 
 ```bash
-OLD=/home/zhywwyzh/workspace/Diff-Agent2/diff-dockers/drone_projects/l3-dispatcher-planner/ros_packages/dispatcher
-NEW=/home/zhywwyzh/workspace/Diff-Agent2.0/l3-dispatcher-planner/ros_packages/dispatcher
+OLD=<old-repo-root>/diff-dockers/drone_projects/l3-dispatcher-planner/ros_packages/dispatcher
+NEW=<new-repo-root>/l3-dispatcher-planner/ros_packages/dispatcher
 cmp "$OLD/dispatcher/__init__.py" "$NEW/dispatcher/__init__.py"
 cmp "$OLD/dispatcher/perception/__init__.py" "$NEW/dispatcher/perception/__init__.py"
 cmp "$OLD/dispatcher/perception/base_policy.py" "$NEW/dispatcher/perception/base_policy.py"
@@ -556,7 +556,7 @@ cmp "$OLD/dispatcher/perception/base_policy.py" "$NEW/dispatcher/perception/base
 
 ```bash
 grep -nE '(_recording|_notify_skills|VlmFacade|RecordingService|SceneNavSkill|VlaSkill|GraphEditSkill|FlightSkill|GraspWorker|_grasp_wf|takeoff_land_pub|grasp_result_image_pub|_scene_objects_pub|_scene_objects_timer|reset_srv|stack_reset_srv|STACK_RESET_STEPS|_vlm\b|make_hover_pose|write_json|clean_object_name|ToolExecutor|normalize_direction|TakeoffLand|TriggerResponse|CompressedImage|PointCloud2|MISSION_TYPE|pc2\b|import shutil|import hashlib|import pdb|import logging|import copy|import queue|bind_tool_middleware|_activate_tool_call|forward_takeoff_tool|forward_land_tool|forward_emergency_stop_tool|start_tool_workflow|cancel_tool_call|_handle_takeoff_land|_handle_global_control_command|_publish_scene_objects|publish_phase|_publish_emergency_hold_position|_planner_fsm_state_str|_reset_service_callback|_stack_reset_service_callback|mllm_message|exploration_clear_map_mode|last_command|origin_record_index|action_pub)' \
-  /home/zhywwyzh/workspace/Diff-Agent2.0/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py
+  <new-repo-root>/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py
 ```
 
 - [x] **V4 未手术方法分段 diff**（33 个方法与旧文件逐段一致；输出
@@ -566,8 +566,8 @@ grep -nE '(_recording|_notify_skills|VlmFacade|RecordingService|SceneNavSkill|Vl
 ```bash
 python3 - <<'EOF'
 import ast
-OLD = "/home/zhywwyzh/workspace/Diff-Agent2/diff-dockers/drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py"
-NEW = "/home/zhywwyzh/workspace/Diff-Agent2.0/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py"
+OLD = "<old-repo-root>/diff-dockers/drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py"
+NEW = "<new-repo-root>/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py"
 INTACT = ["sync_task_buffers_from_prepare","publish_monitor_status","_telemetry",
 "publish_command_content","_intercept_task_goal","publish_mode_burst",
 "clear","_pause_for_new_agent_prompt","_has_active_task_to_override",
@@ -616,8 +616,8 @@ EOF
 ```bash
 python3 - <<'EOF'
 import ast
-NEW_ENG = "/home/zhywwyzh/workspace/Diff-Agent2.0/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py"
-BASE = "/home/zhywwyzh/workspace/Diff-Agent2.0/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/perception/base_policy.py"
+NEW_ENG = "<new-repo-root>/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py"
+BASE = "<new-repo-root>/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/perception/base_policy.py"
 CONFIG_KEYS = set("""prepare_content nav_tools segment_nav_enabled
 search_thinking_enabled inference_timeout task_generation_guard_enabled
 _min_action_wait return_publish_mode return_start_timeout_s
