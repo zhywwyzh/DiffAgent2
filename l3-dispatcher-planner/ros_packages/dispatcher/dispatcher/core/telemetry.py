@@ -86,7 +86,7 @@ class RunTelemetry:
         """健康年龄格式化：None = 从未收到（区别于慢）。"""
         return "never" if age is None else f"{age:.1f}s"
 
-    def wait_diag(self, health) -> str:
+    def wait_diag(self, health, *, stale_after: float = 2.0) -> str:
         """决策链输入通道的诊断串：channel=topic:age 逐路点名。
 
         未启用的可选通道不进入健康表，也不在此
@@ -96,5 +96,7 @@ class RunTelemetry:
         包裹的语义一致）。
         """
         return " ".join(
-            f"{channel}={topic}:{self.fmt_wait_age(age)}" for channel, (topic, age) in health.items()
-        )
+            f"{channel}={topic}:{self.fmt_wait_age(age)}"
+            + (":stale" if age is not None and age > stale_after else "")
+            for channel, (topic, age) in health.items()
+        ) or "no_input_channels"

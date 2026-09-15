@@ -52,6 +52,7 @@ class ToolControlPlane:
             log=log,
             shutdown=shutdown,
             feedback_factory=feedback_factory,
+            safety_stop=lambda reason: host.enter_global_stop(reason, shutdown_program=False),
         )
         self._executor = ToolExecutor(self.middleware.registry, host)
         self._threads: list[threading.Thread] = []
@@ -84,6 +85,8 @@ class ToolControlPlane:
                 continue
             try:
                 if command.kind == "call":
+                    if not self.middleware.runtime.can_execute(command.call.call_id):
+                        continue
                     self._executor.execute(command.call)
                 elif command.kind == "cancel":
                     self._host.cancel_tool_call(command.call, command.reason)

@@ -24,26 +24,10 @@ Parent: specs/implemented/l3-dispatcher.spec.md
   变化而变化，对同一注册面唯一且可复现。
 - 无公开的启停开关；列表不随瞬时就绪状态抖动。
 
-**工具清单（14 项）与完成语义**：
+**当前生产工具集合为空**：未迁入完整实现的工具及其旧入口已整链删除。
+新增能力须同时交付技能实现与测试，才能进入发现面；测试自有能力不得注册到生产默认集合。
 
-| 工具名 | 完成语义 |
-|---|---|
-| `navigation.vla_reach` | `workflow_result` |
-| `scene.map_search` | `workflow_result` |
-| `scene.navigate` | `workflow_result` |
-| `flight.takeoff` | `forwarded` |
-| `flight.land` | `forwarded` |
-| `flight.translate` | `action_result` |
-| `flight.rotate` | `action_result` |
-| `flight.return` | `action_result` |
-| `flight.emergency_stop` | `forwarded` |
-| `scene_nav.graph.list` | `workflow_result` |
-| `scene_nav.graph.select` | `workflow_result` |
-| `scene_nav.graph.save` | `workflow_result` |
-| `scene_nav.graph.objects` | `workflow_result` |
-| `scene_nav.graph.object_pose` | `workflow_result` |
-
-**`revision` 记录值（现行）**：`sha256:333e24d208bcdfa34efa75c45b2377761503dc401999433eb3ec891a82ea2276`
+**`revision` 记录值（现行）**：`sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945`
 
 ## 2. 按名分发与准入
 
@@ -68,7 +52,7 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 - 准入子原因词表（固定）：`tool_not_registered`、`call_id_conflict`、
   `call_not_found`、`already_terminal`、`connection_active`、`invalid_cursor`、
   `unknown_argument`、`missing_required_argument`、`argument_out_of_range`、
-  `invalid_request`、`object_not_resolved`。
+  `invalid_request`。
 - wire 名的归一只作用于名字解析，不产生第二注册面。
 - 每个 queryable 必须以完整语义应答，不半途留挂。
 
@@ -78,8 +62,7 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 - 存在持槽调用时，来自异源（不同 station 实例）的新普通调用拒绝为
   `flight_busy`；来自同 station 实例的新指令可抢占——旧调用立即失去飞行槽
   并保证收敛为恰好一个 `fail` 终态（异步），新调用随即接管槽位。
-- `flight.emergency_stop` 是唯一豁免同源约束的抢占工具（异源亦可抢占），
-  且仍受 owner 门约束，无旁路。
+- 当前无豁免同源约束的工具；所有已注册调用均经过同一 owner 门。
 
 ## 5. 取消
 
@@ -87,7 +70,7 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 - 未知调用 → `call_not_found`；已终态调用 → `already_terminal`（不重复
   终态）。
 - 被接受的取消恰好收敛为一个 `fail` 终态事件，错误码 `cancelled`。
-- 取消不隐含急停；急停是显式的 `flight.emergency_stop` 调用。
+- 取消不隐含急停；全局安全停止经核心端口执行，不伪造工具调用。
 
 ## 6. 连接租约与 owner 门
 
@@ -95,7 +78,7 @@ Parent: specs/implemented/l3-dispatcher.spec.md
   `stack_id` 即 key 前缀，不作为 payload 字段。
 - 一 station 至多连一 stack，一 stack 至多连一 station（严格一一）。
 - 发现与连接状态查询免租约；调用、事件与取消必须携带当前有效租约。
-  缺失、过期或不匹配 → `connection_not_owner`；任何工具（含急停）无非
+  缺失、过期或不匹配 → `connection_not_owner`；任何工具无非
   owner 旁路。
 - acquire 冲突 → `connection_busy`（附当前 owner 与过期时刻）；同身份重复
   acquire 幂等返回原租约。默认 TTL 15 s，renew 周期不慢于 5 s；renew 与
@@ -103,7 +86,7 @@ Parent: specs/implemented/l3-dispatcher.spec.md
   `connection_active`。
 - 租约丢失走有序安全状态机（持有 → 丢失 → 取消中 → 已请求安全停 →
   无主），安全停失败即 fail-closed 停在取消中；活动调用收敛为一个
-  `fail` 终态，错误码 `connection_lost`，随后执行与急停相同的安全停。
+  `fail` 终态，错误码 `connection_lost`，随后经注入的核心全局停止端口执行安全停。端口缺失或执行失败时保持取消中，不得释放为无主。
 
 ## 7. 事件账本与调用关联
 
@@ -130,18 +113,17 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 - 同一 `call_id` 同载荷重放：返回原 ack，不二次执行。
 - 同一 `call_id` 异载荷：拒绝为 `call_id_conflict`。
 - 完成语义恰为三值：`forwarded`（已转交下游）、`action_result`（以下游
-  动作结果为准）、`workflow_result`（以工作流结果为准）；每工具取值见
-  §1 清单。
+  动作结果为准）、`workflow_result`（以工作流结果为准）；当前生产无工具；后续能力须在注册元数据中声明完成语义。
 - 传输超时、进程存活、容器就绪绝不算成功完成。
 
 ## 10. 门禁
 
 | 门禁 | 检查 |
 |------|------|
-| G24 | 发现面断言：工具名集合 == §1 清单（14 项），`revision` == §1 记录的现行值 |
+| G24 | 发现面断言：工具名集合 == §1 集合（空集），`revision` == §1 记录的现行值 |
 | G25 | ack 与事件键集判定（必备键子集 + 负例）：ack 必含 `call_id` 与租约身份三键；事件必含 `call_id`/`status`/`phase`/`event_id`/`seq`；status ⊆ §8 三值、phase ⊆ §8 词表；二者均不得携带任务编号标识 |
 | G26 | 代码产出的拒绝 reason 集合 ⊆ §3 两层词表；新增 reason 须先改本契约 |
-| G27 | 负例判定：未注册名 → `tool_not_registered`；异源占用 → `flight_busy`；非 owner（含急停）→ `connection_not_owner` |
+| G27 | 负例判定：未注册名 → `tool_not_registered`；异源占用 → `flight_busy`；非 owner→ `connection_not_owner` |
 | G28 | 每个已准入调用恰有一个终态事件；同 `call_id` 同载荷重放返回原 ack |
 
 > G24–G28 为本叶新增，与既有 G1–G23 全局编号不冲突。`specs/tools/*` 门禁

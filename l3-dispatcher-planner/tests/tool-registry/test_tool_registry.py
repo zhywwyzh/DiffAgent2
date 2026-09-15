@@ -19,24 +19,11 @@ from dispatcher.utils.connection_lease import ConnectionLeaseManager  # noqa: E4
 from dispatcher.tools.executor import ToolExecutor  # noqa: E402
 from dispatcher.tools.protocol import ToolProtocolError  # noqa: E402
 from dispatcher.tools.registry import ToolRegistry  # noqa: E402
+from registry_support import test_registry
+from types import SimpleNamespace
 from dispatcher.tools.runtime import ToolRuntime  # noqa: E402
 
-EXPECTED_TOOLS = {
-    "navigation.vla_reach",
-    "scene.map_search",
-    "scene.navigate",
-    "flight.takeoff",
-    "flight.land",
-    "flight.translate",
-    "flight.rotate",
-    "flight.return",
-    "flight.emergency_stop",
-    "scene_nav.graph.list",
-    "scene_nav.graph.select",
-    "scene_nav.graph.save",
-    "scene_nav.graph.objects",
-    "scene_nav.graph.object_pose",
-}
+EXPECTED_TOOLS = set()
 
 
 class FakeClock:
@@ -61,7 +48,7 @@ def make_runtime(clock: FakeClock | None = None):
         wall_clock=lambda: 0.0,
         lease_id_factory=iter(f"lease_{n:03d}" for n in range(1000)).__next__,
     )
-    runtime = ToolRuntime(ToolRegistry.default(), queue.Queue(), manager)
+    runtime = ToolRuntime(test_registry(), queue.Queue(), manager)
     return runtime, manager, clock
 
 
@@ -99,10 +86,10 @@ def test_list_exposes_only_executable_tools() -> None:
 
 
 def test_call_identity_and_arguments_are_normalized_once() -> None:
-    call = ToolRegistry.default().normalize_call(
+    call = test_registry().normalize_call(
         {
             "call_id": "call_1",
-            "name": "flight.translate",
+            "name": "test.move",
             "arguments": {"direction": "forward", "distance_m": 2},
             "context": {
                 "flight_session_id": "flight_a",
@@ -112,7 +99,7 @@ def test_call_identity_and_arguments_are_normalized_once() -> None:
         }
     )
 
-    assert call.name == "flight.translate"
+    assert call.name == "test.move"
     assert call.arguments == {"direction": "forward", "distance_m": 2.0}
     assert call.frame_id == "copaw/flight_a/step_1"
 
@@ -120,7 +107,7 @@ def test_call_identity_and_arguments_are_normalized_once() -> None:
 def test_runtime_admission_is_idempotent_and_replayable() -> None:
     runtime, manager, _ = make_runtime()
     identity = acquire(manager)
-    payload = call_payload("call_1", "flight.takeoff", {}, identity)
+    payload = call_payload("call_1", "test.start", {}, identity)
     commands = runtime._commands
 
     first = runtime.admit(payload)
@@ -141,7 +128,7 @@ def test_runtime_admission_is_idempotent_and_replayable() -> None:
 def test_runtime_accepts_exactly_one_terminal_event() -> None:
     runtime, manager, _ = make_runtime()
     identity = acquire(manager)
-    runtime.admit(call_payload("call_1", "flight.takeoff", {}, identity))
+    runtime.admit(call_payload("call_1", "test.start", {}, identity))
 
     assert runtime.emit("call_1", status="done", phase="done", message="forwarded")
     assert not runtime.emit("call_1", status="fail", phase="fail", message="late failure")
@@ -156,7 +143,7 @@ def test_runtime_accepts_exactly_one_terminal_event() -> None:
 def test_runtime_cancel_is_idempotent_and_terminal() -> None:
     runtime, manager, _ = make_runtime()
     identity = acquire(manager)
-    runtime.admit(call_payload("call_1", "flight.rotate", {"yaw_delta_deg": 90}, identity))
+    runtime.admit(call_payload("call_1", "test.rotate", {"yaw_delta_deg": 90}, identity))
     commands = runtime._commands
     commands.get_nowait()
 
@@ -176,7 +163,7 @@ def test_runtime_cancel_is_idempotent_and_terminal() -> None:
 
 
 def test_executor_routes_translate_into_skill_workflow() -> None:
-    """P3.8：flight.translate 经注册表元数据构造携带原生 ToolCall 的
+    """P3.8：test.move 经注册表元数据构造携带原生 ToolCall 的
     SkillCommand 进入工作流（requires_perception 来自 ToolSpec）。"""
 
     class Host:
@@ -186,22 +173,16 @@ def test_executor_routes_translate_into_skill_workflow() -> None:
         def start_tool_workflow(self, call, command) -> None:
             self.started.append((call, command))
 
-        def forward_takeoff_tool(self, call) -> None:
-            raise AssertionError("translate must not take the direct-forward seam")
 
-        def forward_land_tool(self, call) -> None:
-            raise AssertionError("translate must not take the direct-forward seam")
 
-        def forward_emergency_stop_tool(self, call) -> None:
-            raise AssertionError("translate must not take the direct-forward seam")
 
-    registry = ToolRegistry.default()
+    registry = test_registry()
     host = Host()
     executor = ToolExecutor(registry, host)
     call = registry.normalize_call(
         {
             "call_id": "call_1",
-            "name": "flight.translate",
+            "name": "test.move",
             "arguments": {"direction": "left", "distance_m": 1.5},
             "context": {"flight_session_id": "flight_a", "step_id": "step_1"},
         }
@@ -214,8 +195,8 @@ def test_executor_routes_translate_into_skill_workflow() -> None:
     assert host.started[0][1].requires_perception is False
 
 
-def test_executor_routes_vla_reach_with_perception_requirement() -> None:
-    """P3.8：navigation.vla_reach 的 requires_perception=True 由注册表
+def test_executor_routes_perception_requirement() -> None:
+    """P3.8：test.sense 的 requires_perception=True 由注册表
     ToolSpec 声明驱动（原 vla adapter 硬编码下沉为元数据）。"""
 
     class Host:
@@ -225,14 +206,14 @@ def test_executor_routes_vla_reach_with_perception_requirement() -> None:
         def start_tool_workflow(self, call, command) -> None:
             self.started.append((call, command))
 
-    registry = ToolRegistry.default()
+    registry = test_registry()
     host = Host()
     executor = ToolExecutor(registry, host)
     call = registry.normalize_call(
         {
             "call_id": "call_1",
-            "name": "navigation.vla_reach",
-            "arguments": {"object": "chair", "prompt": "reach the chair"},
+            "name": "test.sense",
+            "arguments": {},
             "context": {"flight_session_id": "flight_a", "step_id": "step_1"},
         }
     )
@@ -243,71 +224,23 @@ def test_executor_routes_vla_reach_with_perception_requirement() -> None:
     assert host.started[0][1].requires_perception is True
 
 
-def test_executor_direct_forwards_flight_primitives() -> None:
-    """P3.8：takeoff/land/emergency_stop 三条直发不进工作流（等价原
-    FlightTools.start 前三行；急停 arguments 恒为空 dict，按 name 分发）。"""
-
-    class Host:
-        def __init__(self) -> None:
-            self.forwarded = []
-            self.started = []
-
-        def forward_takeoff_tool(self, call) -> None:
-            self.forwarded.append(("takeoff", call))
-
-        def forward_land_tool(self, call) -> None:
-            self.forwarded.append(("land", call))
-
-        def forward_emergency_stop_tool(self, call) -> None:
-            self.forwarded.append(("emergency_stop", call))
-
-        def start_tool_workflow(self, call, command) -> None:
-            self.started.append((call, command))
-
-    registry = ToolRegistry.default()
-    host = Host()
-    executor = ToolExecutor(registry, host)
-
-    for call_id, name, arguments in (
-        ("call_to", "flight.takeoff", {}),
-        ("call_ld", "flight.land", {}),
-        ("call_es", "flight.emergency_stop", {}),
-    ):
-        call = registry.normalize_call(
-            {
-                "call_id": call_id,
-                "name": name,
-                "arguments": arguments,
-                "context": {"flight_session_id": "flight_a", "step_id": "step_1"},
-            }
-        )
-        executor.execute(call)
-
-    assert [kind for kind, _ in host.forwarded] == [
-        "takeoff",
-        "land",
-        "emergency_stop",
-    ]
-    assert host.started == []  # 直发路径绝不构造 SkillCommand 入队
-
-
-def test_emergency_stop_preempts_active_call_before_its_own_execution() -> None:
+def test_same_owner_preempts_before_new_execution():
     runtime, manager, _ = make_runtime()
     identity = acquire(manager)
     commands = runtime._commands
     runtime.admit(
-        call_payload("move_1", "flight.translate", {"direction": "forward", "distance_m": 2}, identity)
+        call_payload("move_1", "test.move", {"direction": "forward", "distance_m": 2}, identity)
     )
     commands.get_nowait()
 
-    runtime.admit(call_payload("stop_1", "flight.emergency_stop", {}, identity))
+    runtime.admit(call_payload("stop_1", "test.replace", {}, identity))
 
     cancel = commands.get_nowait()
     emergency = commands.get_nowait()
     assert (cancel.kind, cancel.call.call_id, cancel.reason) == (
         "cancel",
         "move_1",
-        "emergency_preempt",
+        "preempted_by_new_instruction",
     )
     assert (emergency.kind, emergency.call.call_id) == ("call", "stop_1")
 

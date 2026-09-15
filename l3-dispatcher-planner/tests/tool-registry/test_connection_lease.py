@@ -28,6 +28,8 @@ from dispatcher.utils.connection_lease import (  # noqa: E402
 )
 from dispatcher.tools.protocol import ToolProtocolError  # noqa: E402
 from dispatcher.tools.registry import ToolRegistry  # noqa: E402
+from registry_support import test_registry
+from types import SimpleNamespace
 from dispatcher.tools.runtime import ToolRuntime  # noqa: E402
 
 STACK = "sim/0"
@@ -66,7 +68,9 @@ def make_manager(clock: FakeClock | None = None, **kwargs) -> ConnectionLeaseMan
 def make_runtime(clock: FakeClock | None = None):
     clock = clock or FakeClock()
     manager = make_manager(clock)
-    runtime = ToolRuntime(ToolRegistry.default(), queue.Queue(), manager)
+    commands = queue.Queue()
+    runtime = ToolRuntime(test_registry(), commands, manager,
+                          safety_stop=lambda reason: commands.put(SimpleNamespace(kind="safety_stop", reason=reason)))
     manager.set_active_call_probe(runtime.has_active_call)
     manager.bind_loss_handlers(
         runtime.cancel_active_for_lease_loss,
@@ -185,7 +189,7 @@ def test_release_is_owner_only_and_frees_the_stack() -> None:
 def test_release_with_active_call_is_connection_active() -> None:
     runtime, manager, _ = make_runtime()
     identity = acquire(manager)
-    runtime.admit(payload("call_1", "flight.takeoff", identity))
+    runtime.admit(payload("call_1", "test.start", identity))
 
     with pytest.raises(ToolProtocolError) as caught:
         manager.release(**identity)
@@ -214,16 +218,16 @@ def test_tool_plane_is_owner_only_including_emergency_stop() -> None:
         )
     ):
         with pytest.raises(ToolProtocolError) as caught:
-            runtime.admit(payload(f"reject_{index}", "flight.emergency_stop", bad))
+            runtime.admit(payload(f"reject_{index}", "test.replace", bad))
         assert caught.value.code == -32000
         assert reason_of(caught.value) == "connection_not_owner"
 
-    runtime.admit(payload("call_1", "flight.takeoff", identity))
+    runtime.admit(payload("call_1", "test.start", identity))
     with pytest.raises(ToolProtocolError) as caught:
         runtime.cancel({"call_id": "call_1"})
     assert reason_of(caught.value) == "connection_not_owner"
 
-    ack = runtime.admit(payload("call_es", "flight.emergency_stop", identity))
+    ack = runtime.admit(payload("call_es", "test.replace", identity))
     assert [ack[f] for f in ("station_id", "station_instance_id", "lease_id")] == [
         identity[f] for f in ("station_id", "station_instance_id", "lease_id")
     ]
@@ -252,14 +256,14 @@ def test_events_request_requires_the_lease_identity() -> None:
 def test_events_filter_by_lease_and_advance_over_foreign_events() -> None:
     runtime, manager, clock = make_runtime()
     first = acquire(manager, "station-a")
-    runtime.admit(payload("a_1", "flight.takeoff", first))
+    runtime.admit(payload("a_1", "test.start", first))
 
     # Lease A expires mid-call (terminal connection_lost is a foreign event
     # for station B); station B takes over and admits its own call.
     clock.advance(TTL_S + 1.0)
     assert manager.expire_if_due() is True
     second = acquire(manager, "station-b")
-    runtime.admit(payload("b_1", "flight.land", second))
+    runtime.admit(payload("b_1", "test.finish", second))
 
     reply = runtime.events({"after_seq": 0, "limit": 100, **second})
 
@@ -278,7 +282,7 @@ def test_events_filter_by_lease_and_advance_over_foreign_events() -> None:
 def test_truncated_matching_page_keeps_the_cursor_retrievable() -> None:
     runtime, manager, _ = make_runtime()
     identity = acquire(manager)
-    runtime.admit(payload("call_1", "flight.takeoff", identity))
+    runtime.admit(payload("call_1", "test.start", identity))
     runtime.emit("call_1", status="running", phase="executing")
     runtime.emit("call_1", status="running", phase="executing")
     runtime.emit("call_1", status="done", phase="done")
@@ -303,7 +307,7 @@ def test_expiry_stops_admission_cancels_and_requests_safety() -> None:
     identity = acquire(manager)
     commands = runtime._commands
     runtime.admit(
-        payload("call_1", "flight.translate", identity, {"direction": "forward", "distance_m": 1.0})
+        payload("call_1", "test.move", identity, {"direction": "forward", "distance_m": 1.0})
     )
     commands.get_nowait()
 
@@ -311,7 +315,7 @@ def test_expiry_stops_admission_cancels_and_requests_safety() -> None:
 
     # Admission is stopped by the expired lease.
     with pytest.raises(ToolProtocolError) as caught:
-        runtime.admit(payload("call_2", "flight.takeoff", identity))
+        runtime.admit(payload("call_2", "test.start", identity))
     assert reason_of(caught.value) == "connection_not_owner"
 
     # Exactly one terminal with connection_lost semantics was emitted for
@@ -324,8 +328,7 @@ def test_expiry_stops_admission_cancels_and_requests_safety() -> None:
     cancel = commands.get_nowait()
     safety = commands.get_nowait()
     assert (cancel.kind, cancel.call.call_id) == ("cancel", "call_1")
-    assert (safety.kind, safety.call.name) == ("call", "flight.emergency_stop")
-    assert safety.call.call_id.startswith("safety_")
+    assert safety.kind == "safety_stop"
     assert commands.empty()
 
     # Safety request issued: the stack is free for a new station.
@@ -399,7 +402,7 @@ def test_owner_token_loss_before_expiry_triggers_the_same_sequence() -> None:
     runtime, manager, _ = make_runtime()
     identity = acquire(manager)
     commands = runtime._commands
-    runtime.admit(payload("call_1", "flight.takeoff", identity))
+    runtime.admit(payload("call_1", "test.start", identity))
     commands.get_nowait()
 
     assert manager.notify_owner_lost("station_connection_token_lost") is True
@@ -407,7 +410,7 @@ def test_owner_token_loss_before_expiry_triggers_the_same_sequence() -> None:
     terminal = list(runtime._event_history)[-1]
     assert terminal["error"]["code"] == "connection_lost"
     kinds = [(commands.get_nowait().kind,) for _ in range(2)]
-    assert kinds == [("cancel",), ("call",)]  # cancel, then the safety call
+    assert kinds == [("cancel",), ("safety_stop",)]  # 取消后直接调用安全停止端口
     assert manager.status()["owned"] is False
 
 
@@ -439,13 +442,7 @@ def test_middleware_declares_fleet_keys() -> None:
     middleware = zenoh_rpc.ZenohTaskMiddleware(queue.Queue(), stack_id=STACK)
 
     suffixes = middleware.queryable_suffixes()
-    for key in (
-        "connection/acquire",
-        "connection/renew",
-        "connection/release",
-        "connection/status",
-    ):
-        assert key in suffixes
+    assert suffixes == ("sim/reset", "health")
     assert middleware.presence_token_key.startswith(f"lx/{STACK}/presence/task/")
     assert middleware.owner_watch_key("station-a", "lease_007") == (
         f"lx/stations/station-a/connection/lease_007/{STACK}"
@@ -515,13 +512,16 @@ def test_watchdog_reaps_silent_expiry_without_incoming_request(monkeypatch) -> N
         lease_ttl_s=0.15,
         lease_watchdog_interval_s=0.02,
     )
+    middleware.registry = test_registry()
+    middleware.runtime.registry = middleware.registry
+    middleware.runtime._safety_stop = lambda reason: commands.put(SimpleNamespace(kind="safety_stop", reason=reason))
     middleware.start()
     watchdog = middleware._watchdog_thread
     assert watchdog is not None and watchdog.is_alive()
     try:
         reply = middleware.leases.acquire("station-w", "inst_station-w")
         identity = {k: reply[k] for k in ("station_id", "station_instance_id", "lease_id")}
-        middleware.runtime.admit(payload("watch_1", "flight.takeoff", identity))
+        middleware.runtime.admit(payload("watch_1", "test.start", identity))
         assert middleware.leases.state == "owned"
 
         # SILENT: no query, no runtime touch — only the watchdog runs.
@@ -538,8 +538,7 @@ def test_watchdog_reaps_silent_expiry_without_incoming_request(monkeypatch) -> N
         assert (reaped[0].kind, reaped[0].call.call_id) == ("call", "watch_1")
         assert (reaped[1].kind, reaped[1].call.call_id) == ("cancel", "watch_1")
         safety = reaped[2]
-        assert (safety.kind, safety.call.name) == ("call", "flight.emergency_stop")
-        assert safety.call.call_id.startswith("safety_")
+        assert safety.kind == "safety_stop"
     finally:
         middleware.close()
 

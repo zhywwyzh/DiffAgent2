@@ -36,13 +36,7 @@ class ToolCall:
 
 @dataclass(frozen=True)
 class SkillCommand:
-    """随 prompt 一起穿越引擎队列的结构化命令（P3.8 起直接携带原生 ToolCall）。
-
-    下游 Skill 经 call.name / call.arguments / call.display_text 读取执行
-    所需的全部信息（schema 校验后的原生 JSON），不再经 parsed_cmd 适配层
-    中转；requires_perception 保留为布尔（vla 感知门用）。原 tool_name
-    字段删除——等价于 call.name（registry 分发键）。
-    """
+    """随队首进入核心的原始工具调用及感知需求元数据。"""
 
     call: ToolCall
     requires_perception: bool = False
@@ -67,10 +61,6 @@ class ToolSpec:
     input_schema: dict
     output_schema: dict
     completion: str
-    adapter: str
-    # P3.8：执行期感知需求元数据（原 adapter 层组装 SkillCommand 时内联的
-    # 硬编码，仅 navigation.vla_reach 为 True）；public_dict 是手工键集，
-    # 该字段为执行面私有，不得外泄进工具发现面。
     requires_perception: bool = False
     destructive: bool = True
     idempotent: bool = False

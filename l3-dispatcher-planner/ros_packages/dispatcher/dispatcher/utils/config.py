@@ -210,50 +210,16 @@ CONFIG_KEY_ALIASES = {
 # 不会在实例间共享状态。
 UAV_POLICY_DEFAULTS = {
     "prepare_content": [],  # 预置任务列表
-    "nav_tools": "bbox",  # 导航感知工具：bbox / segment
-    "segment_nav_enabled": False,  # 是否启用 segment(mask) 导航感知；false 时强制 bbox
-    "search_thinking_enabled": False,  # 偏航搜索耗尽后是否进入多图 thinking 路径；false 时直接结束任务
     "inference_timeout": 5.0,  # 感知/推理超时（秒）
-    "task_generation_guard_enabled": True,  # 是否丢弃 prompt 覆盖/急停前返回的旧阻塞推理结果
     "_min_action_wait": 0.2,  # 动作最小等待时间（秒）
-    "return_publish_mode": "waypoint_nav",  # return 发布模式：waypoint_nav / goal
-    "return_start_timeout_s": 5.0,  # return 下发后等待下游进入 EXECING 的超时（秒），超时视为规划失败/不可达
-    "return_finish_timeout_s": 5.0,  # return 到 FSM FINISH 后等待 action result 确认的超时（秒）
-    "sleep_for_turn": 0.5,  # 搜索转向后等待稳定时间（秒）
-    "action_reach_threshold": 0.0,  # 动作到达判定阈值（米，当前未启用）
-    "search_success_distance_thresh": 0.3,  # 近距离视为到达阈值（米）
     "geometry_agree_safe_dis_radius_m": 0.8,  # 几何结果一致或仅单源有效时的安全距离（米）
     "geometry_mismatch_safe_dis_radius_m": 1.2,  # 几何结果不一致时的安全距离（米）
-    "if_safe_mode": True,  # 是否启用安全模式开关
-    "max_yaw_search": 20,  # 每层最大偏航搜索步数
-    "search_rot_yaw": 40,  # 单次搜索旋转角（度）
-    "max_z_search": 0,  # 最大升高搜索层数
-    "search_pos_z": 0.6,  # 每次升高搜索高度增量（米）
-    "d_side": 0.7,  # 侧向偏移基准距离（米）
-    "d_forward": 0.0,  # 前向附加偏移距离（米）
     "stable_height": 0.4,  # 稳定飞行高度（米）
     "min_height": 0.0,  # 最低允许飞行高度（米）
     "max_height": 1.8,  # 最高允许飞行高度（米）
     "is_stable": False,  # 是否强制保持 stable_height
     "behind_dist": 2.0,  # “后方”目标点偏移距离（米）
-    "bypass_dist": 2.0,  # 绕行任务前向补偿距离（米）
-    "reacquire_interval": 1.0,  # 远/稀疏目标推进后重启 VLA 搜索的间隔（秒，不等到达）
-    "partial_bbox_recenter_enabled": False,  # bbox 触碰左右图像边缘时是否先转向居中再重感知
-    "partial_bbox_edge_margin_px": 12,  # 判定 bbox 接近左右边缘的像素余量
-    "partial_bbox_max_attempts": 2,  # 单条 search prompt 最大居中重试次数
-    "partial_bbox_max_yaw_step_deg": 30.0,  # 单次 bbox 居中转向的最大角度（度）
-    "llm_stamp_match_tolerance": 0.3,  # LLM 时间戳对齐容忍误差（秒）
-    "planner_mode_topic": "/uav_planner/trigger",  # 规划器模式切换话题
-    "planner_mode_repeat": 3,  # 规划器模式切换重复发送次数
-    "planner_mode_interval": 0.03,  # 模式切换重复发送间隔（秒）
     "planner_ego_mode_value": 1,  # ego 模式枚举值
     "if_handle_yaw": True,  # 是否允许底层 ego planner 处理 yaw；tracking 会临时关闭
-    "start_yaw_deg": 0.0,  # 起始偏航角度（度）
-    # SCENE_NAV：场景图 + 按 object id 导航（Instruction 下发 / 订阅 scene graph 与 FSM）
-    "scene_nav_request_instruction_type": 11,  # rostopic 测试用 instruction_type
-    "scene_nav_to_drone_ids": [1],  # Instruction.to_drone_ids
-    "scene_graph_json_topic": "/scene_graph/json_text",
-    "planner_fsm_state_topic": "/planner/fsm_state",
-    "scene_nav_json_wait_timeout_s": 3.0,
-    "scene_nav_trigger_timeout_s": 5.0,  # FSM FINISH 后等待 action result 确认的超时（秒）；接通 real.yaml policy.scene_nav 同名配置
+
 }

@@ -22,8 +22,11 @@ from pathlib import Path
 
 from dispatcher.utils.control_plane import ToolControlPlane
 from dispatcher.engine import DispatcherEngine
+from dispatcher.perception.base_policy import BasePolicyNode
 from dispatcher.utils.config import (
     CONFIG_KEY_ALIASES,
+    UAV_POLICY_DEFAULTS,
+    set_defaults,
     load_yaml,
     apply_config,
     merge_config_sections,
@@ -66,6 +69,11 @@ def create_dispatcher_engine(config_path: str):
     clock = RosRuntimeClock()
     log = RosLogSink()
 
+    perception = BasePolicyNode()
+    # 原继承对象先装默认值；分离后感知实际使用的同名配置保持该顺序。
+    set_defaults(perception, {
+        key: value for key, value in UAV_POLICY_DEFAULTS.items() if hasattr(perception, key)
+    })
     node = DispatcherEngine(
         headless=bool(params_ros.get_private_param("headless", False)),
         telemetry_node_name=params_ros.get_node_name(),
@@ -77,17 +85,12 @@ def create_dispatcher_engine(config_path: str):
         channels=channels,
         clock=clock,
         log=log,
+        get_frame_snapshot=perception.get_frame_snapshot,
+        get_sensor_input_health=perception.get_sensor_input_health,
     )
-    apply_config(
-        node,
-        merge_config_sections(cfg, ["base_policy", "policy.base"]),
-        section_name="base_policy",
-        key_aliases=CONFIG_KEY_ALIASES,
-        log=config_log,
-    )
-    apply_config(
-        node,
-        merge_config_sections(
+    sections = (
+        ("base_policy", merge_config_sections(cfg, ["base_policy", "policy.base"])),
+        ("uav_policy", merge_config_sections(
             cfg,
             [
                 "uav_policy",
@@ -96,15 +99,22 @@ def create_dispatcher_engine(config_path: str):
                 "policy.safety",
                 "policy.search",
                 "policy.planner",
-                "policy.scene_nav",
                 "policy.overdepth",
             ],
-        ),
-        section_name="uav_policy",
-        key_aliases=CONFIG_KEY_ALIASES,
-        log=config_log,
+        )),
     )
-    node.sync_task_buffers_from_prepare()
+    for section_name, values in sections:
+        for target in (node, perception):
+            owned_values = {
+                key: value for key, value in values.items()
+                if hasattr(target, CONFIG_KEY_ALIASES.get(key, key))
+                or (target is node and not hasattr(perception, CONFIG_KEY_ALIASES.get(key, key)))
+            }
+            apply_config(
+                target, owned_values, section_name=section_name,
+                key_aliases=CONFIG_KEY_ALIASES, log=config_log,
+            )
+    node.prompt_queue.sync_task_buffers_from_prepare(node.prepare_content)
     return node
 
 
@@ -127,7 +137,7 @@ def main():
     engine = create_dispatcher_engine(config_path)
 
     # host 由 engine 换 engine.tools（S3 §4.8）：ToolControlPlane /
-    # ToolExecutor 的 duck-typed 三缝宿主为 core/workflow.py 的
+    # ToolExecutor 的 duck-typed 三缝宿主为 core/tool_workflow.py 的
     # ToolWorkflowHost（bind_tool_middleware / start_tool_workflow /
     # cancel_tool_call），FakeHost 契约不变。
     # 端口注入（S4a P1/P3/P4）：日志/关停/反馈面在此装配，

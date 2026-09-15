@@ -22,7 +22,7 @@ class TaskPhaseBridge:
         self.channels = channels
         self.runlog = runlog
         # Frame_id of the AgentPrompt that OWNS the currently active task. Set
-        # in _start_prompt_task; every task-phase event (incl. terminals) must
+        # 在工具调用激活时设置； every task-phase event (incl. terminals) must
         # use it instead of latest_agent_prompt_frame_id so a late fail is
         # correlated to the ORIGINAL step_id/request_id, not to a later
         # prompt's frame (L4 cancel "急停" overwrites the latest frame).

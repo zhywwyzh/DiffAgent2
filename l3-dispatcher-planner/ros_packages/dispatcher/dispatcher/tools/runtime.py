@@ -56,7 +56,9 @@ class ToolRuntime:
         lease_manager,
         event_history_size: int = 1000,
         event_sink=None,
+        safety_stop=None,
     ) -> None:
+        self._safety_stop = safety_stop
         self.registry = registry
         self._commands = command_queue
         self._leases = lease_manager
@@ -81,6 +83,13 @@ class ToolRuntime:
     def list_tools(self) -> dict:
         return self.registry.list_tools()
 
+    def can_execute(self, call_id: str) -> bool:
+        """拒绝队列中已终结、取消或被抢占的调用。"""
+        with self._lock:
+            state = self._calls.get(call_id)
+            return bool(state is not None and not state.terminal and not state.cancel_requested
+                        and self._active_call_id == call_id)
+
     def admit(self, payload: dict) -> dict:
         call = self.registry.normalize_call(payload)
         fingerprint = hashlib.sha256(
@@ -101,7 +110,7 @@ class ToolRuntime:
             self._leases.require_owner(call.lease_identity)
 
             active = self._active_state_locked()
-            if active is not None and call.name != "flight.emergency_stop":
+            if active is not None:
                 # 同源新指令抢占：同一 station 实例下发的新 AgentPrompt
                 # （前端刷新语义）可取代旧 active call——先经完整取消链
                 # （skill.on_cancel → 软急停 → cancel_all_goals →
@@ -125,9 +134,7 @@ class ToolRuntime:
                 self._commands.put(
                     ToolCommand("cancel", active.call, "preempted_by_new_instruction")
                 )
-            elif active is not None:
-                active.cancel_requested = True
-                self._commands.put(ToolCommand("cancel", active.call, "emergency_preempt"))
+
 
             ack = {
                 "type": "tool_call_ack",
@@ -371,21 +378,12 @@ class ToolRuntime:
                 state.cancel_requested = True
                 self._commands.put(ToolCommand("cancel", state.call, reason))
 
-    def issue_safety_stop(self, reason: str) -> None:
-        """Lease-loss step: reuse the flight.emergency_stop adapter path.
 
-        The synthetic stop is not an admitted owner call; it stays out of
-        the ledger and its phase emissions are dropped.
-        """
-        call = ToolCall(
-            call_id=f"safety_{uuid.uuid4().hex[:12]}",
-            name="flight.emergency_stop",
-            arguments={},
-            flight_session_id=f"lease_loss_{uuid.uuid4().hex[:8]}",
-            step_id="safety_stop",
-            display_text=f"lease loss: {reason}",
-        )
-        self._commands.put(ToolCommand("call", call, reason))
+    def issue_safety_stop(self, reason: str) -> None:
+        """租约丢失直接调用安全停止端口，缺失端口或异常由租约状态机保持取消中。"""
+        if self._safety_stop is None:
+            raise RuntimeError("safety stop port is required")
+        self._safety_stop(reason)
 
     def _active_state_locked(self) -> _CallState | None:
         state = self._calls.get(self._active_call_id)

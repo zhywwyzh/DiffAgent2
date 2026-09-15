@@ -74,17 +74,20 @@ core 只做五件事：
 
 | 模块 | 允许的 `def`（方法名） |
 |------|------------------------|
-| `engine.py` | `__init__`、`sync_task_buffers_from_prepare`、`_set_dispatcher_state`、`_state_name`、`_handle_get_pre_command`、`_load_next_prompt`、`_bump_task_generation`、`_enter_global_stop`、`_action_done`、`_advance_to_next_prompt`、`_reset_plan_cycle_if_needed`、`_handle_post_action`、`_run_inference_loop`、`_recover_inference_after_exception`、`run_inference`、`_fail_unregistered_dispatch`；`PendingAction.clear` |
+| `engine.py` | `__init__`、`_enter_global_stop`、`_run_inference_loop`、`_recover_inference_after_exception`、`run_inference`、`_fail_unregistered_dispatch` |
 | `core/telemetry.py`（`RunTelemetry`） | `__init__`、`emit`、`publish_command_content`、`fmt_wait_age`、`wait_diag` |
 | `core/task_phase.py`（`TaskPhaseBridge`） | `__init__`、`publish`、`set_active_frame`、`set_middleware` |
 | `core/skill_router.py`（`SkillRouter`） | `__init__`、`register`、`get`、`dispatch_plan`、`validate_active_tool`、`owner_skill`、`snapshot_owner`、`stash_task_result`、`pop_task_result` |
 | `core/actuators.py`（`PlannerActuators`） | `__init__`、`set_if_handle_yaw` |
-| `core/workflow.py`（`ToolWorkflowHost`） | `__init__`、`bind_tool_middleware`、`_activate_tool_call`、`start_tool_workflow`、`cancel_tool_call` |
+| `core/tool_workflow.py`（`ToolWorkflowHost`） | `__init__`、`bind_tool_middleware`、`_activate_tool_call`、`start_tool_workflow`、`cancel_tool_call` |
+| `core/prompt_queue.py`（`PromptQueue`） | `__init__`、`sync_task_buffers_from_prepare`、`pop_next_task`、`load_next_prompt`、`advance_head_prompt`、`reset_plan_cycle_if_needed`、`clear_all`、`head_command`、`is_command_empty`、`is_prepared_empty` |
+| `core/state_ledger.py`（`StateLedger`） | `__init__`、`set_state`、`_state_name`、`bump_task_generation`、`fail_sequence`、`reset_running` |
+| `core/action_gate.py`（`ActionGate`） | `__init__`、`action_done`、`handle_post_action`、`clear_action_state`；`PendingAction.clear` |
 | `core/ports.py`（端口 Protocol） | `CoreChannels`：`publish_emergency_stop`、`publish_if_handle_yaw`、`publish_command_content`、`publish_task_phase`；`Ticker`：`sleep`；`RuntimeClock`：`rate`、`is_shutdown`、`request_shutdown`；`LogSink`：`info`、`warn`、`err`、`warn_throttle`（端口名以 S3 方案 §4.5 冻结形态为准） |
 
 - 类标注以外的 `def` 节点：模块级装配函数（`create_dispatcher_engine` /
   `start_dispatcher_workers`）随装配职责落 `dispatcher_node.py`，**不计入 core**；
-  嵌套 `def` 只允许 `_set_dispatcher_state._state_name`（状态名反查，随宿主方法）。
+  嵌套 `def` 只允许 `StateLedger.set_state._state_name`（状态名反查，随宿主方法）。
 
 ## 5. 迁移判定
 

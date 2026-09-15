@@ -1,8 +1,4 @@
-"""Dispatcher state: command/dispatcher mission state enums.
-
-These enums drive the dispatcher engine FSM and its base_policy/grasp
-siblings. The YAML config-loading utilities live in dispatcher/config.py.
-"""
+"""核心六态、任务状态及感知算法使用的几何模式。"""
 
 from __future__ import annotations
 
@@ -10,16 +6,7 @@ from __future__ import annotations
 class COMMAND_TYPE:
     WAIT = 0
     STOP = 1
-    GO = 2
-    NEXT = 3
-    GO_ORIGIN = 4
-    AGAIN = 5
-    EMERGENCY_STOP = 6
-    RESTART = 7
-    GET_PRE = 8
-    REPLAN = 9
-    TAKEOFFLAND = 10
-    COMMUNICATE = 11
+
 
 
 class DISPATCHER_STATE:
