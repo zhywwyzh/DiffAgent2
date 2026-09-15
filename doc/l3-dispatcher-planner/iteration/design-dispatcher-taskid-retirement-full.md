@@ -287,7 +287,16 @@
   - 若仓外旧客户端确在 `params` 多带 `task_id`：现行为是注册表的 `unknown_argument` **显式拒绝**，保持即可——**不静默丢弃、不增兼容层**（`l3-migration-protocol` §4 禁止为兼容旧调用方保留入口）。
   - **S1 不需要**为此新增任何契约条款（原设计所依赖的条件条款未被触发）。
 - **字符串出现范围（修正后）**：`tools/`、`core/`、`utils/` **全域零命中** `\btask_id\b`（无白名单）——比原设计更强的门禁。
-- **下游 ROS 消息字段（`tests/zenoh-bench/mock_mission_action.py#L18`）**：`/mission/task` goal 上的 `task_id` 属**下游 ROS 消息 schema**（旧库 `engine.py#L567` 曾把它作为 dispatcher→执行侧的任务类型标签），总纲 §3 Non-Goals 明令不改消息字段名；该读取保留，登记为下游契约项（见 §9 R4）。**将来执行缝落地时**「goal 是否携带任务类型标签」由执行缝轮次按 `l3-execution-seam` §4（执行缝不感知工具语义）裁决——不属 S5。
+- **下游 ROS 消息字段（`tests/zenoh-bench/mock_mission_action.py#L18`）**——**2026-09-13 修订（用户裁决）**：
+  原裁决（「`/mission/task` goal 的 `task_id` 属下游 ROS 消息 schema，读取保留，登记为下游契约项」）
+  的前提已被推翻：**mission-execute 后续已不存在**，该 goal 字段成为无用内容，且 l3 按名分发
+  （`basic_flight.*` 等 wire 名直接控制）不依赖任何编号映射。处置改为：**删除 mock 的该字段读取**
+  （本修订同一改动内执行）。
+- **`ros_packages/planner/**` 的 `source_task_id`（2026-09-13 二次裁决：范围外，不清除）**：
+  它是 `quadrotor_msgs/LocalGoalSet` 的**来源枚举标签**（取值为具名常量
+  `SOURCE_TASK_EXPLORATION`/`SOURCE_TASK_COUNTING`，仅用于 planner 全景模式判定），
+  与 l3 的逐工具编号无派生关系、非其直接前序/后续产物。按用户清除口径（只清「直接叫
+  `task_id` 的及其直接产物」），**不出本方案范围、不列待办处置项**，仅作范围外事实登记。
 
 ### 4.5 ack / 事件 / 合成 call（裁决：全部去 `task_id`；改后逐字片段）
 
@@ -588,3 +597,10 @@ bench 轮次须删除或改写为「wire 携带 `task_id` 的 payload 被 `unkno
 - **登记的后续轮次待办**：见上方 ①–④（含 verify_routing 死断言用例的具体处置、rpc_plane 死变量）。
 
 > 注：本附录与 §10 登记项 ③④ 曾于 2026-09-12 回写后被外部进程（Trae IDE 陈旧缓冲，含当晚 20:43 的一次保存）回滚丢失，2026-09-13 依据会话记录重建，内容与首次回写一致。
+
+### 2026-09-13 修订（§4.4 下游字段裁决推翻 + 扩量清除）
+
+- **触发**：用户裁决——mission-execute 后续已不存在，`/mission/task` goal 的 `task_id` 为无用内容；l3 按名分发（`basic_flight.*` 等 wire 名直接控制），不存在任何编号映射。
+- **流程**：先修订方案（§4.4/§10 两处裁决改写，见上文「2026-09-13 修订（用户裁决）」）→ 同一改动内执行代码清除：删除 `tests/zenoh-bench/mock_mission_action.py` `goal_to_dict` 的 `"task_id"` 键（原 L18）。
+- **验收实测（2026-09-13）**：`l3-dispatcher-planner/` 全树 **Python 零命中** `\btask_id\b`；剩余命中仅 `ros_packages/planner/{ego_planner/plan_manage/src/ego_replan_fsm.cpp, super_planner/planner/include/ros_interface/ros1/fsm_ros1.hpp}` 的 `source_task_id`——**2026-09-13 二次裁决：范围外不清除**（来源枚举标签，与 l3 编号无派生关系，见 §4.4 二次裁决）；`py_compile` 通过；pytest 6 失败/35 通过（S5 基线不变）；R7 延时回读（t+25s，该文件当时开在 IDE 中）零回滚。
+- **清除口径钉死（用户原话归纳）**：只清除「名字直接叫 `task_id` 的标识符/字段/键」及其**直接前序与后续产物**（映射索引、准入校验、ack/事件键、遥测键、注入点、测试构造）；语义不同名的相邻概念（如 `source_task_id` 来源枚举）与冻结历史文档中的叙述性提及不在其内。

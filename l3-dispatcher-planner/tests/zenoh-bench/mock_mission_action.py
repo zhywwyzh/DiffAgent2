@@ -15,7 +15,6 @@ from quadrotor_msgs.msg import TaskActionAction, TaskActionGoal, TaskActionResul
 
 def goal_to_dict(goal: TaskActionGoal) -> dict:
     return {
-        "task_id": int(getattr(goal, "task_id", 0)),
         "prompt": str(getattr(goal, "prompt", "")),
         "frame_id": str(getattr(goal, "frame_id", "")),
         "waypoints": [
