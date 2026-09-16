@@ -1766,9 +1766,6 @@ class BasePolicyNode(object):
             [P_target, np.array([roll, pitch, target_yaw], dtype=np.float64)]
         )
         self._publish_p2w_marker(P_w_full, frame.stamp)
-        if self.first_frame is None:
-            self.first_waypoint = P_w_full
-            self.first_depth = float(candidate.raw_depth)
         return P_w_full
 
     def _estimate_region_point_depth(

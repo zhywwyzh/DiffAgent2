@@ -39,24 +39,20 @@ class PendingAction:
 
 class ActionGate:
     def __init__(self, *, runlog, skills, ledger, queue,
-                 host_state_get, host_state_set, if_plan_set,
+                 if_plan_set,
                  action_progress_get, action_progress_set,
                  action_finish_get, action_finish_set, action_start_time_get,
-                 waypoint_get, frame_get, min_action_wait_get):
+                 min_action_wait_get):
         self.runlog = runlog
         self.skills = skills
         self.ledger = ledger
         self.queue = queue
-        self.host_state_get = host_state_get
-        self.host_state_set = host_state_set
         self.if_plan_set = if_plan_set
         self.action_progress_get = action_progress_get
         self.action_progress_set = action_progress_set
         self.action_finish_get = action_finish_get
         self.action_finish_set = action_finish_set
         self.action_start_time_get = action_start_time_get
-        self.waypoint_get = waypoint_get
-        self.frame_get = frame_get
         self.min_action_wait_get = min_action_wait_get
         self._action_generation = 0
         self._action_finish_generation = -1

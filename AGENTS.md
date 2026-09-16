@@ -61,6 +61,19 @@ DiffAgent2 旧版”称呼，不混用路径或简称。
 - **其他领域任务**：先列 `specs/implemented/` 下的根契约，按领域选读；
   根契约的 `## Inner contracts` 表是其叶契约的权威清单。
 
+### l3 待迁依赖读取入口
+
+- 涉及 dispatcher 收紧、字段/参数删除、旧版 skill 迁移、记录服务、返航、
+  动作武装、VLA 调试或急停悬停时，开工前还须读取
+  [rest 索引](doc/l3-dispatcher-planner/rest/README.md)，并读完
+  [保留项台账](doc/l3-dispatcher-planner/rest/dispatcher-deferred-dependencies.md)
+  中对应条目的触发条件、旧版调用链、接入建议、验收和可删除条件。
+- 新版没有当前消费者，不等于已无用途；必须结合 DiffAgent2 旧版的 skill
+  与共享服务判断。用户明确暂时保留的项不得仅按新版引用计数裁掉。
+- `rest/` 是迁移过程资料，不替代 `specs/`。接入、迁移归属或删除相关项时，
+  在同一改动内更新台账及索引，附实现/测试证据和剩余触发条件；不得只留
+  “以后处理”，也不得把保留字段视为生产能力已实现。
+
 ## 硬性约束
 
 > 本仓库交付/共享时的不可协商约束。

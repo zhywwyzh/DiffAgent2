@@ -25,7 +25,7 @@ class SkillRouter:
         """按工具名查注册表。"""
         return self._skills.get(name)
 
-    def dispatch_plan(self, cmd, skill_command: SkillCommand) -> bool:
+    def dispatch_plan(self, skill_command: SkillCommand) -> bool:
         """按原始调用名查表，False 由核心统一上报失败。"""
         tool_name = skill_command.call.name
         self._current_plan_skill = None

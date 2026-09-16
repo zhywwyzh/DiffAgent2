@@ -7,22 +7,17 @@ from dispatcher.utils.state import COMMAND_STATUS
 
 class PromptQueue:
     def __init__(self, *, runlog, task_phase, skills, ledger,
-                 if_plan_get, if_plan_set, last_state_get, last_state_set,
+                 if_plan_set, last_state_set,
                  frame_state_get):
         self.runlog = runlog
         self.task_phase = task_phase
         self.skills = skills
         self.ledger = ledger
-        self.if_plan_get = if_plan_get
         self.if_plan_set = if_plan_set
-        self.last_state_get = last_state_get
         self.last_state_set = last_state_set
         self.frame_state_get = frame_state_get
         self.command_content = []
         self.prepare_content = []
-        self.pre_prompt = []
-        self.prompt_bf = []
-        self.content = []
         self.replan_content = None
         self.previous_return_record_cursor = None
 
@@ -43,23 +38,15 @@ class PromptQueue:
                     entry,
                 )
         self.prepare_content = valid_entries
-        # prepare_content 元素为 (prompt, SkillCommand) 元组；
-        # content/pre_prompt/prompt_bf 是纯文本派生缓存，取元组中的 prompt。
-        self.content = [entry[0] for entry in self.prepare_content]
-        self.pre_prompt = [entry[0] for entry in self.prepare_content]
-        self.pre_prompt.append("Finish the mission")
-        self.prompt_bf = self.pre_prompt.copy()
-
 
     def pop_next_task(self) -> bool:
-        """处理 GET_PRE：从准备队列推进到执行队列。"""
+        """从准备队列装载下一条任务。"""
         self.ledger.bump_task_generation("switch_prompt")
-        # 每次 GET_PRE 重建当前执行队列（单条）
+        # 每次装载重建当前执行队列（单条）
         self.command_content = []
         if self.is_prepared_empty():
             return False
 
-        self.pre_prompt.pop(0)
         # 记录当前位置作为 last_state（return 类命令经专用工具进入，不排队列）
         state = self.frame_state_get()
         self.last_state_set(state.copy() if state is not None else None)
@@ -127,9 +114,6 @@ class PromptQueue:
     def clear_all(self) -> None:
         self.command_content.clear()
         self.prepare_content.clear()
-        self.pre_prompt.clear()
-        self.prompt_bf.clear()
-        self.content.clear()
         self.replan_content = None
         self.previous_return_record_cursor = None
 

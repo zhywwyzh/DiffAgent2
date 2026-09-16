@@ -16,7 +16,7 @@ class StateLedger:
         self.failed = False
 
     def set_state(self, new_state, *, reason: str = ""):
-        """统一设置状态，并在切回 WAIT_FOR_MISSION 时记录调用位置。"""
+        """统一写入宿主状态，记录迁移来源、目标与原因。"""
 
         def _state_name(state_value):
             for attr_name, attr_value in vars(DISPATCHER_STATE).items():
@@ -41,8 +41,6 @@ class StateLedger:
                 task_generation=self.task_generation,
                 **self.action_snapshot(),
             )
-        if new_state != DISPATCHER_STATE.WAIT_FOR_MISSION:
-            return
 
 
     def bump_task_generation(self, reason: str = "") -> int:

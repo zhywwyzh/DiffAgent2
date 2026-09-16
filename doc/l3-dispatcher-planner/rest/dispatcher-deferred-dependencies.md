@@ -1,0 +1,155 @@
+# dispatcher 待迁依赖与保留项台账
+
+更新日期：2026-09-16。状态：R01–R07 均为**明确保留，待对应能力接入时重新参考**。
+
+本文件记录已批准的暂时保留及后续处理线索，不定义新契约。用户明确要求：保留项在未来接入或优化时重新判断，不能因为当前生产技能为空而直接删除。未来实现方案仍按 `iteration/_TEMPLATE.md` 落盘；如需改变端口或行为契约，先更新 `specs/`。
+
+## 取证与使用方式
+
+| 标记 | 含义 |
+|----|----|
+| `N/` | DiffAgent2 新版：`l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/` |
+| `O/` | DiffAgent2 旧版：`drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/` |
+| 旧版快照 | 所属编排仓库提交 `1b5fef5`，核对时 dispatcher 源码相对该提交无差异；这里只记录相对路径，主机检出位置不入库 |
+| 定位方式 | 优先按符号搜索，再参考行号；旧版行号取自上述快照，新版以符号为准，避免未来编辑造成锚点失效 |
+| 维护要求 | 对应能力开始设计时即读本条目，不要等写完代码才补查；本轮未改造的缺口不算已交付能力 |
+
+### 为什么有些开关只有参数，没有完整功能
+
+早期[核心迁移方案](../iteration/design-dispatcher-core-inference-migration.md)将 recording、悬停辅助方法和技能实现排除在 core-only 迁移范围之外；[结构稳定化方案](../iteration/design-dispatcher-architecture-stabilization.md)把相关能力登记为后续轮次。新版提交 `7fc6827` 中已经存在“保留 record_stop_event 参数、没有记录调用”的状态，不是本轮清理才删掉逻辑。
+
+随后用户允许删除所有未迁入生产工具链；当前的保留状态是这次跨版本审核明确决定留下的迁移线索。它们没有使空生产注册面自动恢复。旧方案中含任务编号的实现只用来理解历史用途，不得迁入新版。
+
+<a id="r01"></a>
+## R01 — 停止事件记录开关与任务覆盖语义
+
+| 项 | 内容 |
+|----|----|
+| 对应审核 | B01、D01；本轮保留 `record_stop_event` |
+| 新版位置与现状 | `N/engine.py::DispatcherEngine._enter_global_stop`。参数仍在，但函数体不读取它，**当前不产生停止记录**；不能把传 True 理解为已经落盘。 |
+| 旧版生产/消费链 | `O/engine.py:1546` 依据开关调用 `_recording._record_task_stop_event`；任务覆盖入口 `_pause_for_new_agent_prompt`（`:1073`）传 False，防止把覆盖动作误记为普通停止。 |
+| 何时重新参考 | 开始迁入 RecordingService、停止/完成过程记录、任务覆盖或仿真重置流程时；或准备删除此参数时。 |
+| 接入位置与顺序 | 先明确记录服务的独立归属和注入接口；再在跨域停止入口按开关调用服务；最后检查覆盖、取消、硬停、软停、重置每个调用点是否应记停止事件。保持 core 无具体技能 import。 |
+| 仍未处理 | 新版没有记录服务实例；新任务覆盖暂只传 `shutdown_program=False, publish_hold=False`，未恢复旧版的 `record_stop_event=False` 选择。接入记录功能时必须同时复查，否则默认 True 会开始产生此前没有的记录。 |
+| 必须验证 | 每类停止记录的产生/不产生与次数；记录关联原调用而非新覆盖调用；重复停止不产生重复终态；记录服务失败不妨碍队列和动作安全清理。 |
+| 何时可删除 | 明确放弃停止记录，或新服务已提供等价且验证过的生命周期策略、不再需要此开关时，连同参数和调用点一起删除；不能只因当前没有消费者删除。 |
+
+<a id="r02"></a>
+## R02 — 软停日志开关与结构化停止事件
+
+| 项 | 内容 |
+|----|----|
+| 对应审核 | B02、D01/D02；本轮保留 `emit_soft_stop_log` |
+| 新版位置与现状 | `N/engine.py::_enter_global_stop` 中 `if emit_soft_stop_log` **仍有效**，控制软停的 `runlog.warn`；它不控制急停发布或任务清理。 |
+| 旧版依据 | `O/engine.py:1540` 控制结构化事件 `emergency_stop_soft`；重置回调（`:814`）和任务覆盖入口（`:1073`）显式传 False。 |
+| 何时重新参考 | 接入统一运行日志/结构化事件、重置服务、覆盖或取消流程，或重整停止日志策略时。 |
+| 接入建议 | 区分普通文本日志、结构化停止事件、R01 的持久化记录，分别决定哪些场景应抑制。先确定事件字段与消费者，再恢复结构化上报，不要让同一停止被多个层重复记录。 |
+| 仍未处理 | 旧版结构化事件和新版文本警告不完全等价；旧版某些传 False 的调用方尚未迁入。不是“整个条件分支没迁”，也不是“所有调用都需要日志”。 |
+| 必须验证 | 软停 True/False 各自输出；硬停不受该开关影响；关闭日志仍完成清理；任务覆盖不制造错误的操作员急停记录。 |
+| 何时可删除 | 新日志策略确认无需调用方选择、且所有原传 False 场景已得到等价处理时，再删开关；不得与 R01 的开关混为一项。 |
+
+<a id="r03"></a>
+## R03 — 急停悬停与执行侧停止路径
+
+| 项 | 内容 |
+|----|----|
+| 对应审核 | B03、D01/D02；保留 `publish_hold`，本轮注明“急停悬停” |
+| 新版位置与现状 | `N/engine.py::_enter_global_stop` 在 True 时只调用 `channels.publish_emergency_stop()`；`N/ros_adapter/core_channels_ros.py::RosCoreChannels` 默认发布 `/command/emergency_stop` 的 Empty。**dispatcher 当前不会额外构造并发送悬停 goal**。 |
+| 旧版完整链 | `O/engine.py:1566` 同时发布急停信号并调用 `_publish_emergency_hold_position`（`:1485`）；后者取位姿、构造并限幅悬停目标、切 planner 模式，然后 `send_task_goal` 覆盖旧轨迹。 |
+| 何时重新参考 | 接入飞行 skill、航点执行端口、下行执行缝、planner/飞控桥、租约丢失安全停或修改急停语义时，必须在端到端接线前读取。 |
+| 本轮方案判断 | 保持“急停后悬停”的目标，不改成停桨、返航或自动降落。当前缺少速度、可用定位和控制模式等实机证据，不能判定另一种方案普遍更好。应由执行侧以可实现的制动轨迹进入悬停，core 只触发安全停止，不在 core 增加飞行动作算法。 |
+| 已有下游线索 | 新版 `ros_packages/planner/ego_planner/plan_manage/src/ego_replan_fsm.cpp` 的 `mandatoryStopCallback`（约 1285 行）进入 EMERGENCY_STOP，相关分支调用 `callEmergencyStop(odom_pos_)`（约 361 行）；订阅名是 `mandatory_stop`（约 89 行）。**这不能证明 dispatcher 默认急停主题已连通该入口**，还需核对 launch/remap、使用的 planner 和飞控状态。 |
+| 接入/优化步骤 | 先验证急停主题到所用 planner 的链路、停止轨迹的生成与跟踪、制动后保持和恢复条件；再决定是否还需要旧版额外 hover goal。若已有停止链可靠完成悬停，避免同时发送相互覆盖的两类目标；若仍需 hover goal，将其放在执行缝/适配端口，按现行契约实现。 |
+| 必须验证 | 运动中触发后速度收敛与位置保持、旧 goal 不再继续、重复触发、定位不可用、模式切换和重启时停止语义；取消/覆盖 False 不发布急停；硬停请求发出不等于实机已悬停。 |
+| 何时可删除或改名 | 只有最终安全停止链已选定、无需独立 hover goal 的结论有运行证据时，才重新评审 publish_hold 的名称或拆分；若删除旧悬停路径，需记录替代路径和验证结果。当前不做仅按 Empty 发布行为的机械改名。 |
+
+<a id="r04"></a>
+## R04 — 返航快照、历史游标与任务文本回退
+
+| 项 | 内容 |
+|----|----|
+| 对应审核 | B08、B10、B11 |
+| 新版保留位置 | `N/core/state_ledger.py::StateLedger.last_state`；`N/core/prompt_queue.py::PromptQueue.replan_content`、`previous_return_record_cursor`，以及 `frame_state_get`、`last_state_set` 写入回调。 |
+| 当前有效部分 | `pop_next_task` 复制当前 frame.current_state 写入 ledger.last_state，并把准备队首存入 replan_content 再放入 command_content；全局停止会清 replan_content 和游标。last_state 是位置状态快照，不是 FSM 上一状态。 |
+| 旧版消费链 | `O/tools/flight/flight_skill.py:132` 调用 `recording._resolve_return_plan`；`O/recording.py:367` 读取历史回退游标、`:435` 更新游标、`:443` 在记录不足时读取 last_state；`:41` 读取 replan_content 作任务文本回退。 |
+| 何时重新参考 | 接入 `flight.return`、返回上一位置/原点、过程轨迹记录、导航历史恢复，或把队列数据迁往服务时。 |
+| 接入建议 | 先实现历史记录和目标解析服务，再让飞行技能通过服务解析返航目标；从现有快照/队首接口传入所需数据。旧版读 `host.last_state`，新版实际在 `host.ledger.last_state`；不能靠给 engine 增加同名属性桥接，也不能让技能绕过端口到处读内部对象。 |
+| 仍未处理 | 没有真实返航消费者，没有历史记录集合/原点记录接线；游标目前不会前移。last_state 的重置策略仍须按新任务和新飞行会话边界决定，不能让上一会话快照成为下一会话返航点。 |
+| 必须验证 | 连续两次返回上一位置确实逐步后退；无记录/无原点时的回退或明确失败；快照不是随帧原地更新的别名；重置、覆盖与新会话不读取过时位置；任务文本回退仍对应本次调用。 |
+| 何时可删除 | 历史服务已独立拥有位置与游标，或产品明确取消逐步返航且调用方已清理时，删除旧字段及快照回调。replan_content 只有在记录服务不再使用该文本回退并有替代后才能改为纯局部变量。 |
+
+<a id="r05"></a>
+## R05 — 动作上下文、武装接口与 VLA 重规划
+
+| 项 | 内容 |
+|----|----|
+| 对应审核 | C01–C03 |
+| 新版保留位置 | `N/core/action_gate.py::PendingAction`、`ActionGate.pending_action`；`handle_post_action` 的 REPLAN 标记清理和 `clear_action_state` 的全量清理。 |
+| 当前状态 | 上下文会初始化和清空，但生产 `arm_action`/动作发送能力未接入；不能因类存在就认为能执行飞行动作。 |
+| 旧版生产链 | `O/tools/vla/vla_skill.py:606`、`O/tools/flight/flight_skill.py:84` 和场景导航技能调用宿主 arm_action；`O/engine.py:1596` 武装，`:1623` 起写元数据。 |
+| 旧版读取链 | VLA `on_action_result`（`:487`）读取 replan_cmd 决定 REPLAN；`O/engine.py:574` 用 prompt_raw 下发目标；`O/recording.py:35` 用它回退当前任务文本；动作准备日志（`O/engine.py:1643`）读取 action_name、instruction_type。 |
+| 字段级区分 | replan_cmd、prompt_raw、action_name、instruction_type 有上述明确读点；replan_reason 见写入/清理；waypoint、look_forward、nav_yaw、yaw_source、is_far_push 在该上下文快照中未确认完整消费者，不能把 skill 中其他同名概念当成此对象读点。整类保留不等于每个字段永久保留。 |
+| 何时重新参考 | 实现 SkillHost.arm_action、动作结果回调、VLA 临时动作后重规划、飞行/场景技能动作发布，或调整动作元数据模型时。 |
+| 接入顺序 | 明确哪些是通用动作账务、哪些是技能内部语义；按端口接入动作武装、实例归属、代次、结果与清理；再迁 VLA 判据和记录消费。旧版 `host.pending_action` 当前已在 `ActionGate` 内，需设计显式读取/生命周期端口或技能自有状态，不复制宿主私有访问或造旧入口转接器。 |
+| 必须验证 | 临时动作完成只进入 REPLAN 且不提前 done；重新武装后旧结果被代次拒绝；停止/覆盖后标记清理；动作归属不随名字重新注册漂移；对外调用终态唯一。 |
+| 何时可删除 | 技能自有会话/通用动作记录已覆盖所有真实读点，并验证重规划、记录与发送文本后，逐字段裁剪或整体替换。保留清理生命周期，不能只搬数据而丢掉停止时的逆操作。 |
+
+<a id="r06"></a>
+## R06 — 运行会话标签与记录服务
+
+| 项 | 内容 |
+|----|----|
+| 对应审核 | B14 |
+| 新版保留位置 | `N/core/telemetry.py::RunTelemetry.log_session_tag`；engine.runlog 持有该对象。trace 当前确实使用同次构造生成的 session_tag。 |
+| 旧版证据 | `O/recording.py:53` 写日志快照、`:67` 写上行记录信封时读取 engine.log_session_tag。 |
+| 何时重新参考 | 迁入 RecordingService、日志快照/上行、重连补发，或设计跨进程会话关联时。 |
+| 接入建议 | 从遥测对象显式传入会话标签或记录配置；不要在记录服务另造一个会话标签，也不要为了旧版属性名给 engine 加转接属性。用户日志契约若已采纳，应先据其明确字段含义。 |
+| 仍未处理 | 上行记录与快照服务已退役待重建；当前标签格式的唯一性需求未做新的保证，不能等同 call_id。 |
+| 必须验证 | 同次运行 trace 与记录服务使用相同会话标签；重启/并行实例是否满足实际关联要求；快照和补发记录不跨会话误归属。 |
+| 何时可删除 | 新会话服务成为唯一来源、所有记录消费者已切换，或明确只保留 trace 且不需要向其他服务传出标签时，才删除重复属性。 |
+
+<a id="r07"></a>
+## R07 — VLA 多图思考调试目录
+
+| 项 | 内容 |
+|----|----|
+| 对应审核 | B15 |
+| 新版保留位置 | `N/core/telemetry.py::RunTelemetry.thinking_debug_dir`、`last_thinking_debug_dir` 及目录创建逻辑。 |
+| 当前状态 | 启动时创建目录并输出开启日志；没有生产 VLA 消费者写入。普通 trace 独立工作。 |
+| 旧版证据 | `O/tools/vla/vla_skill.py:886` 在搜索耗尽后的多图推理分支调用保存；`:1082` 清旧目录，`:1114` 创建本轮目录并保存视图与元数据，`:1190` 写 last_thinking_debug_dir。后者在核对快照中见赋值，不据此假定存在其他读取方。 |
+| 何时重新参考 | 接入 VLA 搜索、多图推理、调试图保存或修改日志落盘管理时。 |
+| 接入建议 | 决定目录归 VLA skill 还是共享记录服务；通过显式配置传路径，按资源生命周期管理写入与清理。旧版从 host 直接取字段，新版位于 RunTelemetry；不应把领域调试逻辑重新塞进 core。 |
+| 必须验证 | 禁用时不创建/写入；启用时保存当前轮视图和元数据；清理不删除其他调用/会话产物；目录不可写时的失败处理不破坏任务终态；关闭或取消后不继续异步写旧目录。 |
+| 何时可删除 | VLA 明确不需要该调试功能，或独立调试服务已接管路径与生命周期后，删除遥测对象上的旧字段、创建逻辑和日志，不影响 trace。 |
+
+## 当前队列如何执行（回应 B10）
+
+| 阶段 | 调用与数据变化 | 保留的历史依赖 |
+|----|----|----|
+| 接受调用 | `ToolWorkflowHost.start_tool_workflow` 检查技能与输入，激活调用并通知技能；同步技能不入队 | 当前生产技能表为空；这条通用链由测试技能验证 |
+| 同步任务 | 异步调用将 `(prompt_text, SkillCommand)` 列表传给 `PromptQueue.sync_task_buffers_from_prepare`；构造独立 prepare_content 列表 | 删除了纯文本副本，未删除 prompt 本身或原始 ToolCall |
+| 装载队首 | `pop_next_task` 推进任务代次、复制 frame.current_state 到 ledger.last_state；pop 准备队首，存入 replan_content，再加入 command_content，置 if_plan=True | R04 的位置快照和文本回退仍写入 |
+| 分发 | FSM 从 WAIT_FOR_MISSION 进 DISPATCH，按 skill_command.call.name 查注册表；`dispatch_plan(skill_command)` 调用技能 plan_tick | 无任务编号或中间名字映射；cmd 文本仍用于监控与日志 |
+| 动作完成 | WAIT_ACTION_FINISH 经技能完成门/代次判定后进 POST_ACTION；ActionGate 执行四裁决 | R05 保留重规划标记清理 |
+| 下一步 | REPLAN 围绕当前命令继续；ADVANCE 调 load_next_prompt 装下一条，队空时 done；IDLE 收敛完成；NEW_ACTION 不替技能再次调度 | 同一调用的内部序列不能被当作多次独立外部调用 |
+| 失败/停止 | 未注册只报 fail 并回空闲，不用排空冒充完成；全局停止/恢复清执行副本与动作状态 | 不修改配置来源列表；返航历史与会话重置策略见 R04 |
+
+例如准备队列中有两条同一次调用的内部命令，第一次 pop 后第一条进入执行队列、第二条留在准备队列；收到 ADVANCE 才装载第二条；后续 ADVANCE 发现准备队空才收敛完成。名称相同不代表动作归属可以重查，完成门仍绑定发布动作的技能实例。
+
+## 本轮明确删除，不自动恢复的内容
+
+| 内容 | 处置与未来边界 |
+|----|----|
+| first_image、感知中的 first_frame/first_waypoint/first_depth 残留 | 用户明确暂不保留 first 系列首帧功能；后续 VLA 迁移不得因为旧版有 first_rgb/首帧发布器就默认恢复。若新方案确需首帧对比，重新明确需求和归属。点云去重的局部 first_indices 不是首帧缓存功能，保持不动。 |
+| last_plan_time | 新旧核对未发现实际读取；删除无效计时缓存。若以后需要耗时测量，应设计真实的时间来源及消费者。 |
+| ActionGate 四个未调用回调、PromptQueue 两个未调用 getter | 只删多余接线，不删实际宿主状态/帧/航点及 R04 的快照写入；未来技能需要读数据时按端口重新设计。 |
+| pre_prompt、prompt_bf、content | 删除文本副本；保留结构化队列、prompt 与 replan_content，避免误伤记录服务待迁依赖。 |
+| dispatch_plan 的 cmd 入参 | 调用只传 SkillCommand；不删原始调用名或日志文本。 |
+
+## 后续关闭条目的记录格式
+
+| 日期 | 条目 | 状态 | 接入/替代/删除实现位置 | 验收证据 | 尚需参考的触发条件 |
+|----|----|----|----|----|----|
+| 2026-09-16 | R01–R07 | 保留待接入 | 见各项新版位置，本轮不迁生产技能 | 本轮验证保留状态未被清理，不能替代未来生产能力验收 | 按各项“何时重新参考”触发 |
+
+未来处理后在此追加记录并同步 README 索引。若仍不能接入，不只写“以后处理”，应说明缺少哪个端口/服务、下一次由哪种任务触发；若决定删除，应记录旧版消费者如何退役或被替代。

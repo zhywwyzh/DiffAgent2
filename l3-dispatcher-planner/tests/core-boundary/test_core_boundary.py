@@ -112,7 +112,7 @@ def bind_owner(engine, *, verdict=SkillVerdict.IDLE, gate=None):
         wait_action_tick=lambda: None,
     )
     engine.skills.register("test.tool", owner)
-    engine.skills.dispatch_plan("test", command())
+    engine.skills.dispatch_plan(command())
     engine.skills.snapshot_owner()
     return owner
 
@@ -213,7 +213,7 @@ def test_router_uses_call_name_and_owner_snapshot(engine):
     engine.tools._active_tool_name = "test.tool"
     assert engine.skills.validate_active_tool(command().call)
     assert not engine.skills.validate_active_tool(command("missing").call)
-    assert not engine.skills.dispatch_plan("", command(""))
+    assert not engine.skills.dispatch_plan(command(""))
     engine.skills.register("test.tool", object())
     assert engine.skills.owner_skill() is owner
     engine.skills._action_owner_skill = None
@@ -232,11 +232,59 @@ def test_queue_configuration_snapshot_and_stop(engine):
     engine._enter_global_stop("test", shutdown_program=False, publish_hold=False)
     assert engine.ledger.task_generation == generation + 1
     assert engine.prompt_queue.is_command_empty() and engine.prompt_queue.is_prepared_empty()
-    assert engine.prompt_queue.pre_prompt == engine.prompt_queue.prompt_bf == engine.prompt_queue.content == []
     assert not engine.action_in_progress and not engine.action_finish
     assert engine.action_gate.pending_action.waypoint is None
     assert engine.dispatcher_state == DISPATCHER_STATE.WAIT_FOR_MISSION
     assert engine.channels.stops == 0 and len(config) == 2
+
+
+def test_hard_stop_before_loop_start_is_preserved(engine):
+    prepare(engine, [command()])
+    engine._enter_global_stop("operator")
+    generation = engine.ledger.task_generation
+    assert engine.dispatcher_state == DISPATCHER_STATE.STOP
+    assert engine.channels.stops == 1
+    engine._enter_global_stop("operator")
+    assert engine.ledger.task_generation == generation and engine.channels.stops == 1
+    engine._run_inference_loop()
+    assert engine.clock.stopped
+
+
+def test_retained_stop_switches_remain_independent(engine):
+    prepare(engine, [command()])
+    messages = engine.runlog.info.__self__.messages
+    engine._enter_global_stop(
+        "override", shutdown_program=False, emit_soft_stop_log=False,
+        record_stop_event=False, publish_hold=False,
+    )
+    assert not any("Emergency stop:" in message for message in messages)
+    assert engine.channels.stops == 0 and not engine.clock.stopped
+    assert engine.dispatcher_state == DISPATCHER_STATE.WAIT_FOR_MISSION
+    engine._enter_global_stop("lease_lost", shutdown_program=False)
+    assert any("Emergency stop:" in message for message in messages)
+    assert engine.channels.stops == 1 and not engine.clock.stopped
+
+
+def test_return_snapshot_and_prompt_context_survive_queue_simplification(engine):
+    state = [1.0, 2.0, 3.0, 0.0, 0.0, 0.5]
+    engine.frame = SimpleNamespace(current_state=state)
+    first, second = command(step="first"), command(step="second")
+    config = prepare(engine, [first, second])
+    assert engine.ledger.last_state == state
+    assert engine.ledger.last_state is not state
+    state[0] = 9.0
+    assert engine.ledger.last_state[0] == 1.0
+    assert engine.prompt_queue.replan_content[1] is first
+    assert engine.prompt_queue.prepare_content[0][1] is second
+    assert engine.prompt_queue.load_next_prompt()
+    assert engine.ledger.last_state[0] == 9.0
+    assert engine.prompt_queue.replan_content[1] is second
+    assert engine.prompt_queue.head_command()[1] is second
+    engine.prompt_queue.previous_return_record_cursor = 4
+    engine._enter_global_stop("cancel", shutdown_program=False, publish_hold=False)
+    assert engine.prompt_queue.previous_return_record_cursor is None
+    assert engine.prompt_queue.replan_content is None
+    assert len(config) == 2
 
 
 @pytest.mark.parametrize("verdict", list(SkillVerdict))

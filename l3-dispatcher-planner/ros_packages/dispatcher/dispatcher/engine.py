@@ -47,8 +47,6 @@ class DispatcherEngine:
         self.if_plan = False
         self.global_stop_active = False
         self.frame = None
-        self.first_image = None
-        self.last_plan_time = None
         self.action_in_progress = False
         self.action_finish = False
         self.action_start_time = 0.0
@@ -73,24 +71,18 @@ class DispatcherEngine:
         self.prompt_queue = PromptQueue(
             runlog=self.runlog, task_phase=self.task_phase, skills=self.skills,
             ledger=self.ledger,
-            if_plan_get=lambda: self.if_plan,
             if_plan_set=lambda value: setattr(self, "if_plan", value),
-            last_state_get=lambda: self.ledger.last_state,
             last_state_set=lambda value: setattr(self.ledger, "last_state", value),
             frame_state_get=lambda: self.frame.current_state if self.frame is not None else None,
         )
         self.action_gate = ActionGate(
             runlog=self.runlog, skills=self.skills, ledger=self.ledger, queue=self.prompt_queue,
-            host_state_get=lambda: self.dispatcher_state,
-            host_state_set=lambda value: setattr(self, "dispatcher_state", value),
             if_plan_set=lambda value: setattr(self, "if_plan", value),
             action_progress_get=lambda: self.action_in_progress,
             action_progress_set=lambda value: setattr(self, "action_in_progress", value),
             action_finish_get=lambda: self.action_finish,
             action_finish_set=lambda value: setattr(self, "action_finish", value),
             action_start_time_get=lambda: self.action_start_time,
-            waypoint_get=lambda: self.waypoint,
-            frame_get=lambda: self.frame,
             min_action_wait_get=lambda: self._min_action_wait,
         )
         self.tools = ToolWorkflowHost(
@@ -112,6 +104,7 @@ class DispatcherEngine:
     def _enter_global_stop(
         self,
         reason: str = "",
+        *,
         shutdown_program: bool = True,
         emit_soft_stop_log: bool = True,
         record_stop_event: bool = True,
@@ -122,8 +115,10 @@ class DispatcherEngine:
         - shutdown_program=True: 进入 STOP 状态并停机。
         - shutdown_program=False: 仅中断当前任务，回到 WAIT_FOR_MISSION。
         - emit_soft_stop_log: 软急停时是否打印日志。
-        - publish_hold: 是否发布当前位置悬停目标（reset 场景必须为 False，
-          否则 hold goal 会经 /mission/task 被 planner 执行，污染 reset）。
+        - record_stop_event: 保留的停止记录开关，记录服务尚未接入，当前不生效。
+        - publish_hold: 急停悬停开关；当前仅发布急停信号，旧版的额外悬停目标
+          下发尚未接入。覆盖和取消传 False，避免引入运动副作用。
+        保留项与接入时机见 doc/l3-dispatcher-planner/rest/dispatcher-deferred-dependencies.md。
         """
         if shutdown_program and self.global_stop_active:
             return
@@ -174,12 +169,11 @@ class DispatcherEngine:
     def _run_inference_loop(self):
         """运行六态 FSM，按调用名分发并机械执行技能裁决。"""
         rate = self.clock.rate(20)
-        self.ledger.set_state(DISPATCHER_STATE.INIT, reason="inference:start")
-        self.last_plan_time = None
+        if self.dispatcher_state != DISPATCHER_STATE.STOP:
+            self.ledger.set_state(DISPATCHER_STATE.INIT, reason="inference:start")
         self.runlog.info("Waiting for sensor readiness...")
 
         self.frame = None if self.headless else self.get_frame_snapshot()
-        self.first_image = self.frame.rgb_image if self.frame is not None else None
         self.runlog.info("Mission start")
 
         while not self.clock.is_shutdown():
@@ -283,7 +277,7 @@ class DispatcherEngine:
                     continue
 
                 self.actuators.set_if_handle_yaw(True)
-                if not self.skills.dispatch_plan(cmd, skill_command):
+                if not self.skills.dispatch_plan(skill_command):
                     self.runlog.warn(
                         "Unregistered active tool in DISPATCH: name=%r prompt=%r",
                         str(skill_command.call.name or self.skills.active_tool_name() or ""),
