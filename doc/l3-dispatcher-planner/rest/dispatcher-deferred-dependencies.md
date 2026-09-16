@@ -1,6 +1,6 @@
 # dispatcher 待迁依赖与保留项台账
 
-更新日期：2026-09-16。状态：R01–R07 均为**明确保留，待对应能力接入时重新参考**。
+更新日期：2026-09-16。状态：R01–R07 均为**明确保留，待对应能力接入时重新参考**；R08（grasp）为**已删除且不自动恢复的登记项**。
 
 本文件记录已批准的暂时保留及后续处理线索，不定义新契约。用户明确要求：保留项在未来接入或优化时重新判断，不能因为当前生产技能为空而直接删除。未来实现方案仍按 `iteration/_TEMPLATE.md` 落盘；如需改变端口或行为契约，先更新 `specs/`。
 
@@ -122,6 +122,21 @@
 | 必须验证 | 禁用时不创建/写入；启用时保存当前轮视图和元数据；清理不删除其他调用/会话产物；目录不可写时的失败处理不破坏任务终态；关闭或取消后不继续异步写旧目录。 |
 | 何时可删除 | VLA 明确不需要该调试功能，或独立调试服务已接管路径与生命周期后，删除遥测对象上的旧字段、创建逻辑和日志，不影响 trace。 |
 
+<a id="r08"></a>
+## R08 — GRASP 抓取感知（已删除登记项，不自动恢复）
+
+| 项 | 内容 |
+|----|----|
+| 状态 | **已删除，不自动恢复**。由 [grasp 退役登记方案](../iteration/design-dispatcher-grasp-retirement.md) 裁定为不迁移，按 migration-protocol §2-⑥（无调用方或调试残留 → 不迁移）登记。 |
+| 平级裁决 | grasp **不是**与 vla/scene_nav/flight 平级的 tool：旧版注册面 14 项 ToolSpec 从未包含 grasp（`O/tools/registry.py:248-261`），旧版自己注释“registry 未放行（spec-gated）”（`O/tools/config.py:23-25`）。它是旧版 engine 持有的 latent 感知子工作流（`GraspWorker` + daemon 线程 + `_grasp_queue`），无 `SkillBase`/身份三声明/`_skills` 注册/`ToolSpec`/executor 分发任何契约点。 |
+| 旧版链路（已删除） | `O/tools/grasp/workflow.py`（GraspWorker，`:27-34` 构造队列，`:57` 投递 `_eng._handle_grasp_task`）；`O/engine.py:292-293` 持 `_grasp_wf`、`:2138-2139` daemon 线程启动、`:395-396` 发布 `/agent/grasp_result_image`、`:1113/:1120` 把 `TASK_ID.GRASP=11` 并入 task-phase 聚合；`O/zenoh_rpc.py` 的 `grasp_result/*` queryable（`:122/:170`）、图像/结果 latch（`:37-38/:91-93/:475-501/:590-612/:626-632`）。旧版 spec 定位为 reserved plan/history label（`agent-station-tools.spec.md:495-497`；`agent-station-channels.spec.md §3.10`）。 |
+| 不可运行证据 | `workflow.py:14-21` 缺 `cv2/np/CompressedImage/MISSION_TYPE` import；`:57/:132-140/:159/:348/:354` 经 `self._eng.*` 调用的 5 个方法实际都定义在 `GraspWorker` 自身（engine 无 `_handle_grasp_task`/`_serve_search` 等）；全仓 `_grasp_queue.put` 0 命中，任务队列零生产者。 |
+| 新版已删除面 | `N/iteration/design-dispatcher-unmigrated-chain-removal.md:108`：资源主题 `grasp_result/*`、ROS 反馈 `/agent/grasp_result_image`、grasp 线程均已删除；`N/tests/tool-registry/test_rpc_plane.py:21-29` 空发现面锚定 22 个已删除名一律 `method_not_found`；新版 l3 代码与 specs 全树 grep “grasp” 0 命中。 |
+| 何时重新参考 | 仅当出现**真实站端消费者**需求（如站端在飞行动作词汇上明确要求 GRASP 抓取感知结果）时，先读本条目与 [grasp 退役登记方案](../iteration/design-dispatcher-grasp-retirement.md)。不存在“顺手恢复”场景。 |
+| 接入条件（技能化） | 先按 `l3-skill-contract.spec.md` 出契约（身份三声明、生命周期钩子、四裁决、语义端口）；实现与测试**同批**交付并通过 `N/tests/core-boundary/`、`N/tests/tool-registry/`；技能进入发现面时同步更新 `l3-tool-plane.spec.md` 的集合与 `revision`。感知入口（旧版为 vla 私有的 `_serve_search`）与几何能力（`GeometryService`）若复用须重新设计归属，不原样搬运、不造转接器、不引入任务编号。 |
+| 必须验证 | 技能完成门/裁决与实例归属；感知结果与图像按现行端口契约出站；发现面 revision 与 spec 一致；站端读模型有真实消费者且非恒 404 的占位路由。 |
+| 何时可删除 | 本条目唯一存在价值是留证与触发条件登记：若产品明确永久放弃 GRASP 感知、且上述接入条件不再需要被任何未来任务触发，可删除本条目与 [grasp 退役登记方案](../iteration/design-dispatcher-grasp-retirement.md)；删除前须在「后续关闭条目的记录格式」表中留一行处理记录。 |
+
 ## 当前队列如何执行（回应 B10）
 
 | 阶段 | 调用与数据变化 | 保留的历史依赖 |
@@ -151,5 +166,16 @@
 | 日期 | 条目 | 状态 | 接入/替代/删除实现位置 | 验收证据 | 尚需参考的触发条件 |
 |----|----|----|----|----|----|
 | 2026-09-16 | R01–R07 | 保留待接入 | 见各项新版位置，本轮不迁生产技能 | 本轮验证保留状态未被清理，不能替代未来生产能力验收 | 按各项“何时重新参考”触发 |
+| 2026-09-16 | R03、R05 与 l4 对接前置 | 继续保留；设计中 | [RPC 对接方案](../iteration/design-dispatcher-l4-rpc-integration.md)、[基础飞行方案](../iteration/design-dispatcher-basic-flight-migration.md) | 只读检查发现 owner watch 未接 acquire；复现快速终态丢失、非法 JSON 顶层无回复和失效租约重放获准。未改生产代码，未完成物理停止验证 | 前置轮次先修协议与监听；飞行轮次接完整执行缝、动作账务与急停轨迹；VLA 专属重规划仍待其技能迁移 |
+| 2026-09-16 | R04、R06 原点/历史边界 | 继续保留；仅原点子能力已出方案 | [基础飞行方案 §4.5](../iteration/design-dispatcher-basic-flight-migration.md#45-原点服务与-r04-范围) | 当前只读 l4 的 plan_tools.json 定义 return 空参返回起飞点；FlightSession 仅为设计，尚无实现/运行证据 | 起飞原点随基础飞行接入；previous、历史集合、游标和文本回退待真实消费者迁移，不因本轮无公开入口裁掉；日志 session_tag 不等于飞行会话 |
 
 未来处理后在此追加记录并同步 README 索引。若仍不能接入，不只写“以后处理”，应说明缺少哪个端口/服务、下一次由哪种任务触发；若决定删除，应记录旧版消费者如何退役或被替代。
+
+## dispatcher 直连 planner 的设计约束
+
+2026-09-16 用户已确定不迁入 /mission/task 中间转换层；见
+[直连架构决策](../../../specs/implemented/architecture/2026-09-16-dispatcher-direct-planner.md)
+及[执行总纲](../iteration/design-dispatcher-migration-execution-order.md)。R03 的停止链和
+R05 的动作发送/结果接线应直接面向 planner 端口，旧版 send_task_goal 仅是历史调用
+证据，不要求恢复旧 action。R04 原点与历史的保留边界不变。当前仅更新设计约束，
+代码未改、条目未关闭，仍需直连完成/取消/停止的实现和运行证据。
