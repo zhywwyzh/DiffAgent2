@@ -40,3 +40,7 @@ gitlab-bots/.env
 
 # codex
 .codex/
+
+# basic
+.trae/
+.vscode/

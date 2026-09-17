@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import json
-import threading
 
 from dispatcher.tools.protocol import (
     BUSINESS_REJECTED,
@@ -66,9 +65,6 @@ class RpcPlane:
             raise RuntimeError("RpcPlane requires an open zenoh session")
         self._queryable = None
         self._outcome = None
-        self._lock = threading.Lock()
-        # call_id -> wire method, registered at admission, consumed at done
-        self._method_by_call: dict[str, str] = {}
 
     # ------------------------------------------------------------------
     # lifecycle
@@ -80,7 +76,7 @@ class RpcPlane:
             f"{self._mw.prefix}/rpc", self._on_rpc, complete=True
         )
         print(
-            f"[rpc_plane] rpc plane up (prepared): lx/{self._mw.stack_id}/rpc",
+            f"[rpc_plane] rpc plane up: lx/{self._mw.stack_id}/rpc",
             flush=True,
         )
 
@@ -93,8 +89,6 @@ class RpcPlane:
                     pass
         self._queryable = None
         self._outcome = None
-        with self._lock:
-            self._method_by_call.clear()
 
     # ------------------------------------------------------------------
     # outcome bridge (chained from the middleware event sink)
@@ -105,15 +99,13 @@ class RpcPlane:
         if not isinstance(event, dict) or event.get("status") not in {"done", "fail"}:
             return
         call_id = str(event.get("call_id") or "")
-        with self._lock:
-            method = self._method_by_call.pop(call_id, "")
-        if not method:
-            return  # tools/* call, not ours
+        method = str(event.get("name") or "")
+        if not method or not call_id:
+            return
         if event.get("status") == "done":
-            outcome = {
-                "ok": True,
-                "result": dict(event.get("structuredContent") or {"completion": "done"}),
-            }
+            result = dict(event.get("structuredContent") or {})
+            result["completion"] = self._mw.runtime.registry.tool_for_name(method).completion
+            outcome = {"ok": True, "result": result}
         else:
             error = event.get("error") or {}
             code = str(error.get("code") or "")
@@ -157,24 +149,31 @@ class RpcPlane:
             return {}
 
     def _on_rpc(self, query) -> None:
-        payload = self._payload_of(query)
-        method = str(payload.get("method") or "")
-        params = payload.get("params")
-        if not isinstance(params, dict):
-            self._reply(query, _rpc_error(method, "invalid_arguments", "params must be an object"))
+        method = ""
+        try:
+            payload = self._payload_of(query)
+            if not isinstance(payload, dict):
+                raise ValueError("request must be an object")
+            candidate = payload.get("method")
+            if not isinstance(candidate, str) or not candidate.strip():
+                raise ValueError("method must be a non-empty string")
+            method = candidate
+            params = payload.get("params")
+            if not isinstance(params, dict):
+                raise ValueError("params must be an object")
+        except (ValueError, TypeError, UnicodeError) as exc:
+            self._reply(query, _rpc_error(method, "invalid_arguments", str(exc)))
             return
         try:
             if method in CONNECTION_METHODS:
-                self._reply(query, self._connection_call(method, params))
-                return
-            self._reply(query, self._execution_call(method, params))
-            return
+                response = self._connection_call(method, params)
+            else:
+                response = self._execution_call(method, params)
         except ToolProtocolError as err:
-            self._reply(query, _rpc_error(method, _admission_reason(err), err.message))
-            return
-        except Exception as exc:  # noqa: BLE001 — surface as internal_error
-            self._reply(query, _rpc_error(method, "internal_error", f"internal error: {exc}"))
-            return
+            response = _rpc_error(method, _admission_reason(err), err.message)
+        except Exception as exc:
+            response = _rpc_error(method, "internal_error", f"internal error: {exc}")
+        self._reply(query, response)
 
     # ------------------------------------------------------------------
     # connection plane (fully synchronous)
@@ -183,10 +182,9 @@ class RpcPlane:
     def _connection_call(self, method: str, params: dict) -> dict:
         leases = self._mw.leases
         if method == "connection.acquire":
-            return _rpc_result(
-                method,
-                leases.acquire(params.get("station_id"), params.get("station_instance_id")),
-            )
+            lease = leases.acquire(params.get("station_id"), params.get("station_instance_id"))
+            self._mw._watch_owner_token(lease["station_id"], lease["lease_id"])
+            return _rpc_result(method, lease)
         if method == "connection.renew":
             return _rpc_result(
                 method,
@@ -221,13 +219,14 @@ class RpcPlane:
                 "call_id is required for execution methods",
                 {"reason": "invalid_arguments", "details": "call_id"},
             )
-        call_id = call_id.strip()
+        if call_id != call_id.strip():
+            raise ToolProtocolError(INVALID_PARAMS, "call_id must not contain surrounding whitespace",
+                                    {"reason": "invalid_arguments"})
         context = params.get("context")
         if not isinstance(context, dict):
             context = {}
-        canonical = method
         arguments = {k: v for k, v in params.items() if k not in TRANSPORT_FIELDS}
-        self._mw.runtime.registry.tool_for_name(canonical)
+        self._mw.runtime.registry.tool_for_name(method)
         station_id = str(context.get("station_id") or "")
         station_instance_id = str(context.get("station_instance_id") or "")
         lease_id = str(context.get("lease_id") or "")
@@ -250,13 +249,9 @@ class RpcPlane:
         self._mw.runtime.admit(
             {
                 "call_id": call_id,
-                "name": canonical,
+                "name": method,
                 "arguments": arguments,
                 "context": context_fields,
             }
         )
-        with self._lock:
-            # Keep the wire (legacy) method for rpc_outcome so l4 matches the
-            # call it issued; execution dispatches on `canonical`.
-            self._method_by_call[call_id] = method
         return _rpc_result(method, {"accepted": True, "call_id": call_id})

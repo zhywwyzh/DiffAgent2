@@ -109,7 +109,7 @@ def bind_owner(engine, *, verdict=SkillVerdict.IDLE, gate=None):
     owner = SimpleNamespace(
         synchronous=False, plan_tick=lambda cmd: True,
         action_done_gate=lambda: gate, on_action_result=lambda result: verdict,
-        wait_action_tick=lambda: None,
+        wait_action_tick=lambda: None, on_global_stop=lambda: None, on_cancel=lambda: None,
     )
     engine.skills.register("test.tool", owner)
     engine.skills.dispatch_plan(command())
@@ -134,7 +134,7 @@ def test_core_def_whitelist_and_six_states():
         assert functions <= allowed.get(relative, set()), (relative, functions - allowed.get(relative, set()))
         for function in (n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)):
             nested = [n.name for stmt in function.body for n in ast.walk(stmt) if isinstance(n, ast.FunctionDef)]
-            assert not nested or (relative == "core/state_ledger.py" and function.name == "set_state" and nested == ["_state_name"])
+            assert not nested or (relative == "core/state_ledger.py" and function.name == "set_state" and nested == ["_state_name"]) or (relative == "core/skill_router.py" and function.name == "register" and nested == ["dispose"])
     assert len([key for key in vars(DISPATCHER_STATE) if not key.startswith("_")]) == 6
 
 

@@ -1,28 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Dispatcher composition root (agent-station-tools.spec.md §5).
-
-Wires the task-0 engine, the tool runtime, and the zenoh transport into one
-process and owns process lifecycle only: node init, config bootstrap, worker
-threads, and ROS spin. It contains NO task-id dispatch, NO decision workflow, and
-NO VLM code — executable behavior lives behind the ToolRegistry adapters
-(dispatcher/tools/) and the DispatcherEngine (dispatcher/engine.py).
-
-S3 起（design-dispatcher-engine-relocate-non-core.md §4.8）：启动装配函数
-create_dispatcher_engine / start_dispatcher_workers 自 engine.py 迁入本文件，
-并在此构造四类 core 通道端口与最小运行端口（§4.7 组合根注入）——engine 与
-dispatcher/core/ 因此零 rospy（G7/G8）。
-"""
+"""装配六态 dispatcher、飞行端口和 RPC；流程语义归技能与执行领域模块。"""
 
 from __future__ import annotations
 
 import logging
+from contextlib import ExitStack
+from dataclasses import fields
 import threading
 from pathlib import Path
 
 from dispatcher.utils.control_plane import ToolControlPlane
 from dispatcher.engine import DispatcherEngine
-from dispatcher.perception.base_policy import BasePolicyNode
 from dispatcher.utils.config import (
     CONFIG_KEY_ALIASES,
     UAV_POLICY_DEFAULTS,
@@ -50,12 +39,14 @@ def create_dispatcher_engine(config_path: str):
     config_log = RosLog()
     cfg = load_yaml(config_path, log=config_log)
 
+    headless = bool(params_ros.get_private_param("headless", False))
     variant = str(cfg.get("variant", "real")).strip().lower()
     ros_params = {}
     ros_params.update(merge_config_sections(cfg, ["ros.topics", "ros.sync", "ros.publishers", "ros.camera"]))
-    ros_params.update(
-        merge_pointcloud_mode_params(get_nested_config(cfg, "ros.pointcloud"), log=config_log)
-    )
+    if not headless:
+        ros_params.update(
+            merge_pointcloud_mode_params(get_nested_config(cfg, "ros.pointcloud"), log=config_log)
+        )
     ros_params.update(flatten_leaf_params(get_nested_config(cfg, "policy.mission"), log=config_log))
     ros_params["variant"] = variant
 
@@ -69,13 +60,17 @@ def create_dispatcher_engine(config_path: str):
     clock = RosRuntimeClock()
     log = RosLogSink()
 
-    perception = BasePolicyNode()
+    perception = None
+    if not headless:
+        from dispatcher.perception.base_policy import BasePolicyNode
+        perception = BasePolicyNode()
     # 原继承对象先装默认值；分离后感知实际使用的同名配置保持该顺序。
-    set_defaults(perception, {
-        key: value for key, value in UAV_POLICY_DEFAULTS.items() if hasattr(perception, key)
-    })
+    if perception is not None:
+        set_defaults(perception, {
+            key: value for key, value in UAV_POLICY_DEFAULTS.items() if hasattr(perception, key)
+        })
     node = DispatcherEngine(
-        headless=bool(params_ros.get_private_param("headless", False)),
+        headless=headless,
         telemetry_node_name=params_ros.get_node_name(),
         telemetry_level=params_ros.get_private_param("telemetry/level", "info"),
         telemetry_stdout_en=params_ros.get_private_param("telemetry/stdout_en", True),
@@ -85,8 +80,8 @@ def create_dispatcher_engine(config_path: str):
         channels=channels,
         clock=clock,
         log=log,
-        get_frame_snapshot=perception.get_frame_snapshot,
-        get_sensor_input_health=perception.get_sensor_input_health,
+        get_frame_snapshot=perception.get_frame_snapshot if perception is not None else lambda: None,
+        get_sensor_input_health=perception.get_sensor_input_health if perception is not None else lambda: {},
     )
     sections = (
         ("base_policy", merge_config_sections(cfg, ["base_policy", "policy.base"])),
@@ -105,6 +100,8 @@ def create_dispatcher_engine(config_path: str):
     )
     for section_name, values in sections:
         for target in (node, perception):
+            if target is None:
+                continue
             owned_values = {
                 key: value for key, value in values.items()
                 if hasattr(target, CONFIG_KEY_ALIASES.get(key, key))
@@ -116,6 +113,28 @@ def create_dispatcher_engine(config_path: str):
             )
     node.prompt_queue.sync_task_buffers_from_prepare(node.prepare_content)
     return node
+
+
+def create_flight_runtime(engine):
+    """装配直连端口与六技能，返回资源逆操作；不含领域判定。"""
+    from dispatcher.tools.flight.ports import FlightConfig
+    from dispatcher.ros_adapter.planner_execution_ros import RosFlightPorts
+    from dispatcher.execution.composition import install_flight
+
+    config = FlightConfig(**{
+        field.name: params_ros.get_private_param("flight/" + field.name, field.default)
+        for field in fields(FlightConfig)
+    })
+    ports = RosFlightPorts(
+        drone_id=params_ros.get_private_param("drone_id", 0),
+        odometry_topic=params_ros.get_private_param("odometry_topic", "/ekf_quat/ekf_odom"),
+    )
+    try:
+        host, dispose = install_flight(engine, ports, config)
+    except Exception:
+        ports.close()
+        raise
+    return host, dispose, ports.close
 
 
 def start_dispatcher_workers(node):
@@ -136,27 +155,22 @@ def main():
     print("Program starting...")
     engine = create_dispatcher_engine(config_path)
 
-    # host 由 engine 换 engine.tools（S3 §4.8）：ToolControlPlane /
-    # ToolExecutor 的 duck-typed 三缝宿主为 core/tool_workflow.py 的
-    # ToolWorkflowHost（bind_tool_middleware / start_tool_workflow /
-    # cancel_tool_call），FakeHost 契约不变。
-    # 端口注入（S4a P1/P3/P4）：日志/关停/反馈面在此装配，
-    # 经 control_plane 透传给 middleware；未注入不会发生（组合根是唯一生产装配点）。
-    control_plane = ToolControlPlane(
-        engine.tools,
-        log=RosLog(),
-        shutdown=RosShutdown(),
-        feedback_factory=FeedbackPlane,
-    )
-    control_plane.start()
-
-    inference_thread = start_dispatcher_workers(engine)
-
-    # Main thread runs the ROS1 spin; workers are daemon threads.
-    node.spin()
-
-    inference_thread.join()
-    control_plane.close()
+    flight_host, dispose_flight, close_flight_ports = create_flight_runtime(engine)
+    with ExitStack() as resources:
+        resources.callback(close_flight_ports)
+        resources.callback(dispose_flight)
+        control_plane = ToolControlPlane(
+            engine.tools, log=RosLog(), shutdown=RosShutdown(),
+            feedback_factory=lambda middleware: FeedbackPlane(middleware, on_reset=flight_host.reset_session),
+        )
+        resources.callback(control_plane.close)
+        control_plane.start()
+        inference_thread = start_dispatcher_workers(engine)
+        try:
+            node.spin()
+        finally:
+            engine.clock.request_shutdown("dispatcher closing")
+            inference_thread.join()
 
 
 if __name__ == "__main__":

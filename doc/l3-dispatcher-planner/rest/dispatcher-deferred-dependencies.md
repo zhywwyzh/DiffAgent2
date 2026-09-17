@@ -1,6 +1,6 @@
 # dispatcher 待迁依赖与保留项台账
 
-更新日期：2026-09-16。状态：R01–R07 均为**明确保留，待对应能力接入时重新参考**；R08（grasp）为**已删除且不自动恢复的登记项**。
+更新日期：2026-09-17。状态：R03/R05 的控制职责已上行修正到 dispatcher，修正版未重跑测试；R04 原点子能力保留，其余历史/VLA 消费继续保留；R01/R02/R06/R07 待迁；R08 已删除且不自动恢复。
 
 本文件记录已批准的暂时保留及后续处理线索，不定义新契约。用户明确要求：保留项在未来接入或优化时重新判断，不能因为当前生产技能为空而直接删除。未来实现方案仍按 `iteration/_TEMPLATE.md` 落盘；如需改变端口或行为契约，先更新 `specs/`。
 
@@ -54,11 +54,11 @@
 | 项 | 内容 |
 |----|----|
 | 对应审核 | B03、D01/D02；保留 `publish_hold`，本轮注明“急停悬停” |
-| 新版位置与现状 | `N/engine.py::_enter_global_stop` 在 True 时只调用 `channels.publish_emergency_stop()`；`N/ros_adapter/core_channels_ros.py::RosCoreChannels` 默认发布 `/command/emergency_stop` 的 Empty。**dispatcher 当前不会额外构造并发送悬停 goal**。 |
+| 新版位置与现状 | `N/engine.py::_enter_global_stop` 在 True 时只调用 `channels.publish_emergency_stop()`；`N/ros_adapter/core_channels_ros.py::RosCoreChannels` 默认发布 `/command/emergency_stop` 的 Empty。**不额外构造悬停 goal**；全局信号保持原语义；当前取消/保持意图由 WaypointExecution 经既有目标口编排，不再依赖新增 EGO 取消回调，修正版未复验。 |
 | 旧版完整链 | `O/engine.py:1566` 同时发布急停信号并调用 `_publish_emergency_hold_position`（`:1485`）；后者取位姿、构造并限幅悬停目标、切 planner 模式，然后 `send_task_goal` 覆盖旧轨迹。 |
 | 何时重新参考 | 接入飞行 skill、航点执行端口、下行执行缝、planner/飞控桥、租约丢失安全停或修改急停语义时，必须在端到端接线前读取。 |
 | 本轮方案判断 | 保持“急停后悬停”的目标，不改成停桨、返航或自动降落。当前缺少速度、可用定位和控制模式等实机证据，不能判定另一种方案普遍更好。应由执行侧以可实现的制动轨迹进入悬停，core 只触发安全停止，不在 core 增加飞行动作算法。 |
-| 已有下游线索 | 新版 `ros_packages/planner/ego_planner/plan_manage/src/ego_replan_fsm.cpp` 的 `mandatoryStopCallback`（约 1285 行）进入 EMERGENCY_STOP，相关分支调用 `callEmergencyStop(odom_pos_)`（约 361 行）；订阅名是 `mandatory_stop`（约 89 行）。**这不能证明 dispatcher 默认急停主题已连通该入口**，还需核对 launch/remap、使用的 planner 和飞控状态。 |
+| 已有下游线索 | 新版 `ros_packages/planner/ego_planner/plan_manage/src/ego_replan_fsm.cpp` 的 `mandatoryStopCallback`（约 1285 行）进入 EMERGENCY_STOP，相关分支调用 `callEmergencyStop(odom_pos_)`（约 361 行）；订阅名是 `mandatory_stop`（约 89 行）。bringup/launch/ego.launch 保留既有急停信号映射；新增取消回调和后端停止修改已撤回，当前修正版未重跑 cmd 验证。 |
 | 接入/优化步骤 | 先验证急停主题到所用 planner 的链路、停止轨迹的生成与跟踪、制动后保持和恢复条件；再决定是否还需要旧版额外 hover goal。若已有停止链可靠完成悬停，避免同时发送相互覆盖的两类目标；若仍需 hover goal，将其放在执行缝/适配端口，按现行契约实现。 |
 | 必须验证 | 运动中触发后速度收敛与位置保持、旧 goal 不再继续、重复触发、定位不可用、模式切换和重启时停止语义；取消/覆盖 False 不发布急停；硬停请求发出不等于实机已悬停。 |
 | 何时可删除或改名 | 只有最终安全停止链已选定、无需独立 hover goal 的结论有运行证据时，才重新评审 publish_hold 的名称或拆分；若删除旧悬停路径，需记录替代路径和验证结果。当前不做仅按 Empty 发布行为的机械改名。 |
@@ -74,7 +74,7 @@
 | 旧版消费链 | `O/tools/flight/flight_skill.py:132` 调用 `recording._resolve_return_plan`；`O/recording.py:367` 读取历史回退游标、`:435` 更新游标、`:443` 在记录不足时读取 last_state；`:41` 读取 replan_content 作任务文本回退。 |
 | 何时重新参考 | 接入 `flight.return`、返回上一位置/原点、过程轨迹记录、导航历史恢复，或把队列数据迁往服务时。 |
 | 接入建议 | 先实现历史记录和目标解析服务，再让飞行技能通过服务解析返航目标；从现有快照/队首接口传入所需数据。旧版读 `host.last_state`，新版实际在 `host.ledger.last_state`；不能靠给 engine 增加同名属性桥接，也不能让技能绕过端口到处读内部对象。 |
-| 仍未处理 | 没有真实返航消费者，没有历史记录集合/原点记录接线；游标目前不会前移。last_state 的重置策略仍须按新任务和新飞行会话边界决定，不能让上一会话快照成为下一会话返航点。 |
+| 仍未处理 | ReturnSkill 已通过 FlightSession 消费确认的起飞原点，不使用 last_state 冒充原点；旧历史集合/逐步回退未迁，游标仍不前移。旧快照字段继续保留待其真实消费者接入。 |
 | 必须验证 | 连续两次返回上一位置确实逐步后退；无记录/无原点时的回退或明确失败；快照不是随帧原地更新的别名；重置、覆盖与新会话不读取过时位置；任务文本回退仍对应本次调用。 |
 | 何时可删除 | 历史服务已独立拥有位置与游标，或产品明确取消逐步返航且调用方已清理时，删除旧字段及快照回调。replan_content 只有在记录服务不再使用该文本回退并有替代后才能改为纯局部变量。 |
 
@@ -85,7 +85,7 @@
 |----|----|
 | 对应审核 | C01–C03 |
 | 新版保留位置 | `N/core/action_gate.py::PendingAction`、`ActionGate.pending_action`；`handle_post_action` 的 REPLAN 标记清理和 `clear_action_state` 的全量清理。 |
-| 当前状态 | 上下文会初始化和清空，但生产 `arm_action`/动作发送能力未接入；不能因类存在就认为能执行飞行动作。 |
+| 当前状态 | DispatcherFlightHost.start_goal 已接入飞行动作武装、实例归属、代次和当前批次反馈；取消/停止控制已改为 dispatcher 的目标覆盖方式，本次未复验。VLA 专属重规划和记录读取仍未接入，旧 arm_action 仅作历史线索。 |
 | 旧版生产链 | `O/tools/vla/vla_skill.py:606`、`O/tools/flight/flight_skill.py:84` 和场景导航技能调用宿主 arm_action；`O/engine.py:1596` 武装，`:1623` 起写元数据。 |
 | 旧版读取链 | VLA `on_action_result`（`:487`）读取 replan_cmd 决定 REPLAN；`O/engine.py:574` 用 prompt_raw 下发目标；`O/recording.py:35` 用它回退当前任务文本；动作准备日志（`O/engine.py:1643`）读取 action_name、instruction_type。 |
 | 字段级区分 | replan_cmd、prompt_raw、action_name、instruction_type 有上述明确读点；replan_reason 见写入/清理；waypoint、look_forward、nav_yaw、yaw_source、is_far_push 在该上下文快照中未确认完整消费者，不能把 skill 中其他同名概念当成此对象读点。整类保留不等于每个字段永久保留。 |
@@ -141,7 +141,7 @@
 
 | 阶段 | 调用与数据变化 | 保留的历史依赖 |
 |----|----|----|
-| 接受调用 | `ToolWorkflowHost.start_tool_workflow` 检查技能与输入，激活调用并通知技能；同步技能不入队 | 当前生产技能表为空；这条通用链由测试技能验证 |
+| 接受调用 | `ToolWorkflowHost.start_tool_workflow` 检查技能与输入，激活调用并通知技能；同步技能不入队 | 当前注册六个 basic_flight 技能；通用链及真实 EGO cmd 均有测试 |
 | 同步任务 | 异步调用将 `(prompt_text, SkillCommand)` 列表传给 `PromptQueue.sync_task_buffers_from_prepare`；构造独立 prepare_content 列表 | 删除了纯文本副本，未删除 prompt 本身或原始 ToolCall |
 | 装载队首 | `pop_next_task` 推进任务代次、复制 frame.current_state 到 ledger.last_state；pop 准备队首，存入 replan_content，再加入 command_content，置 if_plan=True | R04 的位置快照和文本回退仍写入 |
 | 分发 | FSM 从 WAIT_FOR_MISSION 进 DISPATCH，按 skill_command.call.name 查注册表；`dispatch_plan(skill_command)` 调用技能 plan_tick | 无任务编号或中间名字映射；cmd 文本仍用于监控与日志 |
@@ -179,3 +179,33 @@
 R05 的动作发送/结果接线应直接面向 planner 端口，旧版 send_task_goal 仅是历史调用
 证据，不要求恢复旧 action。R04 原点与历史的保留边界不变。当前仅更新设计约束，
 代码未改、条目未关闭，仍需直连完成/取消/停止的实现和运行证据。
+
+2026-09-17 执行进度：RPC 前置实现与 103 项回归已完成，飞行接线仍在 S3。已在
+DiffAgent2 旧版找到 launch/remap、quadrotor_msgs 和 planner_backend 切换链。用户指定
+当前 EGO、交付到 cmd；R03 本轮验证停止/保持命令与反馈，不扩展 cmd 后的物理处理；
+R04/R05 继续等待对应飞行实现，不以 RPC 完成关闭。
+
+## 2026-09-17 修正前接入验收（历史记录）
+
+| 条目 | 当前处置 | 实现/证据 | 剩余触发条件 |
+|---|---|---|---|
+| R03 | 已接入至 cmd | planner_execution_ros.py、EGO cancel/mandatoryStop 回调、ego.launch；tests/ros/test_ego_cmd.py 验证实际保持命令 | 更换后端、停止/恢复机制变化时复核；cmd 下游不属本轮 |
+| R04 | origin 子能力已接入，其余保留 | services/flight_session.py、ReturnSkill；无原点失败、会话/坐标重置及真实返航测试 | previous、历史集合、文本回退的真实消费者迁入时继续参考旧链 |
+| R05 | 飞行动作账务已接入，VLA 部分保留 | execution/skill_host.py、WaypointExecution、ActionGate、生命周期锁；迟到结果/取消/覆盖/实例归属测试 | VLA REPLAN 判据、记录元数据消费迁入时继续核对 |
+
+上述旧实现曾有 115 项完整测试通过；对应 EGO 专属取消/停止代码现已撤回，此结果不覆盖修正版。R01/R02/R06/R07 不被删除或标为已迁。
+
+## 当前职责上行修正
+
+依据[边界修正决策](../../../specs/implemented/architecture/2026-09-17-dispatcher-planner-boundary-correction.md)，
+仅删除来源任务编号，恢复 yaw_low_speed、goal_to_follower。EGO 新取消入口、额外
+停止清理及偏航修改已撤回，planner 保持原行为；旧 stopMotion 职责由 dispatcher
+的 WaypointExecution 承接，通过同一个目标口发送新批次保持意图。
+
+R03/R05 的取消待处理、旧结果失效和新动作准入守卫均位于 dispatcher；取消发送
+失败时不假报停止。R04 及其他保留字段不因本次纠偏被裁剪。按用户要求本轮不新增
+测试、不执行测试或构建；此前 115 项通过只作历史，当前修正版不得标为已复验。
+
+共享依赖路径纠正：camera_fov 保持 DiffAgent2 旧版布局（include/vis_utils/camera_fov.h、
+src/camera_fov.cpp），CMake 已同步；不再把公开头文件或实现文件移入额外的适配目录。
+本项不改变能力状态，不运行测试或构建。

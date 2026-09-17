@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.5)
+project(dispatcher)
+find_package(catkin REQUIRED COMPONENTS rospy nav_msgs std_msgs std_srvs quadrotor_msgs)
+catkin_python_setup()
+catkin_package()
+catkin_install_python(PROGRAMS dispatcher_node.py DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})

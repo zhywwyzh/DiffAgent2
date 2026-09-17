@@ -24,8 +24,6 @@ REMOVED_NAMES = (
     "flight.return", "flight.emergency_stop", "scene_nav.graph.list",
     "scene_nav.graph.select", "scene_nav.graph.save", "scene_nav.graph.objects",
     "scene_nav.graph.object_pose", "navigation.vla_nav", "navigation.scene_graph_nav",
-    "basic_flight.takeoff", "basic_flight.land", "basic_flight.translate",
-    "basic_flight.rotate", "basic_flight.return", "basic_flight.emergency_stop",
 )
 
 
@@ -71,6 +69,7 @@ def test_generic_rpc_admits_and_publishes_one_outcome():
 
 def test_connection_rpc_remains_available_with_no_tools():
     plane, runtime, identity = setup_plane(ToolRegistry.default())
+    runtime.registry = ToolRegistry(())
     reply = query(plane, "connection.status", {})
     assert reply["type"] == "rpc_result" and reply["result"]["owned"]
     reply = query(plane, "connection.renew", identity)
@@ -78,10 +77,10 @@ def test_connection_rpc_remains_available_with_no_tools():
     assert runtime.list_tools()["tools"] == []
 
 
-def test_empty_discovery_revision_matches_spec():
+def test_production_discovery_revision_matches_spec():
     revision = ToolRegistry.default().list_tools()["revision"]
     spec = (REPO.parent / "specs/implemented/inner/l3-tool-plane.spec.md").read_text()
-    assert revision == "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    assert len(ToolRegistry.default().list_tools()["tools"]) == 6
     assert revision in spec
 
 
@@ -104,3 +103,70 @@ def test_terminal_call_cannot_execute_after_immediate_safety_stop():
     runtime._safety_stop = stopped.append
     runtime.issue_safety_stop("lease_lost")
     assert not runtime.can_execute("queued") and stopped == ["lease_lost"]
+
+
+@pytest.mark.parametrize('payload', [b'[]', b'null', b'1', b'"text"', b'{', b'\xff',
+    b'{}', b'{"method": 5, "params": {}}', b'{"method":"", "params":{}}',
+    b'{"method":"connection.status", "params":[]}'])
+def test_malformed_request_always_replies(payload):
+    plane, _, _ = setup_plane(test_registry())
+    replies = []
+    plane._on_rpc(SimpleNamespace(payload=payload, key_expr='lx/test/core/rpc',
+        reply=lambda key, data: replies.append(json.loads(data))))
+    assert len(replies) == 1
+    assert replies[0]['type'] == 'rpc_error'
+    assert replies[0]['reason'] == 'invalid_arguments'
+
+
+def test_terminal_before_admit_returns_is_delivered_and_replay_does_not_execute():
+    plane, runtime, identity = setup_plane(test_registry())
+    outcomes = []
+    plane._outcome = SimpleNamespace(put=lambda data: outcomes.append(json.loads(data)))
+    runtime.event_sink = plane.on_event
+    admit = runtime.admit
+
+    def immediate(payload):
+        ack = admit(payload)
+        runtime.emit(payload['call_id'], status='done', phase='done')
+        return ack
+
+    runtime.admit = immediate
+    params = {'call_id': 'instant', 'context': identity}
+    assert query(plane, 'test.start', params)['result']['accepted']
+    assert query(plane, 'test.start', params)['result']['accepted']
+    assert len(outcomes) == 1
+    assert outcomes[0]['method'] == 'test.start'
+    assert outcomes[0]['outcome']['result']['completion'] == 'workflow_result'
+    assert runtime._commands.qsize() == 1
+
+
+def test_replay_after_lease_loss_is_rejected():
+    plane, runtime, identity = setup_plane(test_registry())
+    params = {'call_id': 'lost', 'context': identity}
+    query(plane, 'test.start', params)
+    runtime._leases.mark_lost('test')
+    reply = query(plane, 'test.start', params)
+    assert reply['reason'] == 'connection_not_owner'
+    assert runtime._commands.qsize() == 1
+
+
+def test_failed_outcome_publish_does_not_repeat_execution(capsys):
+    plane, runtime, identity = setup_plane(test_registry())
+    def unavailable(data):
+        raise RuntimeError('disconnected')
+    plane._outcome = SimpleNamespace(put=unavailable)
+    runtime.event_sink = plane.on_event
+    params = {'call_id': 'publish-failure', 'context': identity}
+    query(plane, 'test.start', params)
+    assert runtime.emit('publish-failure', status='done', phase='done')
+    assert not runtime.emit('publish-failure', status='done', phase='done')
+    query(plane, 'test.start', params)
+    assert runtime._commands.qsize() == 1
+    assert 'outcome publish FAILED' in capsys.readouterr().out
+
+
+def test_call_id_is_not_silently_rewritten():
+    plane, runtime, identity = setup_plane(test_registry())
+    reply = query(plane, 'test.start', {'call_id': ' padded ', 'context': identity})
+    assert reply['reason'] == 'invalid_arguments'
+    assert runtime._commands.empty()

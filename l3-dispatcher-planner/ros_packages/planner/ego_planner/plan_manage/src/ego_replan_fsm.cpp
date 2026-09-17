@@ -1103,17 +1103,13 @@ void ego_planner::plan_manage::EGOReplanFSM::aimCallbackYawPreset(const quadroto
   if (yaw_mode == quadrotor_msgs::LocalGoalSet::YAW_MODE_NORMAL && msg->yaw_low_speed)
     yaw_mode = quadrotor_msgs::LocalGoalSet::YAW_MODE_LOW_SPEED;
   uint8_t yaw_path_mode = msg->yaw_path_mode;
-  const bool panorama_source_allowed = msg->source_task_id == quadrotor_msgs::LocalGoalSet::SOURCE_TASK_EXPLORATION ||
-                                       msg->source_task_id == quadrotor_msgs::LocalGoalSet::SOURCE_TASK_COUNTING;
   if (yaw_mode == quadrotor_msgs::LocalGoalSet::YAW_MODE_PANORAMA &&
-      yaw_path_mode == quadrotor_msgs::LocalGoalSet::YAW_PATH_KEEP_DIRECTION && panorama_source_allowed) {
+      yaw_path_mode == quadrotor_msgs::LocalGoalSet::YAW_PATH_KEEP_DIRECTION) {
     traj_server_.setPanoramaYaw(msg->yaw, odom_yaw_, end_wp);
     changeFSMExecState(WAIT_YAW, "Panorama Yaw Preset");
     return;
   }
   if (yaw_mode == quadrotor_msgs::LocalGoalSet::YAW_MODE_PANORAMA) {
-    ROS_WARN("[Ego] Reject preset panorama mode from source_task_id=%u.",
-             static_cast<unsigned int>(msg->source_task_id));
     yaw_mode = quadrotor_msgs::LocalGoalSet::YAW_MODE_NORMAL;
     yaw_path_mode = quadrotor_msgs::LocalGoalSet::YAW_PATH_SHORTEST;
   }
@@ -1163,9 +1159,9 @@ void ego_planner::plan_manage::EGOReplanFSM::aimCallback(const quadrotor_msgs::L
     return;
 
   std::cout << "[Ego]: <<<<<<<<<<<<<<<<<< New Goal <<<<<<<<<<<<<<<<<< " << std::endl;
-  ROS_INFO("[EGOPlanner] ego_goal_received drone_id=%d source_task_id=%d goal=%.3f %.3f %.3f yaw=%.3f look_forward=%d "
+  ROS_INFO("[EGOPlanner] ego_goal_received drone_id=%d goal=%.3f %.3f %.3f yaw=%.3f look_forward=%d "
            "yaw_mode=%u yaw_path_mode=%u state=aimCallback",
-           msg->drone_id, msg->source_task_id, goal.x(), goal.y(), goal.z(), msg->yaw,
+           msg->drone_id, goal.x(), goal.y(), goal.z(), msg->yaw,
            static_cast<int>(msg->look_forward), static_cast<unsigned int>(msg->yaw_mode),
            static_cast<unsigned int>(msg->yaw_path_mode));
   initPlannerResult();
@@ -1183,19 +1179,6 @@ void ego_planner::plan_manage::EGOReplanFSM::aimCallback(const quadrotor_msgs::L
     target_yaw_mode_ = quadrotor_msgs::LocalGoalSet::YAW_MODE_LOW_SPEED;
   target_yaw_path_mode_ = msg->yaw_path_mode;
   target_look_forward_ = msg->look_forward;
-
-  const bool panorama_source_allowed = msg->source_task_id == quadrotor_msgs::LocalGoalSet::SOURCE_TASK_EXPLORATION ||
-                                       msg->source_task_id == quadrotor_msgs::LocalGoalSet::SOURCE_TASK_COUNTING;
-  if (target_yaw_mode_ == quadrotor_msgs::LocalGoalSet::YAW_MODE_PANORAMA && !panorama_source_allowed) {
-    ROS_WARN("[Ego] Reject panorama mode from source_task_id=%u, fallback to NORMAL + SHORTEST.",
-             static_cast<unsigned int>(msg->source_task_id));
-    target_yaw_mode_ = quadrotor_msgs::LocalGoalSet::YAW_MODE_NORMAL;
-    target_yaw_path_mode_ = quadrotor_msgs::LocalGoalSet::YAW_PATH_SHORTEST;
-    while (target_yaw_ > M_PI)
-      target_yaw_ -= 2 * M_PI;
-    while (target_yaw_ < -M_PI)
-      target_yaw_ += 2 * M_PI;
-  }
 
   if (target_yaw_mode_ == quadrotor_msgs::LocalGoalSet::YAW_MODE_PANORAMA &&
       target_yaw_path_mode_ == quadrotor_msgs::LocalGoalSet::YAW_PATH_KEEP_DIRECTION) {

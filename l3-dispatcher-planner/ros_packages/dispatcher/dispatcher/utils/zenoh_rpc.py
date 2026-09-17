@@ -79,6 +79,7 @@ class ZenohTaskMiddleware:
         self._queryables = []
         self._presence_token = None
         self._owner_watch: tuple[str, str, object] | None = None
+        self._owner_watch_lock = threading.RLock()
         self.rpc_plane = None
 
         # 端口注入（S4a P1/P3）：日志/关停由组合根经 control_plane 透传；
@@ -117,7 +118,17 @@ class ZenohTaskMiddleware:
         return f"lx/stations/{station_id}/connection/{lease_id}/{self.stack_id}"
 
     def start(self) -> None:
-        """Open the zenoh session, declare queryables, subscribe feedback."""
+        """Acquire resources transactionally; never leave partial presence behind."""
+        if self._zenoh_session is not None:
+            return
+        try:
+            self._start_session()
+        except Exception:
+            self.close()
+            raise
+
+    def _start_session(self) -> None:
+        """Open the zenoh session and register the control plane."""
         conf = zenoh.Config()
         conf.insert_json5("mode", '"client"')
         conf.insert_json5("connect/endpoints", json.dumps([self.router]))
@@ -150,18 +161,24 @@ class ZenohTaskMiddleware:
 
     def close(self) -> None:
         self._stop_lease_watchdog()
-        if self.rpc_plane is not None:
-            self.rpc_plane.close()
-            self.rpc_plane = None
-        if self._zenoh_session is not None:
-            self._forget_owner_watch()
-            if self._presence_token is not None:
-                self._presence_token.undeclare()
-                self._presence_token = None
-            self.runtime.event_sink = None
-            self._zenoh_session.close()
-            self._zenoh_session = None
-            self._queryables.clear()
+        self._forget_owner_watch()
+        handles = [self._presence_token, self.rpc_plane, *reversed(self._queryables)]
+        self._presence_token = None
+        self.rpc_plane = None
+        self._queryables.clear()
+        self.runtime.event_sink = None
+        for handle in handles:
+            if handle is not None:
+                try:
+                    if hasattr(handle, "undeclare"):
+                        handle.undeclare()
+                    else:
+                        handle.close()
+                except Exception as exc:
+                    print(f"[zenoh_rpc] resource close failed: {exc}", flush=True)
+        session, self._zenoh_session = self._zenoh_session, None
+        if session is not None:
+            session.close()
 
     # ------------------------------------------------------------------
     # lease watchdog (fleet spec §7 — TTL is the hard authority)
@@ -268,35 +285,56 @@ class ZenohTaskMiddleware:
     # ------------------------------------------------------------------
 
     def _watch_owner_token(self, station_id: str, lease_id: str) -> None:
-        """Watch the station's connection token; DELETE ends the lease."""
-        self._forget_owner_watch()
+        """Install one watch; callbacks retain the exact lease identity."""
+        with self._owner_watch_lock:
+            if not self.leases.is_current_owner(station_id, lease_id):
+                return
+            current = self._owner_watch
+            if current and current[:2] == (station_id, lease_id) and current[2] is not None:
+                return
+            self._owner_watch = None
+        if current and current[2] is not None:
+            current[2].undeclare()
+        pending = (station_id, lease_id, None)
+        with self._owner_watch_lock:
+            if not self.leases.is_current_owner(station_id, lease_id):
+                return
+            self._owner_watch = pending
         key = self.owner_watch_key(station_id, lease_id)
         try:
             watch = self._zenoh_session.liveliness().declare_subscriber(
-                key, self._on_owner_token_sample, history=True
+                key, lambda sample: self._on_owner_token_sample(sample, station_id, lease_id),
+                history=True,
             )
-        except Exception as exc:  # noqa: BLE001 — TTL stays the hard authority
-            print(
-                f"[zenoh_rpc] owner-token watch unavailable on {key}: {exc}; TTL remains the hard authority",
-                flush=True,
-            )
-            watch = None
-        self._owner_watch = (station_id, lease_id, watch)
+        except Exception as exc:
+            print(f"[zenoh_rpc] owner-token watch unavailable on {key}: {exc}; TTL remains authoritative", flush=True)
+            return
+        with self._owner_watch_lock:
+            install = (self._owner_watch is pending
+                       and self.leases.is_current_owner(station_id, lease_id))
+            if install:
+                self._owner_watch = (station_id, lease_id, watch)
+        if not install:
+            watch.undeclare()
 
     def _forget_owner_watch(self, station_id: str = "", lease_id: str = "") -> None:
-        watch = self._owner_watch
-        self._owner_watch = None
+        with self._owner_watch_lock:
+            watch = self._owner_watch
+            if lease_id and watch and watch[:2] != (station_id, lease_id):
+                return
+            self._owner_watch = None
         if watch is not None and watch[2] is not None:
             try:
                 watch[2].undeclare()
-            except Exception as exc:  # noqa: BLE001 — teardown best effort
+            except Exception as exc:
                 print(f"[zenoh_rpc] owner-token watch undeclare failed: {exc}", flush=True)
 
-    def _on_owner_token_sample(self, sample) -> None:
+    def _on_owner_token_sample(self, sample, station_id: str, lease_id: str) -> None:
         if getattr(sample, "kind", None) != zenoh.SampleKind.DELETE:
             return
-        print("[zenoh_rpc] owner connection token lost; stopping admission", flush=True)
-        self.leases.notify_owner_lost("station_connection_token_lost")
+        self.leases.notify_owner_lost(
+            "station_connection_token_lost", station_id=station_id, lease_id=lease_id,
+        )
 
     def _on_sim_reset(self, query) -> None:
         def handle():

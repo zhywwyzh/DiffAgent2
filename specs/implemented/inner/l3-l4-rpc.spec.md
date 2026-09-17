@@ -1,10 +1,10 @@
 # l3 与 l4 的 RPC 传输契约
 
-Status: proposed
+Status: implemented
 Contract-ID: l3-dispatcher/l4-rpc
 Parent: specs/implemented/l3-dispatcher.spec.md
 
-> 定义站端调用 l3 的线上信封、连接发现和结果投递。尚未采纳，不表示代码已满足。
+> 定义站端调用 l3 的线上信封、连接发现和结果投递。通用控制面已由真实站端消费者和隔离传输测试验证；生产飞行能力仍按工具面集合判定。
 > 工具集合、准入、租约状态机和终态账本归 `l3-tool-plane.spec.md`；技能和动作
 > 完成语义归对应能力契约。本叶不新增另一套注册表、租约账本或任务身份。
 
@@ -91,7 +91,7 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 - 本轮不新增 `tools/*`、发现/轮询/取消 RPC 方法，也不恢复已删除的资源入口。
   站端取消批次会提交一个独立 `basic_flight.emergency_stop` 调用；这不等同于
   进程内 cancel，亦不改变“取消不隐含急停”的通用规则。
-- 前置对接轮次保持生产工具集合为空。测试能力只能使用测试注册表，不能以
+- 生产工具集合以 l3-tool-plane 契约为准。测试能力只能使用测试注册表，不能以
   “联调探针”名义开放生产空实现。
 
 ## 6. 验收
@@ -103,5 +103,5 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 | RPC3 | 测试能力从准入到站端账本终态闭环；快速完成、outcome 先到、重复回调均不丢关联 |
 | RPC4 | 同载荷重试不重复执行，冲突拒绝；租约失效后重试不能绕过 owner 门 |
 | RPC5 | 当前 owner token 删除、TTL 到期、旧回调迟到、安全停失败及重试符合有序租约状态机 |
-| RPC6 | 前置交付仍为空生产集合；不新增别名、任务编号或站端代码改动 |
+| RPC6 | 生产集合与工具面契约一致；不新增别名、任务编号或站端代码改动 |
 | RPC7 | 关闭/启动失败逆序释放 queryable、publisher、presence、watch 与线程；真实传输验证与进程内测试分别留证 |

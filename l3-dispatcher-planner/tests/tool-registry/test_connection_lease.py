@@ -549,3 +549,52 @@ def test_watchdog_reaps_silent_expiry_without_incoming_request(monkeypatch) -> N
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+def test_rpc_acquire_watches_owner_and_ignores_stale_delete():
+    from types import SimpleNamespace
+    from dispatcher.utils.rpc_plane import RpcPlane
+    middleware = zenoh_rpc.ZenohTaskMiddleware(queue.Queue(), stack_id=STACK,
+                                               safety_stop=lambda reason: None)
+    session = _FakeZenohSession()
+    middleware._zenoh_session = session
+    plane = RpcPlane(middleware)
+    params = {'station_id': 'station-a', 'station_instance_id': 'instance-a'}
+    first = plane._connection_call('connection.acquire', params)['result']
+    plane._connection_call('connection.acquire', params)
+    assert len(session._liveliness.subs) == 1
+    key, callback, handle = session._liveliness.subs[0]
+    assert first['lease_id'] in key
+    identity = {k: first[k] for k in ('station_id', 'station_instance_id', 'lease_id')}
+    plane._connection_call('connection.release', identity)
+    assert handle.undeclared
+    second = plane._connection_call('connection.acquire', params)['result']
+    callback(SimpleNamespace(kind=zenoh_rpc.zenoh.SampleKind.DELETE))
+    assert middleware.leases.is_current_owner('station-a', second['lease_id'])
+    session._liveliness.subs[-1][1](SimpleNamespace(kind=zenoh_rpc.zenoh.SampleKind.DELETE))
+    assert not middleware.leases.status()['owned']
+    middleware.close()
+
+
+def test_partial_start_failure_releases_all_acquired_resources(monkeypatch):
+    session = _FakeZenohSession()
+    handles = []
+    def queryable(*args, **kwargs):
+        handle = _FakeHandle()
+        handles.append(handle)
+        return handle
+    session.declare_queryable = queryable
+    def broken_publisher(*args, **kwargs):
+        raise RuntimeError('publisher unavailable')
+    session.declare_publisher = broken_publisher
+    closed = []
+    session.close = lambda: closed.append(True)
+    monkeypatch.setattr(zenoh_rpc.zenoh, 'open', lambda conf: session)
+    middleware = zenoh_rpc.ZenohTaskMiddleware(queue.Queue(), stack_id=STACK)
+    with pytest.raises(RuntimeError, match='publisher unavailable'):
+        middleware.start()
+    assert closed == [True]
+    assert handles and all(handle.undeclared for handle in handles)
+    assert middleware._zenoh_session is None
+    assert middleware._presence_token is None
+    middleware.close()

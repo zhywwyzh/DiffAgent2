@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import queue
 import threading
-import time
 
 from dispatcher.utils.zenoh_rpc import ZenohTaskMiddleware
 
@@ -56,9 +55,13 @@ class ToolControlPlane:
         )
         self._executor = ToolExecutor(self.middleware.registry, host)
         self._threads: list[threading.Thread] = []
+        self._stop = threading.Event()
         host.bind_tool_middleware(self.middleware)
 
     def start(self) -> None:
+        if any(thread.is_alive() for thread in self._threads):
+            return
+        self._stop.clear()
         self._threads = [
             threading.Thread(
                 target=self._consume,
@@ -75,10 +78,15 @@ class ToolControlPlane:
             thread.start()
 
     def close(self) -> None:
+        self._stop.set()
+        for thread in self._threads:
+            if thread is not threading.current_thread():
+                thread.join()
+        self._threads.clear()
         self.middleware.close()
 
     def _consume(self) -> None:
-        while not self._shutdown.is_shutdown():
+        while not self._stop.is_set() and not self._shutdown.is_shutdown():
             try:
                 command = self._commands.get(timeout=0.2)
             except queue.Empty:
@@ -108,7 +116,7 @@ class ToolControlPlane:
                 )
 
     def _serve(self) -> None:
-        while not self._shutdown.is_shutdown():
+        while not self._stop.is_set() and not self._shutdown.is_shutdown():
             try:
                 self.middleware.start()
                 return
@@ -117,4 +125,4 @@ class ToolControlPlane:
                 self._log.err(
                     "[zenoh_rpc] middleware start failed (%s); retry in 5s", exc
                 )
-                time.sleep(5.0)
+                self._stop.wait(5.0)

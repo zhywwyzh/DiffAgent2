@@ -90,7 +90,8 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 
 ## 7. 端口清单
 
-> 技能宿主必须提供以下端口；缺失即缺陷，由门禁判定。
+> 使用通用 SkillHost 的技能宿主必须提供以下端口；缺失即缺陷，由门禁判定。
+> 基础飞行使用 §9 的独立能力协议，按其实际端口集合验收，不伪造无消费者的感知端口。
 
 | 端口 | 类别 | 用途 |
 |------|------|------|
@@ -120,3 +121,16 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 | G15 | 技能注册返回 disposer，且 disposer 覆盖该技能自建的全部端点（§6） |
 | G16 | 技能之间无直接 import（§1） |
 | G17 | 新增钩子在模板基类有默认实现（§3） |
+
+## 9. 基础飞行能力端口
+
+基础飞行使用独立的 FlightHost Protocol，由 execution/skill_host 实现通用生命周期，
+由 FlightPorts 承载 planner 通信。其成员为 state、origin、start_goal、poll_result、
+cancel_execution、request_takeoff、request_land、request_safety_stop、publish_phase、
+fail_sequence、stash_task_result 和只读 config。它不模拟旧版 engine 属性。
+
+原点服务由新鲜 odometry 与显式配置的地面高度判定地面/升空；无地面配置时起飞/原点
+不能伪造成功。基础飞行不要求视觉帧；在 cmd 边界内不引入 MAVROS 控制器依赖。
+
+全局停止在清理通用动作状态前通知发布动作的技能实例；取消/覆盖由 dispatcher 推进批次并通过既有目标口发布保持意图，
+不要求 planner 提供新增取消端口。技能注册返回幂等 disposer，只移除所注册实例，不误删后注册实例。

@@ -73,3 +73,21 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 | G10 | `ros_packages/` 下不存在名为 `mission_executive` 的包；执行代码与启动配置不包含 `/mission/task` 客户端、服务端或兼容入口（§1、§4） |
 | G11 | 执行缝代码中不含任何工具名字符串分支（§4） |
 | G12 | 经 pybind 暴露的每个能力端口都有对应的纯 C++ 单测（§3） |
+
+## 7. 直连消息与取消边界
+
+- LocalGoalSet 仅删除来源任务编号及其枚举常量；保留 yaw_low_speed、goal_to_follower
+  和其他原有字段。planner 的原读取逻辑保留，不以迁移之名裁剪其他能力。
+- batch_id 只关联下游动作及其反馈，不映射工具身份。当前动作的结果裁决、取消和
+  覆盖职责属于 dispatcher；不要求 planner 新增批次取消接口。
+- dispatcher 承接旧 stopMotion 控制：基于新鲜位姿构造当前位置、当前偏航角、
+  look_forward=false 的单点保持意图，以新批次通过既有目标口覆盖旧动作。
+  保持批次不是被取消调用的成功结果；旧批次结果必须在 dispatcher 中失效。
+- 缺少有效位姿或目标发送失败时，dispatcher 保留取消待处理状态并拒绝新动作，
+  不假报停止。正常取消不发全局急停信号；显式急停复用既有全局信号并上行编排保持意图。
+- 默认目标/反馈为 /planner/local_goal、/planner/waypoint_progress，映射到各后端
+  既有接口；不引入 /planner/cancel。后端选择和原有 remap 职责仍在启动配置。
+- planner 除去任务编号所必需的字段读取调整外保持原有控制行为；共享控制职责
+  不下放到 EGO 专属订阅、回调或急停状态修改中。
+- 输出边界为 /setpoint_cmd，cmd 下游不在本轮范围。后端切换不应要求为此次迁移
+  新增控制协议；各后端原有能力差异不能用单一后端的测试结果掩盖。

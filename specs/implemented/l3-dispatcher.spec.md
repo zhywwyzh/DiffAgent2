@@ -41,6 +41,8 @@ Contract-ID: l3-dispatcher
 | `specs/implemented/inner/l3-skill-contract.spec.md` | 技能的身份、生命周期、端口与逆 |
 | `specs/implemented/inner/l3-migration-protocol.spec.md` | 旧库向新库迁移的裁决、准入与禁止事项 |
 | `specs/implemented/inner/l3-tool-plane.spec.md` | 工具发现/调用/事件/取消与连接租约的对外协议 |
+| `specs/implemented/inner/l3-l4-rpc.spec.md` | l4 线上请求/准入/终态信封、presence 与连接生命周期 |
+| `specs/implemented/inner/flight-actions.spec.md` | 六个基础飞行动作的参数、完成语义和 cmd 输出边界 |
 
 ## 边界
 

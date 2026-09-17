@@ -24,10 +24,12 @@ Parent: specs/implemented/l3-dispatcher.spec.md
   变化而变化，对同一注册面唯一且可复现。
 - 无公开的启停开关；列表不随瞬时就绪状态抖动。
 
-**当前生产工具集合为空**：未迁入完整实现的工具及其旧入口已整链删除。
-新增能力须同时交付技能实现与测试，才能进入发现面；测试自有能力不得注册到生产默认集合。
+**当前生产工具集合**：`basic_flight.takeoff`、`basic_flight.land`、
+`basic_flight.translate`、`basic_flight.rotate`、`basic_flight.return`、
+`basic_flight.emergency_stop`。动作参数与完成语义归 [基础飞行动作契约](flight-actions.spec.md)。
+测试自有能力不注册到生产默认集合；后续能力同样须有完整实现与测试。
 
-**`revision` 记录值（现行）**：`sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945`
+**`revision` 记录值（现行）**：`sha256:39102fa2e900df83c2d4a6d9fd1e795a384f133dc00de6d0fb3946fc69aa1685`
 
 ## 2. 按名分发与准入
 
@@ -41,6 +43,10 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 - 注册表是 schema 校验与工具发现的唯一来源。
 
 ## 3. 承载传输与拒绝信封
+
+线上 admission/outcome、task presence 与连接监听的精确信封和生命周期归
+[l4 RPC 契约](l3-l4-rpc.spec.md)。本叶的 runtime ack/event、发现、事件游标和取消
+描述进程内能力，不表示站端存在对应的发现/轮询/取消 RPC 方法。
 
 - 控制面是唯一活跃入口：单 key `lx/<stack-id>/rpc`，一站一入口；请求形如
   `{"method", "params"}`，`params.context` 携带连接身份三元组（见 §6）。
@@ -113,15 +119,15 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 - 同一 `call_id` 同载荷重放：返回原 ack，不二次执行。
 - 同一 `call_id` 异载荷：拒绝为 `call_id_conflict`。
 - 完成语义恰为三值：`forwarded`（已转交下游）、`action_result`（以下游
-  动作结果为准）、`workflow_result`（以工作流结果为准）；当前生产无工具；后续能力须在注册元数据中声明完成语义。
+  动作结果为准）、`workflow_result`（以工作流结果为准）；生产能力在注册元数据中声明完成语义。
 - 传输超时、进程存活、容器就绪绝不算成功完成。
 
 ## 10. 门禁
 
 | 门禁 | 检查 |
 |------|------|
-| G24 | 发现面断言：工具名集合 == §1 集合（空集），`revision` == §1 记录的现行值 |
-| G25 | ack 与事件键集判定（必备键子集 + 负例）：ack 必含 `call_id` 与租约身份三键；事件必含 `call_id`/`status`/`phase`/`event_id`/`seq`；status ⊆ §8 三值、phase ⊆ §8 词表；二者均不得携带任务编号标识 |
+| G24 | 发现面断言：工具名集合 == §1 集合（六个基础飞行动作），`revision` == §1 记录的现行值 |
+| G25 | 进程内 runtime ack 与事件键集判定（必备键子集 + 负例）：ack 必含 `call_id` 与租约身份三键；事件必含 `call_id`/`status`/`phase`/`event_id`/`seq`；status ⊆ §8 三值、phase ⊆ §8 词表；二者均不得携带任务编号标识 |
 | G26 | 代码产出的拒绝 reason 集合 ⊆ §3 两层词表；新增 reason 须先改本契约 |
 | G27 | 负例判定：未注册名 → `tool_not_registered`；异源占用 → `flight_busy`；非 owner→ `connection_not_owner` |
 | G28 | 每个已准入调用恰有一个终态事件；同 `call_id` 同载荷重放返回原 ack |

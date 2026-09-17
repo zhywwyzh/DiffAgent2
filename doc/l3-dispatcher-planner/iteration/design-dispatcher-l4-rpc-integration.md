@@ -10,11 +10,11 @@
 |---|---|
 | 日期 | 2026-09-16 |
 | 目标路径 | `l3-dispatcher-planner/ros_packages/dispatcher/`、对应测试及统一 `specs/` |
-| 状态 | proposed |
-| 当前交付 | 方案与契约提案；未执行下述代码轮次 |
+| 状态 | done |
+| 当前交付 | 2026-09-17：S1/S2 通用实现、回归和真实回环传输验收完成；生产集合仍空 |
 | 执行总纲 | [执行顺序与文档导航](design-dispatcher-migration-execution-order.md)，本方案对应 S1–S2 |
 | 上游来源 | 工作区 `l4-agent/`，只读取现有 RPC、fleet、flight bridge 和工具词汇，不修改其任何内容 |
-| 关联文档 | [RPC 契约提案](../../../specs/proposed/inner/l3-l4-rpc.spec.md)、[基础飞行方案](design-dispatcher-basic-flight-migration.md)、[工具面契约](../../../specs/implemented/inner/l3-tool-plane.spec.md)、[台账](../rest/dispatcher-deferred-dependencies.md) |
+| 关联文档 | [RPC 契约提案](../../../specs/implemented/inner/l3-l4-rpc.spec.md)、[基础飞行方案](design-dispatcher-basic-flight-migration.md)、[工具面契约](../../../specs/implemented/inner/l3-tool-plane.spec.md)、[台账](../rest/dispatcher-deferred-dependencies.md) |
 | 路径约定 | `L3/` = `l3-dispatcher-planner/ros_packages/dispatcher/`；`L4/` = `l4-agent/src/copaw/`；其余路径从仓库根起算 |
 
 ## 1. 背景与动机
@@ -102,7 +102,7 @@ l3-dispatcher-planner/
 ### 4.2 复用面与接口裁决
 
 复用 RPC key、outcome key、presence 格式、连接四方法、租约与调用账本。
-字段和错误信封以 [RPC 提案](../../../specs/proposed/inner/l3-l4-rpc.spec.md) 为目标；
+字段和错误信封以 [RPC 提案](../../../specs/implemented/inner/l3-l4-rpc.spec.md) 为目标；
 本方案不另立一份 wire schema。默认 TTL 继续 15 秒，验证当前 l4 使用返回值即可，
 不因客户端 60 秒兜底而改变现行服务端契约。
 
@@ -255,7 +255,7 @@ RPC/registry/core 文件后 64 passed、1 failed，失败同为装配导入缺�
 
 | 文件 | 动作 | 所属阶段 |
 |---|---|---|
-| 本方案、specs/proposed/inner/l3-l4-rpc.spec.md | 新增 | 当前文档轮次 |
+| 本方案、specs/implemented/inner/l3-l4-rpc.spec.md | 新增 | 当前文档轮次 |
 | 基础飞行方案、rest/README.md、rest 台账 | 更新依赖和证据状态 | 当前文档轮次 |
 | L3/dispatcher/utils/rpc_plane.py | 修解析和终态序列化 | P1 |
 | L3/dispatcher/tools/runtime.py | 重放 owner 门及事件关联核对 | P1 |
@@ -266,3 +266,28 @@ RPC/registry/core 文件后 64 passed、1 failed，失败同为装配导入缺�
 | specs/implemented/architecture/日期-dispatcher-l4-rpc-integration.md | 完成时新增冻结决策，不改旧决策 | P3 |
 
 `l4-agent/**` 不在任何阶段的修改清单中。
+
+## 11. 执行记录（2026-09-17）
+
+- S0：临时隔离环境安装测试依赖，原有基线 83 passed；未修改 l4 或生产配置。
+- S1：完整请求拒绝、直接由 runtime name/call_id 生成 outcome、重放 owner 门、
+  acquire/watch 接线、旧回调身份检查、部分启动失败清理和可中断关闭均已实现。
+  租约与 runtime 锁顺序统一为 lease→runtime，准入与失租约/释放串行；TTL 丢失再次
+  检查当前有效期，避免旧到期判断误伤续约。
+- S2：总计 103 passed。新增测试直接只读加载 l4 的 RpcPlaneClient、FleetController、
+  RpcFlightBridge 和模型，禁字节码写入并检查源码摘要。真实 Zenoh 仅监听回环随机端口，
+  覆盖 presence、acquire/renew、调用、终态、幂等重放、token DELETE 和失租约拒绝；
+  确定性测试覆盖 outcome 先于 ack、重复实例、无 presence、非法输入和发布失败。
+- 资源回归验证部分启动失败释放句柄、重试等待可中断并回收工作线程；现有 TTL、
+  fail-closed 安全停及恢复测试全部通过。此处安全停为注入端口，未证明实机悬停。
+- RPC 叶已整叶晋升并挂根表；tool-plane 明确进程内 ack/event 与 wire 信封边界。
+  测试依赖记录在 l3-dispatcher-planner/tests/requirements.txt。
+
+复现命令（仓库根；环境需允许本机回环 socket）：
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 uv run --isolated --no-project --with-requirements l3-dispatcher-planner/tests/requirements.txt python -m pytest -q -p no:cacheprovider l3-dispatcher-planner/tests/tool-registry l3-dispatcher-planner/tests/core-boundary
+```
+
+未交付范围：飞行技能、planner 物理执行、结果持久补发；默认生产集合和 revision
+不变。既有日志 spec 缺失 Parent 问题仍单独保留，不宣称全仓 spec 完全无缺陷。

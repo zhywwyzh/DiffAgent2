@@ -1,0 +1,21 @@
+<launch>
+  <arg name="drone_id" default="0"/>
+  <arg name="odometry_topic" default="/ekf_quat/ekf_odom"/>
+  <arg name="cloud_topic" default="/cloud_registered"/>
+  <node pkg="ego_planner" type="ego_planner_node" name="ego_planner_node" output="screen" required="true">
+    <rosparam file="$(dirname)/../config/ego_planner.yaml" command="load"/>
+    <param name="fsm/drone_id" value="$(arg drone_id)"/>
+    <param name="manager/drone_id" value="$(arg drone_id)"/>
+    <param name="fsm/realworld_experiment" value="false"/>
+    <param name="fsm/fail_safe" value="true"/>
+    <param name="traj_server/time_forward" value="1.0"/>
+    <remap from="~odom_world" to="$(arg odometry_topic)"/>
+    <remap from="~grid_map/odom" to="$(arg odometry_topic)"/>
+    <remap from="~grid_map/cloud" to="$(arg cloud_topic)"/>
+    <remap from="~local_goal" to="/planner/local_goal"/>
+    <remap from="~mandatory_stop" to="/command/emergency_stop"/>
+    <remap from="~if_handle_yaw" to="/if_handle_yaw"/>
+    <remap from="/drone_0_ego_planner_node/waypoint_progress" to="/planner/waypoint_progress"/>
+    <remap from="/position_cmd" to="/setpoint_cmd"/>
+  </node>
+</launch>

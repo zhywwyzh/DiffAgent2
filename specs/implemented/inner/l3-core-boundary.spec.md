@@ -74,10 +74,10 @@ core 只做五件事：
 
 | 模块 | 允许的 `def`（方法名） |
 |------|------------------------|
-| `engine.py` | `__init__`、`_enter_global_stop`、`_run_inference_loop`、`_recover_inference_after_exception`、`run_inference`、`_fail_unregistered_dispatch` |
+| `engine.py` | `__init__`、`_enter_global_stop`、`_run_inference_loop`、`_recover_inference_after_exception`、`run_inference`、`_fail_unregistered_dispatch`、`_sleep_unlocked` |
 | `core/telemetry.py`（`RunTelemetry`） | `__init__`、`emit`、`publish_command_content`、`fmt_wait_age`、`wait_diag` |
 | `core/task_phase.py`（`TaskPhaseBridge`） | `__init__`、`publish`、`set_active_frame`、`set_middleware` |
-| `core/skill_router.py`（`SkillRouter`） | `__init__`、`register`、`get`、`dispatch_plan`、`validate_active_tool`、`owner_skill`、`snapshot_owner`、`stash_task_result`、`pop_task_result` |
+| `core/skill_router.py`（`SkillRouter`） | `__init__`、`register`、`get`、`dispatch_plan`、`validate_active_tool`、`owner_skill`、`snapshot_owner`、`stash_task_result`、`pop_task_result`、`dispose` |
 | `core/actuators.py`（`PlannerActuators`） | `__init__`、`set_if_handle_yaw` |
 | `core/tool_workflow.py`（`ToolWorkflowHost`） | `__init__`、`bind_tool_middleware`、`_activate_tool_call`、`start_tool_workflow`、`cancel_tool_call` |
 | `core/prompt_queue.py`（`PromptQueue`） | `__init__`、`sync_task_buffers_from_prepare`、`pop_next_task`、`load_next_prompt`、`advance_head_prompt`、`reset_plan_cycle_if_needed`、`clear_all`、`head_command`、`is_command_empty`、`is_prepared_empty` |
@@ -87,7 +87,8 @@ core 只做五件事：
 
 - 类标注以外的 `def` 节点：模块级装配函数（`create_dispatcher_engine` /
   `start_dispatcher_workers`）随装配职责落 `dispatcher_node.py`，**不计入 core**；
-  嵌套 `def` 只允许 `StateLedger.set_state._state_name`（状态名反查，随宿主方法）。
+  嵌套 `def` 只允许 `StateLedger.set_state._state_name`（状态名反查）及
+  `SkillRouter.register.dispose`（注册资源的逆操作，不持有领域判断）。
 
 ## 5. 迁移判定
 
@@ -98,3 +99,6 @@ core 只做五件事：
 2. 只在某一工具的流程中被调用 → 进对应技能；
 3. 跨多个工具共享的感知或几何能力 → 进共享服务；
 4. 无任何调用方 → 不迁移（遵循"过期必删"，不留桩、不留注释）。
+
+任务准入/取消、全局停止与单次 FSM 处理共享可重入生命周期锁；等待时必须释放锁，
+避免阻塞新调用。`_sleep_unlocked` 只管理等待期间的锁释放/恢复，不承担领域决策。

@@ -9,9 +9,9 @@
 | 项 | 值 |
 |---|---|
 | 日期 | 2026-09-16 |
-| 状态 | proposed |
+| 状态 | in-progress（职责上行修正，未重跑测试） |
 | 目标路径 | l3-dispatcher-planner 及对应 doc/specs |
-| 当前进度 | 文档已建立；S0–S6 的实现验收尚未完成 |
+| 当前进度 | RPC 保持已迁入；取消覆盖已收回 dispatcher，字段和 planner 行为已恢复；修正版按用户要求未测试、尚未提交 |
 | 上游边界 | l4-agent 只读，不修改其源码、配置、测试或文档 |
 | 使用方式 | 每次开始或恢复执行先读本文件 §4/§7，再进入当前阶段列出的文档 |
 
@@ -35,7 +35,7 @@ RPC 对接和基础飞行是两轮有依赖的迁移，不能按文件排列顺�
 - 提供确定的阅读、编辑、验收和推进次序；每个阶段有唯一的子方案入口。
 - 规范优先。子方案与现行契约冲突时先修目标提案/完成契约评审，再写代码。
 - 不修改 l4，不新增任务编号、兼容层或生产空实现，不恢复独立 mission_executive。
-- 本次是文档组织与设计纠正，不以新增总纲视为已实施下表代码阶段。
+- 本轮代码与验收记录见 §7 和子方案执行记录；后续扩展仍按同样的契约与验证顺序推进。
 
 ## 4. 方案决策
 
@@ -46,9 +46,9 @@ doc/l3-dispatcher-planner/iteration/
   design-dispatcher-migration-execution-order.md  # 顺序和进度唯一入口
   design-dispatcher-l4-rpc-integration.md         # RPC 实现路线
   design-dispatcher-basic-flight-migration.md     # 飞行实现路线
-specs/proposed/inner/
-  l3-l4-rpc.spec.md                              # 待采纳的 wire 契约
-  flight-actions.spec.md                         # 待采纳的动作契约
+specs/implemented/inner/
+  flight-actions.spec.md                         # 已采纳的动作契约
+  l3-l4-rpc.spec.md                              # 已采纳的 wire 契约
 ```
 
 方案文件使用 `design-dispatcher-主题.md`，契约使用聚焦的 `*.spec.md`；阶段编号
@@ -60,11 +60,11 @@ specs/proposed/inner/
 | 阶段 | 依次访问的文档 | 编辑范围与结果 | 进入下一阶段的条件 |
 |---|---|---|---|
 | S0 基线 | 本总纲 → [l3 根契约](../../../specs/implemented/l3-dispatcher.spec.md)及其全部叶 → [spec 注册规则](../../../specs/README.md) → [rest 索引](../rest/README.md)及相关台账 → 两份子方案 §2/§8 | 核对工作区已有修改、准备测试依赖、记录现状；只读核验 l4 来源 | 基线可复现；环境失败与实际代码失败分开记录，不能把未跑报告为通过 |
-| S1 RPC 修复 | [RPC 提案](../../../specs/proposed/inner/l3-l4-rpc.spec.md) → [RPC 子方案](design-dispatcher-l4-rpc-integration.md) §4、P1 → 其 §10 实现文件 | 解析拒绝、终态关联、重放 owner 门、owner watch 和资源生命周期 | 子方案通用回归通过；生产集合仍为空 |
+| S1 RPC 修复 | [RPC 提案](../../../specs/implemented/inner/l3-l4-rpc.spec.md) → [RPC 子方案](design-dispatcher-l4-rpc-integration.md) §4、P1 → 其 §10 实现文件 | 解析拒绝、终态关联、重放 owner 门、owner watch 和资源生命周期 | 子方案通用回归通过；生产集合仍为空 |
 | S2 RPC 闭环交付 | RPC 提案 §6 → RPC 子方案 P2/P3、§8 → 只读 l4 消费者 | 受控 session 和隔离 Zenoh 测试；采纳 RPC 叶，更新根表/工具面归属，归档决策 | RPC1–RPC7 有证据；没有 l4 改动；前置方案 done |
-| S3 直连接口取证 | [执行缝现行契约](../../../specs/implemented/inner/l3-execution-seam.spec.md) → [飞行动作提案](../../../specs/proposed/inner/flight-actions.spec.md) → [飞行子方案](design-dispatcher-basic-flight-migration.md) §4.3/§4.4、P0 → 台账 R03/R04/R05 | 核对实际 planner/飞控直连接口，完善子方案及必要契约修订；冻结端口、消息、取消/结果、构建和 remap | 直连接线矩阵落在飞行子方案 §4.4；必要契约已先行修订，无未解析消息或部署依赖 |
+| S3 直连接口取证 | [执行缝现行契约](../../../specs/implemented/inner/l3-execution-seam.spec.md) → [飞行动作提案](../../../specs/implemented/inner/flight-actions.spec.md) → [飞行子方案](design-dispatcher-basic-flight-migration.md) §4.3/§4.4、P0 → 台账 R03/R04/R05 | 核对实际 planner/飞控直连接口，完善子方案及必要契约修订；冻结端口、消息、取消/结果、构建和 remap | 直连接线矩阵落在飞行子方案 §4.4；必要契约已先行修订，无未解析消息或部署依赖 |
 | S4 飞行实现 | 动作提案 → 飞行子方案 P1/P2、§4/§10 → 对应领域/端口/适配文件 | 先宿主/disposer/原点服务，再状态和停止链、起降、共享目标执行、平移/旋转、返航；使用测试注册表 | 领域、边界和模拟下游测试通过；真实完成/取消均有实现；生产仍为空 |
-| S5 飞行集成 | 动作提案 §6 → 飞行子方案 P3/§8 → RPC 子方案既有回归 → 台账对应验收 | 真实 l4 消费者与所选下游执行接口集成，分层记录仿真/台架/实机证据 | 参数、结果、取消、原点、急停制动与保持均达本轮验收要求；mock 不替代物理证据 |
+| S5 飞行集成 | 动作提案 §6 → 飞行子方案 P3/§8 → RPC 子方案既有回归 → 台账对应验收 | 真实 l4 消费者与 EGO 直连接口集成，使用受控状态输入验证至 /setpoint_cmd 输出 | 参数、结果、取消、原点与急停保持命令均达 cmd 边界验收；不验证 cmd 下游处理 |
 | S6 生产交付 | 飞行子方案 P4 → spec 注册规则 → 工具面现行契约 → rest 台账与索引 | 同批注册六工具、计算 revision、采纳动作叶、更新根表和测试，归档新决策 | 默认集合与已交付实现严格一致；保留旧 flight 名拒绝；证据齐全才置 done |
 
 依赖链固定为 `S0 → S1 → S2 → S3 → S4 → S5 → S6`。可以提前做只读取证，
@@ -108,16 +108,16 @@ S3 核实具体 planner 输入、反馈、取消/覆盖与停止机制，确定�
 
 | 阶段 | 当前状态 | 验收记录归属 |
 |---|---|---|
-| S0 | 待完成；已知测试环境缺 zenoh，已有基线记录 | RPC 子方案 §8 |
-| S1 | 未开始 | RPC 子方案 P1/§8 |
-| S2 | 未开始 | RPC 子方案 P2/P3/§8 |
-| S3 | 未开始取证；直连方向已确定，旧 mission action 不迁入 | 飞行子方案 §4.4/P0 |
-| S4 | 未开始 | 飞行子方案 P1/P2/§8 |
-| S5 | 未开始 | 飞行子方案 P3/§8 |
-| S6 | 未开始 | 飞行子方案 P4/§8 与 rest |
+| S0 | 完成；隔离依赖环境中 83 项基线通过 | RPC 子方案 §8 |
+| S1 | 完成；RPC/租约/资源生命周期修复 | RPC 子方案 P1/§8 |
+| S2 | 完成；真实 l4 消费者、回环 Zenoh 验证和契约采纳 | RPC 子方案 P2/P3/§8 |
+| S3 | 边界已修正：仅去来源编号，保留其他字段与 planner 原行为 | 飞行子方案 §4.4/P0 |
+| S4 | 代码已修正：旧 stopMotion 职责上行到 dispatcher | 飞行子方案 P1/P2/§8 |
+| S5 | 旧实现验收保留作历史；本修正版未重跑（用户要求） | 飞行子方案 P3/§8 |
+| S6 | 六工具注册不变；模块提交待修正收尾 | 飞行子方案 P4/§8 与 rest |
 
 每阶段范围和不变式见 §4.2，具体回退按对应子方案 P 阶段执行。阶段失败保持原阶段，
-不跳过测试、不开放占位工具。S6 之前生产飞行不可用；回退涉及契约与实现时整体处理。
+不跳过测试、不开放占位工具。先前实现的 S6 结果仅作历史；本修正版验证状态以本表为准。
 
 ## 8. 验收标准
 
@@ -143,9 +143,24 @@ S3 核实具体 planner 输入、反馈、取消/覆盖与停止机制，确定�
 | 本总纲 | 新增，后续执行统一入口 |
 | design-dispatcher-l4-rpc-integration.md | 增加总纲入链 |
 | design-dispatcher-basic-flight-migration.md | 增加总纲入链，纠正 mission action 预设 |
-| specs/proposed/inner/flight-actions.spec.md | 明确 dispatcher 直连 planner，禁止旧 action 转换层 |
+| specs/implemented/inner/flight-actions.spec.md | 明确 dispatcher 直连 planner，禁止旧 action 转换层 |
 | rest/README.md、保留项台账 | 对齐直连方向与待迁状态 |
 | specs/implemented/inner/l3-execution-seam.spec.md、对应架构决策 | 明确不迁入旧转换层，dispatcher 直接经端口驱动 planner |
 
-本轮仅优化文档并修订直连架构契约，不开始代码修改。S0–S6 保持未执行状态；
-用户后续启动实现时，才按本文件顺序访问对应文档编辑。
+2026-09-17 用户已启动代码迁移，按本文件顺序实施；当前进度以 §7 为准。
+
+2026-09-17 范围收敛：用户指定当前实际使用 EGO，旧版支持 planner_backend 配置切换；
+本轮只负责到 cmd 输出，后续处理不属本仓库任务。S3 旧版取证表见飞行子方案 §4.4.1，
+S5 以真实 planner 的 cmd 输出和受控反馈验收，不要求 cmd 下游实机验证。
+
+2026-09-17 完成记录：外部构建目录中的 EGO/dispatcher/最小消息依赖构建通过；
+完整测试 115 passed（11 条 rospy 弃用警告）。测试从原始 l4 客户端经过正式启动入口、
+默认注册表、六态 FSM 和真实 EGO 到 /setpoint_cmd，并验证 outcome 回链。未测试或
+部署 cmd 下游组件；未修改 l4 或 DiffAgent2 旧版；未提交/推送。
+
+## 职责上行修正记录
+
+按用户纠正，保留 yaw_low_speed 和 goal_to_follower，不再以 basic-flight 迁移为由
+裁剪其他消息字段。EGO 的新取消回调、停止状态/偏航改动已撤回；planner 差异仅与
+来源任务编号有关。dispatcher 通过既有目标口发送新批次保持意图并管理失效结果。
+先前 115 项通过记录不覆盖这一修正；未新增或执行测试，未执行构建，未提交。

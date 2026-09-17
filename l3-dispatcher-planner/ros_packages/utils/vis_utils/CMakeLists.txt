@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.5)
+project(vis_utils)
+find_package(catkin REQUIRED COMPONENTS roscpp visualization_msgs)
+find_package(Eigen3 REQUIRED)
+catkin_package(INCLUDE_DIRS include LIBRARIES vis_utils CATKIN_DEPENDS roscpp visualization_msgs)
+include_directories(include ${catkin_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIR})
+add_library(vis_utils src/camera_fov.cpp)
+target_link_libraries(vis_utils ${catkin_LIBRARIES})

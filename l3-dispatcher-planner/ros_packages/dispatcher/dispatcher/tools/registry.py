@@ -34,7 +34,8 @@ class ToolRegistry:
 
     @classmethod
     def default(cls) -> "ToolRegistry":
-        return cls(())
+        from dispatcher.tools.flight.catalog import flight_specs
+        return cls(flight_specs())
 
     def list_tools(self) -> dict:
         tools = [spec.public_dict() for spec in self._ordered]

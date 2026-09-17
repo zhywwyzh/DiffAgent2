@@ -13,6 +13,7 @@ from __future__ import annotations
 import threading
 import time
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Callable
 
@@ -234,6 +235,15 @@ class ConnectionLeaseManager:
     # owner gate for the tool plane (fleet spec §5)
     # ------------------------------------------------------------------
 
+    @contextmanager
+    def owner_guard(self, identity):
+        """Serialize admission with release/loss; lock order is lease then runtime."""
+        sid, inst, lid = _identity_fields_or_not_owner(identity)
+        self.expire_if_due()
+        with self._lock:
+            self._require_owner_locked(sid, inst, lid)
+            yield
+
     def require_owner(self, identity) -> dict:
         """Return the current lease for a verified owner identity triple."""
         sid, inst, lid = _identity_fields_or_not_owner(identity)
@@ -253,15 +263,26 @@ class ConnectionLeaseManager:
                 and self._lease is not None
                 and self._clock() >= self._lease["expires_at"]
             )
-        return self.mark_lost("lease_expired") if due else False
+            identity = dict(self._lease or {})
+        return self.mark_lost(
+            "lease_expired", station_id=identity.get("station_id", ""),
+            lease_id=identity.get("lease_id", ""), expired_only=True,
+        ) if due else False
 
-    def notify_owner_lost(self, reason: str = "station_connection_token_lost") -> bool:
-        """Owner connection-token loss reported by the liveliness watch."""
+    def is_current_owner(self, station_id: str, lease_id: str) -> bool:
+        """Check watch ownership without invoking loss callbacks."""
         with self._lock:
-            owned = self._state == OWNED
-        return self.mark_lost(reason) if owned else False
+            return bool(self._state == OWNED and self._lease
+                        and self._lease["station_id"] == station_id
+                        and self._lease["lease_id"] == lease_id)
 
-    def mark_lost(self, reason: str) -> bool:
+    def notify_owner_lost(self, reason: str = "station_connection_token_lost", *,
+                          station_id: str = "", lease_id: str = "") -> bool:
+        """Reject stale connection-token callbacks atomically with lease loss."""
+        return self.mark_lost(reason, station_id=station_id, lease_id=lease_id)
+
+    def mark_lost(self, reason: str, *, station_id: str = "", lease_id: str = "",
+                  expired_only: bool = False) -> bool:
         """Ordered transition OWNED -> LEASE_LOST -> CANCELLING ->
         SAFETY_REQUESTED -> UNOWNED; admission stops immediately and the
         lease is free again only after the safety request is issued.
@@ -275,6 +296,11 @@ class ConnectionLeaseManager:
             if self._state != OWNED:
                 return False
             lease = dict(self._lease or {})
+            if expired_only and self._clock() < lease["expires_at"]:
+                return False
+            if lease_id and (lease.get("lease_id") != lease_id
+                             or lease.get("station_id") != station_id):
+                return False
             self._state = LEASE_LOST
             self._lease = None
             self._last_loss_reason = str(reason)

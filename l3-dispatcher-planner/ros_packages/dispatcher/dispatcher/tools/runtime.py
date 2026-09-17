@@ -95,7 +95,9 @@ class ToolRuntime:
         fingerprint = hashlib.sha256(
             json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest()
-        with self._lock:
+        # Keep lease -> runtime lock ordering, also used by active release checks.
+        # Loss cannot slip between owner validation and admission, including replays.
+        with self._leases.owner_guard(call.lease_identity), self._lock:
             previous = self._calls.get(call.call_id)
             if previous is not None:
                 if previous.fingerprint != fingerprint:
@@ -105,9 +107,6 @@ class ToolRuntime:
                         {"reason": "call_id_conflict", "call_id": call.call_id},
                     )
                 return dict(previous.ack)
-
-            # Owner-only admission — every tool, including emergency stop.
-            self._leases.require_owner(call.lease_identity)
 
             active = self._active_state_locked()
             if active is not None:

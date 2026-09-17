@@ -1,0 +1,5 @@
+<package format="2"><name>dispatcher</name><version>0.1.0</version>
+<description>Named skill dispatcher and direct planner execution.</description>
+<maintainer email="maintainer@example.invalid">Maintainer</maintainer><license>BSD</license>
+<buildtool_depend>catkin</buildtool_depend><depend>rospy</depend><depend>nav_msgs</depend>
+<depend>std_msgs</depend><depend>std_srvs</depend><depend>quadrotor_msgs</depend></package>

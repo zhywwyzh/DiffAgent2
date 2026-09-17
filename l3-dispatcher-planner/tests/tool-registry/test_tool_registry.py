@@ -23,7 +23,7 @@ from registry_support import test_registry
 from types import SimpleNamespace
 from dispatcher.tools.runtime import ToolRuntime  # noqa: E402
 
-EXPECTED_TOOLS = set()
+EXPECTED_TOOLS = {'basic_flight.' + name for name in ('takeoff', 'land', 'translate', 'rotate', 'return', 'emergency_stop')}
 
 
 class FakeClock:

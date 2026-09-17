@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import threading
+
 from dispatcher.tools.model import SkillCommand, ToolCall
 
 
 class ToolWorkflowHost:
     def __init__(self, *, runlog, task_phase, skills, enter_global_stop,
-                 task_generation, queue, ledger, input_ready):
+                 task_generation, queue, ledger, input_ready, operation_lock=None):
+        self.operation_lock = operation_lock if operation_lock is not None else threading.RLock()
         self.runlog = runlog
         self.task_phase = task_phase
         self.skills = skills
@@ -37,43 +40,45 @@ class ToolWorkflowHost:
         )
 
     def start_tool_workflow(self, call: ToolCall, command: SkillCommand) -> None:
-        skill = self.skills.get(call.name)
-        if skill is None:
-            self.task_phase.publish(
-                "fail", detail=f"tool not registered: {call.name}",
-                error={"code": "tool_not_registered", "message": f"tool not registered: {call.name}"},
-                frame_id=call.frame_id,
-            )
-            return
-        if not skill.synchronous and skill.requires_perception and not self.input_ready():
-            self.task_phase.publish(
-                "fail", detail="chain_not_ready: sensor input unavailable or stale",
-                error={"code": "chain_not_ready", "message": "sensor input unavailable or stale"},
-                frame_id=call.frame_id,
-            )
-            return
-        self.enter_global_stop("new_tool_call", shutdown_program=False, publish_hold=False)
-        self.ledger.failed = False
-        self._activate_tool_call(call)
-        skill.on_new_prompt_task()
-        skill.on_start(command)
-        if skill.synchronous:
-            return
-        prompt_text = str(call.display_text or call.name)
-        self.task_phase.publish("planning", message=prompt_text, frame_id=call.frame_id)
-        self.queue.sync_task_buffers_from_prepare([(prompt_text, command)])
-        self.queue.pop_next_task()
+        with self.operation_lock:
+            skill = self.skills.get(call.name)
+            if skill is None:
+                self.task_phase.publish(
+                    "fail", detail=f"tool not registered: {call.name}",
+                    error={"code": "tool_not_registered", "message": f"tool not registered: {call.name}"},
+                    frame_id=call.frame_id,
+                )
+                return
+            if not skill.synchronous and skill.requires_perception and not self.input_ready():
+                self.task_phase.publish(
+                    "fail", detail="chain_not_ready: sensor input unavailable or stale",
+                    error={"code": "chain_not_ready", "message": "sensor input unavailable or stale"},
+                    frame_id=call.frame_id,
+                )
+                return
+            self.enter_global_stop("new_tool_call", shutdown_program=False, publish_hold=False)
+            self.ledger.failed = False
+            self._activate_tool_call(call)
+            skill.on_new_prompt_task()
+            skill.on_start(command)
+            if skill.synchronous:
+                return
+            prompt_text = str(call.display_text or call.name)
+            self.task_phase.publish("planning", message=prompt_text, frame_id=call.frame_id)
+            self.queue.sync_task_buffers_from_prepare([(prompt_text, command)])
+            self.queue.pop_next_task()
 
     def cancel_tool_call(self, call: ToolCall, reason: str) -> None:
-        if self._active_tool_call is not None and self._active_tool_call.call_id == call.call_id:
-            skill = self.skills.get(call.name)
-            if skill is not None:
-                skill.on_cancel()
-            self.enter_global_stop(
-                f"tool_cancel:{reason or 'requested'}",
-                shutdown_program=False, publish_hold=False,
-            )
-            self._active_tool_call = None
-            self._active_tool_name = ""
-        if self.zenoh_middleware is not None:
-            self.zenoh_middleware.runtime.mark_cancelled(call.call_id, reason)
+        with self.operation_lock:
+            if self._active_tool_call is not None and self._active_tool_call.call_id == call.call_id:
+                skill = self.skills.get(call.name)
+                if skill is not None:
+                    skill.on_cancel()
+                self.enter_global_stop(
+                    f"tool_cancel:{reason or 'requested'}",
+                    shutdown_program=False, publish_hold=False,
+                )
+                self._active_tool_call = None
+                self._active_tool_name = ""
+            if self.zenoh_middleware is not None:
+                self.zenoh_middleware.runtime.mark_cancelled(call.call_id, reason)

@@ -10,11 +10,11 @@
 |---|---|
 | 日期 | 2026-09-16 |
 | 目标路径 | `l3-dispatcher-planner/ros_packages/dispatcher/`、对应测试与统一 `specs/` |
-| 状态 | proposed |
-| 当前交付 | 重写方案及目标契约提案；未迁入任何生产技能 |
+| 状态 | in-progress（职责上行修正，按用户要求不重跑测试） |
+| 当前交付 | 六工具与 RPC 已迁入；正在撤回额外 planner 改动，修正后的控制链未重跑验证 |
 | 执行总纲 | [执行顺序与文档导航](design-dispatcher-migration-execution-order.md)，统一阶段顺序与编辑入口 |
 | 前置方案 | [l4 RPC 对接闭环](design-dispatcher-l4-rpc-integration.md)，实施验收先于生产飞行接入 |
-| 目标契约 | [基础飞行动作提案](../../../specs/proposed/inner/flight-actions.spec.md)、[RPC 提案](../../../specs/proposed/inner/l3-l4-rpc.spec.md) |
+| 目标契约 | [基础飞行动作提案](../../../specs/implemented/inner/flight-actions.spec.md)、[RPC 提案](../../../specs/implemented/inner/l3-l4-rpc.spec.md) |
 | 现行依据 | [l3 根与全部叶契约](../../../specs/implemented/l3-dispatcher.spec.md)、[裁剪决策](../../../specs/implemented/architecture/2026-09-15-dispatcher-core-and-capability-pruning.md)、[保留项台账](../rest/dispatcher-deferred-dependencies.md) |
 | 上游边界 | 工作区 `l4-agent/` 仅展示现有上层接口；所有阶段禁止修改其代码、配置、测试和文档 |
 | 路径约定 | `L3/` = `l3-dispatcher-planner/ros_packages/dispatcher/`；`L4/` = `l4-agent/src/copaw/`；`O/` = DiffAgent2 旧版的 `drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/`；spec/doc/tests 从仓库根起算 |
@@ -207,6 +207,61 @@ ROS action 服务；真实 planner/飞控反馈经端口形成执行结果，不
 可执行预算在部署配置和测试中冻结，超预算明确失败，不静默截断。位姿过期、控制模式
 不符、下游不可用、结果超时均失败；requires_perception=false 不豁免这些条件。
 
+### 4.4.1 S3 旧版接线取证（2026-09-17）
+
+用户确定：当前实际后端为 EGO；本轮交付到 cmd 输出，cmd 之后的飞控/实机处理不属于
+任务范围。DiffAgent2 旧版只读编排快照为 `7192811`；以下路径均相对旧版编排仓库。
+
+| 项目 | 旧版来源与事实 | 新版迁移裁决 |
+|---|---|---|
+| 后端切换 | drone_projects/l3-dispatcher-planner/bringup/launch/bringup_base.launch：planner_backend 条件包含 ego/super/diff；外层 bringup.launch 默认 super，内层默认 ego | 以用户指定 ego 为当前验收后端，不把旧文件默认值当现场事实；保留配置选择职责，其他后端逐项验收，不宣传能力完全等价 |
+| EGO 接线 | 同目录 includes/ego_planner.launch.xml：~local_goal → /drone_<id>_mission_executive/local_goal；~mandatory_stop → /mandatory_stop_to_planner；/position_cmd → /setpoint_cmd | 改为 dispatcher 直连；旧主题命名不构成保留 mission 节点的理由；新 remap 作为有意变更登记 |
+| waypoint 消息 | ros_packages/utils/quadrotor_msgs/msg/LocalGoalSet.msg：drone_id、batch_id、扁平 xyz、yaw、look_forward、yaw_mode/yaw_path_mode 等 | batch_id 仅关联下游动作代次，不映射工具名；旧 source_task_id 与来源编号常量须单独按无编号契约清理，不能原样复制 |
+| 完成关联 | 同包 WaypointProgress.msg：batch_id、consumed_count、active_idx、skipped_mask、all_consumed | 只接受当前动作批次的反馈；不能用无关联编号的 Bool 完成脉冲结束新调用 |
+| 规划结果 | 同包 PlannerResult.msg 只有 planner_goal、plan_times、plan_status、modify_status；没有 exec_finished 字段 | 不依据陈旧注释臆造字段；无批次关联结果不能单独作为唯一终态依据 |
+| cmd 输出 | 同包 PositionCommand.msg；新版 EGO traj_server.cpp:274 构造 position/velocity/acceleration/jerk/yaw/yaw_dot；旧 launch remap 为 /setpoint_cmd | 保持 cmd 消息字段；验收观察此输出，不运行 cmd 后的消费者 |
+| 起降出口 | 同包 TakeoffLand.msg：TAKEOFF=1、LAND=2，takeoff_land_cmd | 转交出口单独验证，不把下游起降物理完成纳入本轮范围 |
+| 第二层旧转接 | includes/mission_backend.xml 还启动 quadrotor_msgs/scripts/planner_waypoint_action.py，转发 /planner/waypoints | 不迁入此转发节点、TaskAction/Waypoint action 或 mission_backend；只迁真实消息/公共依赖 |
+| 后端差异 | 新版 DIFF waypointCallback 明确不使用 yaw；SUPER 的部分完成主题仍含旧 mission 命名 | 配置能切换不等于六能力一致；EGO 为本轮完整六动作目标，其他后端能力差异明确拒绝，不通过兼容转发补齐 |
+
+后续实现验收的输入可用受控 odometry/cloud 与反馈；输出边界为 `/setpoint_cmd` 和起降
+命令转交。需要验证命令生成、当前批次结果、取消覆盖和急停后的保持命令，不要求验证
+cmd 下游的电机、PX4 跟踪或实机速度收敛。原点的状态输入仍要真实可判定，不能把发布
+起飞命令伪报为实际升空；状态变化可由受控输入驱动。
+
+### 4.4.2 职责上行修正（取代先前的 EGO 专属取消设计）
+
+用户明确：仅删除 source_task_id 与 SOURCE_TASK_*；yaw_low_speed 和 goal_to_follower
+保留。取消 mission_executive 是把其控制职责上行迁入 dispatcher，不是给 planner
+增加新控制协议。此前删除另外两个字段以及增加 EGO cancelCallback 的决定撤回。
+
+修正先于代码执行落盘，范围如下：
+
+| 单元 | 修正动作 | 理由 |
+|---|---|---|
+| LocalGoalSet.msg | 恢复 yaw_low_speed、goal_to_follower 原字段位置；不恢复来源编号 | 不把 task-id 清理扩大成其他接口裁剪 |
+| EGO/SUPER | 恢复 yaw_low_speed 的原读取；仅保留来源编号相关差异 | 后端行为保持原有边界 |
+| EGO 取消/停止 | 撤销 cancel 订阅/回调、额外清窗口和偏航重置 | 取消覆盖与生命周期由 dispatcher 承担 |
+| vis_utils | 保持旧目录布局：include/vis_utils/camera_fov.h 和 src/camera_fov.cpp，CMake 引用原 src 路径 | 不移动既有文件、不改 planner include、不加转接头 |
+| WaypointExecution | 上行承接旧 MissionCore.stopMotion：新批次下发当前位置、当前 yaw、look_forward=false | 使用既有统一目标消息覆盖旧动作，不要求新增 planner/cancel |
+| ROS 端口与 launch | 删除 UInt32 cancel 发布器、协议方法和 remap | 只保留既有目标/反馈/全局停止语义 |
+| 现有测试文件 | 仅同步已变更接口的已有断言，不新增/执行测试 | 不让测试继续要求已撤销的 EGO 专属端口 |
+
+旧版依据：MissionCore::stopMotion（mission_core.cpp:277）调用 publishLocalGoal，
+handlers/mission_core_shared.cpp:9–18 将其作为新批次单点窗口下发。这里只迁入职责，
+不恢复旧包、旧 action 或任务编号。
+
+dispatcher 的取消序列：标记取消处理中 → 校验新鲜位姿 → 推进执行批次 → 经同一个
+目标发布口发送保持意图 → 清除旧活动动作。保持批次不参与被取消调用的成功判定，
+旧批次结果不能推进新调用。位姿缺失/过期或发送失败时保留取消待处理状态、阻止新
+动作，不假装已经停止；恢复连接/位姿后可重试。批次不映射工具身份。
+
+显式急停保留既有全局停止信号，并由 dispatcher 通过同一目标接口下发保持意图，
+不再通过修改 planner 的急停函数实现。转交成功不等于已验证实际停止。
+
+此修正不证明三个后端行为完全等价，也不增加 EGO 专属要求。原来的 115 项通过记录
+属于修正前实现，不能当作当前版本证据；本轮按用户要求不运行测试或构建。
+
 ### 4.5 原点服务与 R04 范围
 
 本轮实现 FlightSession 的有效原点，不迁完整 recording，不实现 previous 游标消费。
@@ -306,10 +361,10 @@ revision 由最终元数据的 canonical JSON 计算，不在纯 spec 阶段预�
 ### P3 — l4 消费者与受控飞行链验收
 
 - 前置：l4 RPC 对接方案已通过；直连端口和消息定义、launch/remap、执行配置已冻结。
-- 范围：用测试注册表连接真实站端消费者进行隔离测试；受控仿真/台架/实机分别验证
-  出站、物理完成与急停轨迹，证据注明具体层级。
+- 范围：用测试注册表连接真实站端消费者进行隔离测试；受控 odometry/cloud/反馈驱动真实 planner，验证
+  出站、结果与急停 cmd，交付止于 /setpoint_cmd，不测试后续处理。
 - 不变式：不修改 l4；只在受控环境使测试能力可达，不形成生产开关；forwarded 不是飞稳。
-- 验收：§8 全矩阵；R03/R04/R05 对应能力的运行证据；不能以 mock 替代物理链验证。
+- 验收：§8 全矩阵；R03/R04/R05 对应能力的运行证据；不能以 mock planner 替代真实 planner 的 cmd 输出验证。
 - 回退：保持生产空集；解除测试会话并完成下游安全清理。
 
 ### P4 — 生产注册、契约采纳与归档（同一交付）
@@ -321,7 +376,7 @@ revision 由最终元数据的 canonical JSON 计算，不在纯 spec 阶段预�
 - 回退：注册表/测试/spec/revision 整体回到空集基线，保留归档证据，不保留占位入口。
 
 P1/P2 中间状态明确“真实生产飞行不可运行”，预期 P3 验证并由 P4 正式交付。
-本轮仅完成文档设计，没有执行 P1–P4。
+2026-09-17：本方案 P0–P4 已完成，执行证据见 §11；下述测试矩阵为本轮交付判据。
 
 ## 8. 验收标准
 
@@ -333,12 +388,12 @@ P1/P2 中间状态明确“真实生产飞行不可运行”，预期 P3 验证�
 | 同步动作 | 起降/急停真实转交才 forwarded；端口缺失、下游不就绪/抛错不假成功 |
 | 位姿 | 缺失、过期、坐标系变化拒绝；平移四方向、单位、限幅与目标一致；旋转不丢圈数 |
 | action 结果 | 成功门、失败、超时、重复、旧代次、取消后迟到；同名技能重注册不改变归属 |
-| R03 | 急停 remap 连通、运动中速度收敛与位置保持、旧 goal 停止、重复急停、定位不可用、模式切换/恢复 |
+| R03 | 急停 remap 连通、运动输入下的制动/保持 cmd 输出、旧 goal 停止、重复急停、定位不可用、模式切换/恢复 |
 | R04 原点 | 起飞候选与真实确认、无原点失败、空中重复起飞不覆盖、着陆/重置/重启/坐标变更失效、任务覆盖不清同会话原点 |
 | R05 | 武装后结果接线、覆盖/停止清理、实例快照与代次；REPLAN 机制用测试技能验证，VLA 生产判据仍未交付 |
 | 生命周期 | 取消/覆盖不误发急停，旧目标确实取消；技能/共享服务资源归属正确、disposer 逆序且等待异步完成 |
 | 控制面 | 同源抢占、非 owner 含急停拒绝、失租约端口失败 fail-closed；终态唯一与 completion 元数据一致 |
-| 集成 | takeoff → 实际飞行就绪 → translate/rotate/return → emergency_stop → land；分别记录协议、执行结果和物理证据 |
+| 集成 | takeoff → 实际飞行就绪 → translate/rotate/return → emergency_stop → land；分别记录协议、执行反馈和 cmd 输出证据 |
 | 交付 | default 六项与 spec 一致、revision 可复算；rest 索引同步；旧代码零遗留；G18–G28 与行为字符串差异登记一致 |
 
 代码轮次在已安装测试依赖的环境、仓库根执行：
@@ -347,8 +402,7 @@ P1/P2 中间状态明确“真实生产飞行不可运行”，预期 P3 验证�
 PYTHONDONTWRITEBYTECODE=1 python3 -m pytest -q -p no:cacheprovider l3-dispatcher-planner/tests/tool-registry l3-dispatcher-planner/tests/core-boundary l3-dispatcher-planner/tests/basic-flight
 ```
 
-`tests/basic-flight/` 为实施时随首个测试建立的目标目录，当前不存在，不能声称上述未来
-命令已执行。planner 直连接口/launch 集成与实机验证另附运行记录；spec 工具未迁入前用现有
+`tests/basic-flight/` 已交付；真实 ROS 集成另见 tests/ros/test_ego_cmd.py。planner 直连接口/launch 集成与 cmd 输出验证另附运行记录；spec 工具未迁入前用现有
 pytest 与 header/Parent/引用闭包等价检查。当前文档轮次的测试限制见前置方案 §8。
 
 ## 9. 风险与对策
@@ -360,7 +414,7 @@ pytest 与 header/Parent/引用闭包等价检查。当前文档轮次的测试�
 | 空参 return 被扩大为 previous | 上游与历史服务范围失控 | 本轮只做 origin；R04 剩余条目继续保留 |
 | 原点从 last_state/当前点补造 | 飞往错误位置 | 独立 FlightSession，确认起飞才生效、无记录明确失败 |
 | rotate 套用旧角度范围或直接取模 | 上层合法意图被改变 | 有符号累计角、分段与解缠判定；超预算失败 |
-| 停止信号与 planner 入口未接 | 急停只有软件成功 | 实际 remap、制动轨迹/保持证据；不盲目双发 hover |
+| 停止信号与 planner 入口未接 | 急停没有生成正确 cmd | 实际 remap、制动轨迹/保持 cmd 证据；不盲目双发 hover |
 | 为保持 core 白名单把业务塞入组合根 | 结构形式合规但职责失控 | 通用宿主/执行领域模块明确归属，必要白名单先修订 |
 | 非本轮消费者被误删 | 后续 VLA/记录迁移受损 | R01–R07 逐项保留，关闭必须附替代与验收证据 |
 | 只跑 fake 单测就注册生产 | 假能力重新进入发现面 | P3 验收是 P4 硬前置，不提供生产占位路线 |
@@ -370,7 +424,7 @@ pytest 与 header/Parent/引用闭包等价检查。当前文档轮次的测试�
 | 文件 | 动作 | 时机 |
 |---|---|---|
 | 本方案、l4 RPC 姊妹方案 | 重写/新增 | 当前文档轮次 |
-| specs/proposed/inner/flight-actions.spec.md、l3-l4-rpc.spec.md | 新增目标契约，不改现行空集 | 当前文档轮次 |
+| specs/implemented/inner/flight-actions.spec.md、l3-l4-rpc.spec.md | 新增目标契约，不改现行空集 | 当前文档轮次 |
 | rest/dispatcher-deferred-dependencies.md、rest/README.md | 登记两方案与剩余触发条件 | 当前文档轮次；实现后再更新证据 |
 | specs/implemented/inner/l3-execution-seam.spec.md、对应直连架构决策 | 本轮已明确退役 mission/task；后续只细化直连接口 | 当前文档轮次 |
 | specs/implemented/inner/l3-skill-contract.spec.md | 先采纳新增端口及资源释放接口 | P0，实施前 |
@@ -385,5 +439,54 @@ pytest 与 header/Parent/引用闭包等价检查。当前文档轮次的测试�
 | specs/implemented/inner/flight-actions.spec.md、l3 根表、l3-tool-plane.spec.md | 整叶晋升、集合/revision 同批更新 | P4 |
 | specs/implemented/architecture/日期-dispatcher-basic-flight.md | 完成时归档新决策，不覆盖旧决策 | P4 |
 
-除明确列出的文档设计交付外，上表均为后续实施清单。`l4-agent/**` 不在任何阶段的
-修改范围；本轮没有提交、推送或部署动作。
+上表为实施范围记录，具体落地和差异见 §11。`l4-agent/**` 未修改；本轮没有提交、
+推送或现场部署动作。
+
+修正前曾在 S5 增加 EGO 急停清窗口和偏航重置；这些改动现已撤回。停止意图的
+构造上行到 dispatcher，不把后端算法修复混入本轮迁移。
+
+S4 并发细化：RPC 消费线程与 FSM 线程共用生命周期锁，串行化准入、取消、停止和
+单次 FSM 处理；等待释放锁。否则旧动作 poll 与新调用覆盖可交叉写入同一 ActionGate。
+该通用同步机制不新增领域分支，先登记 core 的等待辅助方法白名单再实现。
+
+消息闭包复核纠正：此前按无读点/旧回退理由删除 goal_to_follower、yaw_low_speed
+超出了本轮范围；现已恢复字段和原读取，仅删除来源任务编号。PositionCommand 不变。
+
+## 11. 完成记录（2026-09-17）
+
+本节是职责修正前的实现与验收历史。当前控制链以 §4.4.2 和新的边界修正决策为准；
+下述 115 项结果不覆盖本次未重跑测试的代码。
+
+- P0/S3：直连消息与接线冻结；移除 LocalGoalSet 的来源任务编号、无消费者字段和旧
+  yaw 回退；只迁七种 quadrotor 消息、两种轨迹消息、轨迹转换头及 camera_fov。
+  未迁入 mission/task、planner/waypoints action、旧转换节点或 mission_executive 包。
+- P1/P2：六个独立技能、FlightHost/FlightPorts、FlightSession、WaypointExecution、
+  ROS 适配与正式装配入口已实现。共享生命周期锁串行化准入/取消/FSM，等待期间释放；
+  注册返回 disposer，旧实例释放不删除新实例；结果只接受当前批次。
+- 原点以显式 ground_z 和新鲜 odometry 确认；未知地面、无有效原点、过期/错误坐标系
+  输入均失败。时钟/坐标重置和输入失效使原点失效；普通任务覆盖不清同次飞行原点。
+- P3：真实 EGO 在隔离 ROS master、受控 odometry/cloud 下生成 cmd。验证旋转、
+  平移、取消保持和急停；六个实际技能经真实 FSM 验证，再以正式 basic_flight.launch
+  启动 dispatcher，经只读 l4 fleet/bridge 通过真实 Zenoh 调用六工具并接收 outcome。
+  测试不运行 cmd 下游飞控或电机。
+- 生产入口复验修复了 headless 仍强制要求视觉 pointcloud 配置的问题；headless
+  不创建视觉模块、不读取其必填配置，视觉启用路径仍保留原校验。
+- P4：默认集合为六个 basic_flight 工具；flight 旧名及其余删除名保持拒绝。
+  revision 为 `sha256:39102fa2e900df83c2d4a6d9fd1e795a384f133dc00de6d0fb3946fc69aa1685`，
+  与现行工具面契约和测试一致。动作叶已晋升并挂根表。
+- 构建：tools/build_ego.sh 创建外部 catkin 构建目录，EGO、dispatcher 与最小依赖
+  全部构建通过。完整测试为 115 passed；11 条警告来自 rospy 的 notifyAll 弃用调用，
+  没有测试失败。运行与复现步骤见 l3-dispatcher-planner/README.md。
+
+最终文件与原计划的细化：共享生命周期复用放 services/flight_motion.py；端口、元数据
+和组合分别放 tools/flight/ports.py、catalog.py、execution/composition.py；ROS 出站和
+快照统一在 planner_execution_ros.py；不预建无独立职责的多个 ROS 文件。新增 catkin
+包定义、构建脚本、EGO 参数和两份 launch，不复制旧 bringup 的场景图/bridge/mission。
+
+保留边界：R03 已接入至 cmd；R04 只实现 origin，previous/history/text 依赖继续保留；
+R05 飞行动作账务已接入，VLA 专属重规划/记录消费未交付。当前只验收 EGO；SUPER
+仅同步清理被删除字段读取，未声明其他后端具备完整六能力或直接取消协议。
+
+camera_fov 目录纠正：按用户要求，将实现文件从新增的 ros_adapter/ 移回旧布局的
+src/camera_fov.cpp，同步 CMake；保留实现内容和公开头文件。此项仅恢复路径，
+不改变逻辑，不运行测试或构建。

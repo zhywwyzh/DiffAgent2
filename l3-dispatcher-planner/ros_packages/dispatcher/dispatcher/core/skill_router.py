@@ -17,9 +17,21 @@ class SkillRouter:
         self._action_owner_skill = None  # 进入 WAIT_ACTION_FINISH 时的技能快照
         self._skills: dict = {}
 
-    def register(self, name: str, skill) -> None:
-        """注册技能实例（技能族迁入轮次的注册入口，S3 起登记、暂无调用方）。"""
+    def register(self, name: str, skill):
+        """返回只撤销本次注册的幂等逆操作，不影响后注册实例。"""
         self._skills[name] = skill
+        disposed = False
+
+        def dispose():
+            nonlocal disposed
+            if disposed:
+                return
+            skill.on_cancel()
+            if self._skills.get(name) is skill:
+                self._skills.pop(name, None)
+            disposed = True
+
+        return dispose
 
     def get(self, name: str):
         """按工具名查注册表。"""

@@ -278,19 +278,6 @@ public:
       yaw_mode = quadrotor_msgs::LocalGoalSet::YAW_MODE_LOW_SPEED;
     }
 
-    const bool panorama_source_allowed = msg.source_task_id == quadrotor_msgs::LocalGoalSet::SOURCE_TASK_EXPLORATION ||
-                                         msg.source_task_id == quadrotor_msgs::LocalGoalSet::SOURCE_TASK_COUNTING;
-    if (yaw_mode == quadrotor_msgs::LocalGoalSet::YAW_MODE_PANORAMA && !panorama_source_allowed) {
-      SLOG_WARN("[SUPER] Reject panorama mode from source_task_id={}, fallback to NORMAL + SHORTEST.",
-                static_cast<unsigned int>(msg.source_task_id));
-      yaw_mode = quadrotor_msgs::LocalGoalSet::YAW_MODE_NORMAL;
-      yaw_path_mode = quadrotor_msgs::LocalGoalSet::YAW_PATH_SHORTEST;
-      while (yaw > M_PI)
-        yaw -= 2 * M_PI;
-      while (yaw < -M_PI)
-        yaw += 2 * M_PI;
-    }
-
     super_planner::super_utils::Quatf goal_q(Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()));
     publishMissionFeedback(true, true, false);
 
