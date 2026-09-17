@@ -69,7 +69,7 @@ core 只做五件事：
 
 ### 4.1 core 方法白名单（G2 判定基准）
 
-> `def` 集合的作用域 = `engine.py` 与其协作模块 `core/**`（S3 起）；核心判据是
+> `def` 集合的作用域 = `engine.py` 与其协作模块 `core/**`；核心判据是
 > 「集合包含」而非「数量」。白名单随契约修订维护：新增方法须先改本节。
 
 | 模块 | 允许的 `def`（方法名） |
@@ -83,7 +83,7 @@ core 只做五件事：
 | `core/prompt_queue.py`（`PromptQueue`） | `__init__`、`sync_task_buffers_from_prepare`、`pop_next_task`、`load_next_prompt`、`advance_head_prompt`、`reset_plan_cycle_if_needed`、`clear_all`、`head_command`、`is_command_empty`、`is_prepared_empty` |
 | `core/state_ledger.py`（`StateLedger`） | `__init__`、`set_state`、`_state_name`、`bump_task_generation`、`fail_sequence`、`reset_running` |
 | `core/action_gate.py`（`ActionGate`） | `__init__`、`action_done`、`handle_post_action`、`clear_action_state`；`PendingAction.clear` |
-| `core/ports.py`（端口 Protocol） | `CoreChannels`：`publish_emergency_stop`、`publish_if_handle_yaw`、`publish_command_content`、`publish_task_phase`；`Ticker`：`sleep`；`RuntimeClock`：`rate`、`is_shutdown`、`request_shutdown`；`LogSink`：`info`、`warn`、`err`、`warn_throttle`（端口名以 S3 方案 §4.5 冻结形态为准） |
+| `core/ports.py`（端口 Protocol） | `CoreChannels`：`publish_emergency_stop`、`publish_if_handle_yaw`、`publish_command_content`、`publish_task_phase`；`Ticker`：`sleep`；`RuntimeClock`：`rate`、`is_shutdown`、`request_shutdown`；`LogSink`：`info`、`warn`、`err`、`warn_throttle`（本表为端口名的权威定义） |
 
 - 类标注以外的 `def` 节点：模块级装配函数（`create_dispatcher_engine` /
   `start_dispatcher_workers`）随装配职责落 `dispatcher_node.py`，**不计入 core**；

@@ -5,22 +5,21 @@ Status: implemented
 Contract-ID: l3-dispatcher/execution-seam
 Parent: specs/implemented/l3-dispatcher.spec.md
 
-> 定义原 `mission_executive` 能力的归宿，以及执行侧与 dispatcher、planner 的
-> 接口。
+> 定义 dispatcher 内部共享执行能力及其与工具、planner 的接口。
 
-## 1. 取消独立包
+## 1. 职责归属
 
-`mission_executive` 不作为独立包迁入新库。其能力按调用面拆为两处：
+工具专属的流程、子状态推进、目标构造与完成裁决归 dispatcher 的工具及工具状态机。
+跨工具共享的动作发送、批次关联、反馈、超时与取消机制归 dispatcher 内部执行模块，
+经端口与 ROS 适配层直接使用 planner。共享执行模块不持有第二套任务队列或工具流程 FSM。
 
-下行执行缝是 dispatcher 内部的共享执行能力，不是 dispatcher 与 planner 之间
-新增的任务转换服务。dispatcher 持有任务状态机，经端口与 ROS 适配层直接向 planner
-下发动作并接收反馈；不恢复旧 mission FSM 或第二套任务队列。
+`mission_executive` 不得在本仓库迁入、构建或启动，也不得恢复旧 mission FSM；退役依据见[直连决策](../architecture/2026-09-16-dispatcher-direct-planner.md)。
 
-| 原 mission FSM 状态 | 判定 | 归属 |
-|---|---|---|
-| 只被单一工具使用 | 该工具的执行细节 | 对应技能 |
-| 跨多个工具共享（航点下发、完成判定、预热、目标推进） | 公共执行能力 | 下行执行缝 |
-| 对应工具上游未实现（exploration / tracking） | 暂无归属 | 先建技能占位，不迁执行缝 |
+| 能力 | 归属 |
+|---|---|
+| 单一工具的执行流程、子状态、完成判据 | 对应工具及工具状态机 |
+| 多工具共用的动作发送、批次记账、反馈和取消 | dispatcher 内部共享执行能力 |
+| 上游尚未实现的能力 | 只在迁移台账登记，不创建代码占位或注册生产能力 |
 
 ## 2. 节律
 
@@ -57,20 +56,18 @@ Parent: specs/implemented/l3-dispatcher.spec.md
   执行记账归共享执行模块，ROS 收发归适配层。直连不允许 engine 直接持有领域发布器。
 - `action_result` 表示动作执行结果，不要求存在 ROS action 或 mission action 服务。
 
-## 5. 迁移顺序
+## 5. 能力准入
 
-> 先冻结直连接口，再交付完整能力；不以恢复旧包作为中间步骤。
-
-1. 核对当前 planner 输入、反馈、停止及取消机制，冻结 dispatcher 直连端口与接线；
-2. 按真实调用面迁入技能和共享执行能力，测试注册表验证完整链路；
-3. 实现与测试完整后才注册生产能力。上游未实现能力的身份占位不得进入生产集合，
-   也不是当前基础飞行交付的前置依赖。DiffAgent2 旧版只读作行为回归参考。
+- 每个能力须明确输入、反馈、停止、取消与资源释放边界。
+- 工具实现、共享执行端口和测试完整后才注册生产能力。
+- 待迁能力只在文档台账登记；通用测试使用测试自有能力，不创建生产空实现。
+- 迁移流程归 `l3-migration-protocol.spec.md`，每轮实施步骤归 `doc/` 下的方案。
 
 ## 6. 门禁
 
 | 门禁 | 检查 |
 |------|------|
-| G10 | `ros_packages/` 下不存在名为 `mission_executive` 的包；执行代码与启动配置不包含 `/mission/task` 客户端、服务端或兼容入口（§1、§4） |
+| G10 | `ros_packages/` 下不存在名为 `mission_executive` 的包，构建与启动配置不得引用该包；执行代码与启动配置不包含 `/mission/task` 客户端、服务端或兼容入口（§1、§4） |
 | G11 | 执行缝代码中不含任何工具名字符串分支（§4） |
 | G12 | 经 pybind 暴露的每个能力端口都有对应的纯 C++ 单测（§3） |
 
@@ -80,7 +77,7 @@ Parent: specs/implemented/l3-dispatcher.spec.md
   和其他原有字段。planner 的原读取逻辑保留，不以迁移之名裁剪其他能力。
 - batch_id 只关联下游动作及其反馈，不映射工具身份。当前动作的结果裁决、取消和
   覆盖职责属于 dispatcher；不要求 planner 新增批次取消接口。
-- dispatcher 承接旧 stopMotion 控制：基于新鲜位姿构造当前位置、当前偏航角、
+- dispatcher 的取消与停止控制：基于新鲜位姿构造当前位置、当前偏航角、
   look_forward=false 的单点保持意图，以新批次通过既有目标口覆盖旧动作。
   保持批次不是被取消调用的成功结果；旧批次结果必须在 dispatcher 中失效。
 - 缺少有效位姿或目标发送失败时，dispatcher 保留取消待处理状态并拒绝新动作，

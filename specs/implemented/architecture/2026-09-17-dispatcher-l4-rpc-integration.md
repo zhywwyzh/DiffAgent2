@@ -1,5 +1,7 @@
 # dispatcher 与只读 l4 消费者的 RPC 闭环交付
 
+Status: implemented
+
 日期：2026-09-17
 
 现行协议归 `specs/implemented/inner/l3-l4-rpc.spec.md`。

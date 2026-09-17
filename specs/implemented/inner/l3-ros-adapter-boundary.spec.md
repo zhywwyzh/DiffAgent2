@@ -6,9 +6,8 @@ Contract-ID: l3-dispatcher/ros-adapter-boundary
 Parent: specs/implemented/l3-dispatcher.spec.md
 
 > 限定 ROS 通信与领域逻辑的分离方式。适用于 l3 全部 Python 与 C++ 代码。
-> 既有 `mission_core`（非 ROS 领域核心）+ `mission_ports`（抽象出站端口）+
-> `mission_fsm_ros`（ROS 适配器）三层是本契约的既有范例；本契约将该范例
-> 提升为全局纪律。
+> 领域逻辑、抽象端口与 ROS 适配层按下述规则分离；工具流程与工具状态机
+> 属于 dispatcher 领域层，共享执行能力不替代工具的领域决策。
 
 ## 1. 分层
 

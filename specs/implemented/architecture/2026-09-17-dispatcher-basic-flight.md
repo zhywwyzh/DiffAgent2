@@ -1,5 +1,7 @@
 # 基础飞行直连 EGO 的交付决策
 
+Status: implemented
+
 日期：2026-09-17
 
 Superseded-by: specs/implemented/architecture/2026-09-17-dispatcher-planner-boundary-correction.md

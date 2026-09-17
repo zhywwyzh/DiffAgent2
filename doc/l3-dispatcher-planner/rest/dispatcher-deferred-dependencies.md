@@ -21,7 +21,7 @@
 
 ### 为什么有些开关只有参数，没有完整功能
 
-早期[核心迁移方案](../iteration/design-dispatcher-core-inference-migration.md)将 recording、悬停辅助方法和技能实现排除在 core-only 迁移范围之外；[结构稳定化方案](../iteration/design-dispatcher-architecture-stabilization.md)把相关能力登记为后续轮次。新版提交 `7fc6827` 中已经存在“保留 record_stop_event 参数、没有记录调用”的状态，不是本轮清理才删掉逻辑。
+早期[核心迁移方案](../iteration/20260915-20260917/design-dispatcher-core-inference-migration.md)将 recording、悬停辅助方法和技能实现排除在 core-only 迁移范围之外；[结构稳定化方案](../iteration/design-dispatcher-architecture-stabilization.md)把相关能力登记为后续轮次。新版提交 `7fc6827` 中已经存在“保留 record_stop_event 参数、没有记录调用”的状态，不是本轮清理才删掉逻辑。
 
 随后用户允许删除所有未迁入生产工具链；当前的保留状态是这次跨版本审核明确决定留下的迁移线索。它们没有使空生产注册面自动恢复。旧方案中含任务编号的实现只用来理解历史用途，不得迁入新版。
 
@@ -108,7 +108,7 @@
 | 新版保留位置 | `N/core/telemetry.py::RunTelemetry.log_session_tag`；engine.runlog 持有该对象。trace 当前确实使用同次构造生成的 session_tag。 |
 | 旧版证据 | `O/recording.py:53` 写日志快照、`:67` 写上行记录信封时读取 engine.log_session_tag。 |
 | 何时重新参考 | 迁入 RecordingService、日志快照/上行、重连补发，或设计跨进程会话关联时。 |
-| 接入建议 | 从遥测对象显式传入会话标签或记录配置；不要在记录服务另造一个会话标签，也不要为了旧版属性名给 engine 加转接属性。用户日志契约若已采纳，应先据其明确字段含义。 |
+| 接入建议 | 从遥测对象显式传入会话标签或记录配置；不要在记录服务另造一个会话标签，也不要为了旧版属性名给 engine 加转接属性。严格日志要求见 [日志契约](../../../specs/implemented/inner/observability-log.spec.md)，接入时按其明确字段含义。 |
 | 仍未处理 | 上行记录与快照服务已退役待重建；当前标签格式的唯一性需求未做新的保证，不能等同 call_id。 |
 | 必须验证 | 同次运行 trace 与记录服务使用相同会话标签；重启/并行实例是否满足实际关联要求；快照和补发记录不跨会话误归属。 |
 | 何时可删除 | 新会话服务成为唯一来源、所有记录消费者已切换，或明确只保留 trace 且不需要向其他服务传出标签时，才删除重复属性。 |
@@ -132,15 +132,15 @@
 
 | 项 | 内容 |
 |----|----|
-| 状态 | **已删除，不自动恢复**。由 [grasp 退役登记方案](../iteration/design-dispatcher-grasp-retirement.md) 裁定为不迁移，按 migration-protocol §2-⑥（无调用方或调试残留 → 不迁移）登记。 |
+| 状态 | **已删除，不自动恢复**。由 [grasp 退役登记方案](../iteration/20260915-20260917/design-dispatcher-grasp-retirement.md) 裁定为不迁移，按 migration-protocol §2-⑥（无调用方或调试残留 → 不迁移）登记。 |
 | 平级裁决 | grasp **不是**与 vla/scene_nav/flight 平级的 tool：旧版注册面 14 项 ToolSpec 从未包含 grasp（`O/tools/registry.py:248-261`），旧版自己注释“registry 未放行（spec-gated）”（`O/tools/config.py:23-25`）。它是旧版 engine 持有的 latent 感知子工作流（`GraspWorker` + daemon 线程 + `_grasp_queue`），无 `SkillBase`/身份三声明/`_skills` 注册/`ToolSpec`/executor 分发任何契约点。 |
 | 旧版链路（已删除） | `O/tools/grasp/workflow.py`（GraspWorker，`:27-34` 构造队列，`:57` 投递 `_eng._handle_grasp_task`）；`O/engine.py:292-293` 持 `_grasp_wf`、`:2138-2139` daemon 线程启动、`:395-396` 发布 `/agent/grasp_result_image`、`:1113/:1120` 把 `TASK_ID.GRASP=11` 并入 task-phase 聚合；`O/zenoh_rpc.py` 的 `grasp_result/*` queryable（`:122/:170`）、图像/结果 latch（`:37-38/:91-93/:475-501/:590-612/:626-632`）。旧版 spec 定位为 reserved plan/history label（`agent-station-tools.spec.md:495-497`；`agent-station-channels.spec.md §3.10`）。 |
 | 不可运行证据 | `workflow.py:14-21` 缺 `cv2/np/CompressedImage/MISSION_TYPE` import；`:57/:132-140/:159/:348/:354` 经 `self._eng.*` 调用的 5 个方法实际都定义在 `GraspWorker` 自身（engine 无 `_handle_grasp_task`/`_serve_search` 等）；全仓 `_grasp_queue.put` 0 命中，任务队列零生产者。 |
 | 新版已删除面 | `N/iteration/design-dispatcher-unmigrated-chain-removal.md:108`：资源主题 `grasp_result/*`、ROS 反馈 `/agent/grasp_result_image`、grasp 线程均已删除；`N/tests/tool-registry/test_rpc_plane.py:21-29` 空发现面锚定 22 个已删除名一律 `method_not_found`；新版 l3 代码与 specs 全树 grep “grasp” 0 命中。 |
-| 何时重新参考 | 仅当出现**真实站端消费者**需求（如站端在飞行动作词汇上明确要求 GRASP 抓取感知结果）时，先读本条目与 [grasp 退役登记方案](../iteration/design-dispatcher-grasp-retirement.md)。不存在“顺手恢复”场景。 |
+| 何时重新参考 | 仅当出现**真实站端消费者**需求（如站端在飞行动作词汇上明确要求 GRASP 抓取感知结果）时，先读本条目与 [grasp 退役登记方案](../iteration/20260915-20260917/design-dispatcher-grasp-retirement.md)。不存在“顺手恢复”场景。 |
 | 接入条件（技能化） | 先按 `l3-skill-contract.spec.md` 出契约（身份三声明、生命周期钩子、四裁决、语义端口）；实现与测试**同批**交付并通过 `N/tests/core-boundary/`、`N/tests/tool-registry/`；技能进入发现面时同步更新 `l3-tool-plane.spec.md` 的集合与 `revision`。感知入口（旧版为 vla 私有的 `_serve_search`）与几何能力（`GeometryService`）若复用须重新设计归属，不原样搬运、不造转接器、不引入任务编号。 |
 | 必须验证 | 技能完成门/裁决与实例归属；感知结果与图像按现行端口契约出站；发现面 revision 与 spec 一致；站端读模型有真实消费者且非恒 404 的占位路由。 |
-| 何时可删除 | 本条目唯一存在价值是留证与触发条件登记：若产品明确永久放弃 GRASP 感知、且上述接入条件不再需要被任何未来任务触发，可删除本条目与 [grasp 退役登记方案](../iteration/design-dispatcher-grasp-retirement.md)；删除前须在「后续关闭条目的记录格式」表中留一行处理记录。 |
+| 何时可删除 | 本条目唯一存在价值是留证与触发条件登记：若产品明确永久放弃 GRASP 感知、且上述接入条件不再需要被任何未来任务触发，可删除本条目与 [grasp 退役登记方案](../iteration/20260915-20260917/design-dispatcher-grasp-retirement.md)；删除前须在「后续关闭条目的记录格式」表中留一行处理记录。 |
 
 ## 当前队列如何执行（回应 B10）
 
@@ -171,8 +171,8 @@
 | 日期 | 条目 | 状态 | 接入/替代/删除实现位置 | 验收证据 | 尚需参考的触发条件 |
 |----|----|----|----|----|----|
 | 2026-09-16 | R01–R07 | 保留待接入 | 见各项新版位置，本轮不迁生产技能 | 本轮验证保留状态未被清理，不能替代未来生产能力验收 | 按各项“何时重新参考”触发 |
-| 2026-09-16 | R03、R05 与 l4 对接前置 | 继续保留；设计中 | [RPC 对接方案](../iteration/design-dispatcher-l4-rpc-integration.md)、[基础飞行方案](../iteration/design-dispatcher-basic-flight-migration.md) | 只读检查发现 owner watch 未接 acquire；复现快速终态丢失、非法 JSON 顶层无回复和失效租约重放获准。未改生产代码，未完成物理停止验证 | 前置轮次先修协议与监听；飞行轮次接完整执行缝、动作账务与急停轨迹；VLA 专属重规划仍待其技能迁移 |
-| 2026-09-16 | R04、R06 原点/历史边界 | 继续保留；仅原点子能力已出方案 | [基础飞行方案 §4.5](../iteration/design-dispatcher-basic-flight-migration.md#45-原点服务与-r04-范围) | 当前只读 l4 的 plan_tools.json 定义 return 空参返回起飞点；FlightSession 仅为设计，尚无实现/运行证据 | 起飞原点随基础飞行接入；previous、历史集合、游标和文本回退待真实消费者迁移，不因本轮无公开入口裁掉；日志 session_tag 不等于飞行会话 |
+| 2026-09-16 | R03、R05 与 l4 对接前置 | 继续保留；设计中 | [RPC 对接方案](../iteration/20260915-20260917/design-dispatcher-l4-rpc-integration.md)、[基础飞行方案](../iteration/20260915-20260917/design-dispatcher-basic-flight-migration.md) | 只读检查发现 owner watch 未接 acquire；复现快速终态丢失、非法 JSON 顶层无回复和失效租约重放获准。未改生产代码，未完成物理停止验证 | 前置轮次先修协议与监听；飞行轮次接完整执行缝、动作账务与急停轨迹；VLA 专属重规划仍待其技能迁移 |
+| 2026-09-16 | R04、R06 原点/历史边界 | 继续保留；仅原点子能力已出方案 | [基础飞行方案 §4.5](../iteration/20260915-20260917/design-dispatcher-basic-flight-migration.md#45-原点服务与-r04-范围) | 当前只读 l4 的 plan_tools.json 定义 return 空参返回起飞点；FlightSession 仅为设计，尚无实现/运行证据 | 起飞原点随基础飞行接入；previous、历史集合、游标和文本回退待真实消费者迁移，不因本轮无公开入口裁掉；日志 session_tag 不等于飞行会话 |
 
 未来处理后在此追加记录并同步 README 索引。若仍不能接入，不只写“以后处理”，应说明缺少哪个端口/服务、下一次由哪种任务触发；若决定删除，应记录旧版消费者如何退役或被替代。
 
@@ -180,7 +180,7 @@
 
 2026-09-16 用户已确定不迁入 /mission/task 中间转换层；见
 [直连架构决策](../../../specs/implemented/architecture/2026-09-16-dispatcher-direct-planner.md)
-及[执行总纲](../iteration/design-dispatcher-migration-execution-order.md)。R03 的停止链和
+及[执行总纲](../iteration/20260915-20260917/design-dispatcher-migration-execution-order.md)。R03 的停止链和
 R05 的动作发送/结果接线应直接面向 planner 端口，旧版 send_task_goal 仅是历史调用
 证据，不要求恢复旧 action。R04 原点与历史的保留边界不变。当前仅更新设计约束，
 代码未改、条目未关闭，仍需直连完成/取消/停止的实现和运行证据。
@@ -214,3 +214,11 @@ R03/R05 的取消待处理、旧结果失效和新动作准入守卫均位于 di
 共享依赖路径纠正：camera_fov 保持 DiffAgent2 旧版布局（include/vis_utils/camera_fov.h、
 src/camera_fov.cpp），CMake 已同步；不再把公开头文件或实现文件移入额外的适配目录。
 本项不改变能力状态，不运行测试或构建。
+
+## 2026-09-17 日志规范归属整理
+
+R01/R02/R06 继续保留待接入。日志规范已补齐 observability 父契约，旧 mission
+生产者职责明确归 dispatcher 工具及工具状态机；不为日志恢复旧包或构建入口。
+本次证据仅为文档 header、父子清单、引用与一致性检查，不代表记录服务交付。
+接入条件、历史状态与场景日志消费者核对见
+[规范整理与日志迁移核对记录](spec-history-and-log-migration.md)。

@@ -1,5 +1,7 @@
 # dispatcher 核心拆分与未实现能力删除决策
 
+Status: implemented
+
 日期：2026-09-15
 
 关联契约：`specs/implemented/inner/l3-core-boundary.spec.md`、`specs/implemented/inner/l3-tool-plane.spec.md`。

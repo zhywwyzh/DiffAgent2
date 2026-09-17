@@ -1,16 +1,16 @@
-# Coding Style
+# l3 C++ 编码规范
 
 Status: implemented
 Contract-ID: development-workflow/l3-coding-style
 Parent: specs/implemented/development-workflow.spec.md
 
 > 适用于 `ros_packages/` 下的全部 C++。新代码必须合规；遗留代码遵循
-> 迁移策略（§7）。`mission_executive` 包已在采纳提交中整体迁移。
+> 迁移策略（§7）。
 
 > 范围：命名、Doxygen/单位标注、头文件布局、格式化。工程向的 Doxygen
 > 模板是基线；本 spec 在它之上扩展出下面的单位标注与命名规则。
 
-## 1. Naming
+## 1. 命名
 
 > 类型、函数、变量、成员与常量统一遵循同一套命名方案，缩写受白名单限制。
 
@@ -18,7 +18,7 @@ Parent: specs/implemented/development-workflow.spec.md
 
 > 类型式名称用 PascalCase；枚举值用大写蛇形命名。
 
-- PascalCase：`MissionCore`、`FSMData`、`MISSION_FSM_STATE`。
+- PascalCase：`PlannerState`、`WaypointBatch`、`ExecutionState`。
 - 枚举值：`UPPER_SNAKE_CASE`（`WAIT_TRIGGER`）。
 
 ### 1.2 函数 / 方法
@@ -27,12 +27,12 @@ Parent: specs/implemented/development-workflow.spec.md
 
 - camelCase，动作语义时动词开头：`transitionToState`、
   `publishLocalGoalWindow`、`selectAndPublishNextWaypoint`。
-- Accessor 使用固定的三类前缀方案（每个 `MissionCore` accessor 都合规）：
+- Accessor 使用固定的三类前缀方案：
   - Getter：`get` 前缀 + 完整单词名词：`getState()`、`getData()`、
-    `getMission()`、`getDroneId()`、`getParams()`（可变配置 accessor 也在此列）。
+    `getGoal()`、`getDroneId()`、`getParameters()`（可变配置 accessor 也在此列）。
   - 布尔谓词（is-问句）：`is` 前缀：`isExecutionFinished()`、
     `isResetPending()`。
-  - Setter：`set` 前缀：`setDroneId()`、`setTargetCmd()`、
+  - Setter：`set` 前缀：`setDroneId()`、`setTargetCommand()`、
     `setPriorKnowledge()`。
 
 ### 1.3 变量与参数
@@ -64,7 +64,7 @@ Parent: specs/implemented/development-workflow.spec.md
 
 允许直接使用：
 
-| Token | Notes |
+| 缩写 | 说明 |
 | --- | --- |
 | `yaw`/`pitch`/`roll` | 姿态术语 |
 | `odom` / `odometry` | 二者皆可，新代码优先 `odometry` |
@@ -77,11 +77,11 @@ Parent: specs/implemented/development-workflow.spec.md
 | `waypoint` | 领域术语 |
 | `stuck` | 卡住检测领域术语 |
 | `dwell` | 到达驻留领域术语 |
-| `sg_`/`map_`/`vis_` | 接口组前缀（仅 MissionPorts） |
+| `sg_`/`map_`/`vis_` | 接口组前缀（仅场景图、地图与可视化端口） |
 
 禁止（必须写全）：
 
-| Forbidden | Written in full |
+| 禁止缩写 | 完整写法 |
 | --- | --- |
 | `cur` | `current` |
 | `inx` | `index` |
@@ -102,44 +102,13 @@ Parent: specs/implemented/development-workflow.spec.md
 | `param` | `parameter` |
 | `traj` | `trajectory` |
 
-### 1.7 缩写映射表
+历史重命名表见[迁移记录](../../../doc/l3-dispatcher-planner/rest/spec-history-and-log-migration.md)。
 
-> 此表是 mission_executive 迁移后的权威旧→新重命名映射。
-
-| Old | New |
-| --- | --- |
-| `md_` | `mission_data_` |
-| `fp_` | `params_` |
-| `fd_` | `data_` |
-| `mtx_` | `mutex_` |
-| `odom_pos_` / `odom_vel_` / `odom_orient_` / `odom_yaw_` | `odometry_position_` / `odometry_velocity_` / `odometry_orientation_` / `odometry_yaw_` |
-| `path_res_` / `path_inx_` | `planned_path_` / `path_index_` |
-| `aim_pos_` / `aim_yaw_` / `local_aim_pos_` | `target_position_` / `target_yaw_` / `local_target_position_` |
-| `ego_exec_finished_` | `planner_execution_finished_` |
-| `wp_batch_*` / `wp_window_*` | `waypoint_batch_*` / `waypoint_window_*` |
-| `pubLocalGoal` | `publishLocalGoalWindow` |
-| `transitState` | `transitionToState` |
-| `stashCurStateAndTransit` | `stashStateAndTransition` |
-| `getAndPublishNextAim` | `selectAndPublishNextWaypoint` |
-| `isInited` | `isInitialized` |
-| `visRepairMid` | `visRepairMidpoint` |
-| `state` | `getState` |
-| `data` | `getData` |
-| `mission` | `getMission` |
-| `activeTaskId` | `getActiveTaskId` |
-| `activeSessionId` | `getActiveSessionId` |
-| `droneId` | `getDroneId` |
-| `params` | `getParams` |
-| `resetPending` | `isResetPending` |
-
-任何迁移都在同一提交里更新此表。
-
-## 2. Doxygen comments
+## 2. Doxygen 注释
 
 > 公共 API、数据成员与枚举值需要按带单位模板写 Doxygen 注释。
 
-- 必需：公共/接口 API（每个 `MissionPorts` 方法、每个公共
-  `MissionCore` 方法、节点入口）、数据成员、枚举值。
+- 必需：公共/接口 API（抽象端口方法、领域类公共方法、节点入口）、数据成员、枚举值。
 - 可选：私有方法（物理/数学不显然时鼓励写）。
 - 模板（扩展了单位）：
 
@@ -156,7 +125,7 @@ Parent: specs/implemented/development-workflow.spec.md
 - `@param` 必须带方向（`[in]`/`[out]`/`[inout]`）；`@return` 必须带单位。
   4–6 行；不用 `@brief`。
 
-## 3. Unit annotation
+## 3. 单位标注
 
 > 单位标注在 Doxygen 方括号里，绝不在参数名或成员名里。
 
@@ -164,15 +133,15 @@ Parent: specs/implemented/development-workflow.spec.md
   `[rad/s]`，无量纲用 `[--]`。
 - 参数/成员名不带单位（不用匈牙利式后缀），协议字段名（`timeout_s`）除外。
 
-## 4. Header layout
+## 4. 头文件布局
 
 > 头文件保留既有的 include guard、include 顺序与 namespace 包裹约定。
 
 - Guard：`_<PACKAGE>_<FILE>_H_`（既有约定，保留）。
 - Include 顺序：先本包头，再其它工作区包，再第三方，再系统。
-- `namespace mission_executive { ... }` 包裹整个 API。
+- API 使用所属包或领域的命名空间，不以已退役包作为统一命名空间。
 
-## 5. Formatting (clang-format)
+## 5. 格式化（clang-format）
 
 > 格式化遵循项目根 `.clang-format`；重新格式化时直接运行 clang-format。
 
@@ -180,14 +149,14 @@ Parent: specs/implemented/development-workflow.spec.md
   include 排序关闭）。
 - 重新格式化时直接运行 `clang-format`；编译镜像不含 clang-format。
 
-## 6. Behavior contract
+## 6. 行为契约
 
 > 重命名绝不改变 slog 事件、迁移原因，或 topic、参数、消息字段名。
 
 - 重命名绝不得改变：slog 事件名、`transitionToState` 原因字符串、
   topic/param 名、消息字段名。这些是行为契约；字符串级 diff 是迁移验证。
 
-## 7. Migration strategy
+## 7. 迁移策略
 
 > 新代码立即合规，被触及的文件在同一提交里改名，包级迁移使用专用提交。
 

@@ -5,7 +5,7 @@ Status: implemented
 Contract-ID: l3-dispatcher/migration-protocol
 Parent: specs/implemented/l3-dispatcher.spec.md
 
-> 适用于 l3 一切从旧库（Diff-Agent2 旧版）向新库（DiffAgent2 新版）的迁移
+> 适用于 l3 一切从旧库（DiffAgent2 旧版）向新库（DiffAgent2 新版）的迁移
 > 与重构活动。
 > 本规程只规定**流程与判据**，不规定某一轮改什么文件——后者归
 > `doc/l3-dispatcher-planner/iteration/` 下的方案所有。
@@ -32,8 +32,9 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 4. 属于下行执行且被多个任务共享 → 执行缝，受 `l3-execution-seam` 约束；
 5. 属于运动规划 → 不属本契约范围，保持独立；
 6. 无任何调用方，或为调试残留 → **不迁移**；
-7. 对应任务上游尚未实现 → 先建技能占位（声明身份、不实现流程），**不迁移
-   旧实现**。
+7. 对应任务上游尚未实现 → 仅在 `doc/l3-dispatcher-planner/rest/` 台账中
+   登记能力身份、依赖、触发条件与验收；**不创建空技能类、占位注册或旧实现**。
+   文档登记不构成生产能力，不豁免“不留桩”规则。
 
 - 裁决结果必须记录在该轮方案内，逐项可追溯。
 - 裁决不明时补契约，不得凭当轮执行者的判断默认放行。

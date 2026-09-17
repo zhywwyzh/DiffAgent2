@@ -1,5 +1,7 @@
 # mission-executive 控制职责上行到 dispatcher 的边界修正
 
+Status: implemented
+
 日期：2026-09-17
 
 Supersedes: specs/implemented/architecture/2026-09-17-dispatcher-basic-flight.md

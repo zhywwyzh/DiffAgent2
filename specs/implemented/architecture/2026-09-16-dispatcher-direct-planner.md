@@ -1,5 +1,7 @@
 # dispatcher 直接向 planner 下发动作的决策
 
+Status: implemented
+
 日期：2026-09-16
 
 依据：用户明确裁定退役 dispatcher 与 mission_executive 间的 `/mission/task`

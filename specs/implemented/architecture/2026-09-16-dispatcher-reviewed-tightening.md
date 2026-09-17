@@ -1,5 +1,7 @@
 # dispatcher 经跨版本审核后的收紧与保留决策
 
+Status: implemented
+
 日期：2026-09-16
 
 依据：`l3-core-boundary.spec.md`、`l3-skill-contract.spec.md`、`l3-migration-protocol.spec.md`，以及用户逐项审核后的执行授权。

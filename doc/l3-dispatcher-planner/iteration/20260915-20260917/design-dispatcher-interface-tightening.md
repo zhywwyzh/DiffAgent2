@@ -191,4 +191,4 @@ B05/B06/B07/B08 的构造接线统一位于 `DispatcherEngine.__init__`。批准
 
 执行结果：核心与工具面 **83 项测试通过**。运行命令：`uv run --isolated --no-project --python python3 --with pytest --with eclipse-zenoh --with pyyaml python -m pytest -q l3-dispatcher-planner/tests/core-boundary l3-dispatcher-planner/tests/tool-registry`。源码语法、删除/保留项、core 方法白名单、rest 链接/锚点及 `git diff --check` 检查通过。没有进行 ROS/实机悬停端到端验收。
 
-交付入口：[rest 索引](../rest/README.md)、[保留项台账](../rest/dispatcher-deferred-dependencies.md)。结构理由归档至 `specs/implemented/architecture/2026-09-16-dispatcher-reviewed-tightening.md`。既有 `specs/implemented/inner/log.spec.md` 草稿未改动。工作区未提交或推送。
+交付入口：[rest 索引](../rest/README.md)、[保留项台账](../rest/dispatcher-deferred-dependencies.md)。结构理由归档至 `specs/implemented/architecture/2026-09-16-dispatcher-reviewed-tightening.md`。既有 `specs/implemented/inner/observability-log.spec.md` 草稿未改动。工作区未提交或推送。

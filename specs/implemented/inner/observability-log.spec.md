@@ -7,17 +7,14 @@ Parent: specs/implemented/observability.spec.md
 > 整个日志平面的唯一权威：每个 l3 进程发出的规范信封、级别词汇表与语义、
 > 生产者输出纪律、fluent-bit → 中继 → zenoh 的采集流水线、带跨通道去重的
 > 站点摄入，以及 scene-nav 任务聚合。
-> 2026-09-16 由五份叶契约（`log-ingest`、`l3-log-format`、
-> `l3-log-level-policy`、`ros-log-buffering`、`l3-scene-nav-task-log`）合并，
-> 使日志契约能在一处端到端读完。日志 DISPLAY 仍归
-> `specs/implemented/inner/l4-visualizer.spec.md`；record 语义与
-> 遥测/结果的区分归 `specs/implemented/domain-lang.spec.md`。
+> 本规范是已采纳的严格日志要求；能力是否已经交付以迁移台账与验收证据为准。
+> 日志记录、采集和聚合的详细要求保持在本文件内。
 
 ## 1. 范围
 
 > 一条流水线、一份 spec：生产者格式 → 传输 → 站点消费者。
 
-§2–§9 拥有生产者侧（信封、级别、不变量、汇点、迁移）；§10–§11 拥有采集
+§2–§9 拥有生产者侧（信封、级别、不变量、汇点、接入约束）；§10–§11 拥有采集
 流水线与站点摄入；§12 拥有 scene-nav 任务聚合；§13–§14 拥有现场经验与
 验证。
 
@@ -27,7 +24,7 @@ Parent: specs/implemented/observability.spec.md
 
 ```json
 {"seq":1,"ts_ns":1760000000123456789,"level":"info","event":"object_nav_goal",
- "node":"drone_0_mission_executive","layer":"mission","stream":"process",
+ "node":"dispatcher_node","layer":"mission","stream":"process",
  "target_obj_id":5,"dist_m":12.3,"msg":"前往电视机"}
 ```
 
@@ -45,12 +42,10 @@ Parent: specs/implemented/observability.spec.md
 
 ## 3. 级别词汇表与语义
 
-> 生产者与消费者共用一套词汇表；两个遗留的 mission 级别退役。
+> 生产者与消费者共用一套词汇表。
 
-集合为 `debug | info | warning | error | fatal`。迁移映射：mission slog 的
-`warn` → `warning`（枚举序列化变更）；`trace` 退役，
-`level_from_string("trace")` 映射为 `debug`；采用后没有生产者再发
-`trace`。
+集合为 `debug | info | warning | error | fatal`。生产者不得输出 `warn` 或
+`trace` 级别；级别解析函数 `level_from_string("trace")` 映射为 `debug`。
 
 级别分配语义：
 
@@ -97,7 +92,7 @@ Parent: specs/implemented/observability.spec.md
 
 | 汇点 | 门控 | 说明 |
 |------|--------|-------|
-| stdout | `telemetry/level` 门 | fluent-bit → `lx/<stack-id>/logs`（§10）—— 自 rosout 汇点默认关闭（2026-09-15）以来的唯一结构化通道；`slog_ros::install_rosout_sink` 仍会盖节点名，并保留为显式可选（`telemetry/rosout_en:=true`） |
+| stdout | `telemetry/level` 门 | fluent-bit → `lx/<stack-id>/logs`（§10）—— 默认采集通道；`slog_ros::install_rosout_sink` 仍会盖节点名，并保留为显式可选（`telemetry/rosout_en:=true`） |
 | 追踪文件 | 从不受门控 | 追加式 JSONL，权威决策轨迹（dispatcher） |
 | zenoh `agent_log` | 从不过滤 | 稠密 FIFO put，载荷 `{session_tag, stream, log_path, record, seq}`，其中 `seq` = `record.seq`；`agent_log/snapshot` 查询不变 |
 | rosout 汇点 | 默认关闭 | `/rosout` 采集已退役 |
@@ -107,22 +102,18 @@ Parent: specs/implemented/observability.spec.md
 `agent_log_seq_gap` 警告条目浮现），并按 `(stack, node, seq)` 与 stdout
 通道去重，使一条记录只显示一次（§11）。
 
-## 6. dispatcher 合并（slog + 记录）
+## 6. dispatcher 记录与发射
 
-> `RecordingService` 决定记录什么；规范发射器是唯一的记录创建点；
-> 镜像写路径已删除。
+> 记录服务决定记录什么；规范发射器是唯一的记录创建点。
 
-- `_append_process_record` / `_append_action_log` / `_append_stop_log`
-  变为 `telemetry.emit(level, event, stream=..., **fields)` 之上的字段装配
-  包装；事件保留既有轨迹名 `process_record` / `action_log` / `stop_log`。
-- 独立的 `_agent_log_latest_seq` 计数器删除 —— 上行载荷复用 `record.seq`。
-- `_trace_append_record` 镜像路径删除（追踪汇点直接从 `emit` 收到记录）。
-- 上行策略为稠密：退避记录过滤器删除，`stop_log` 记录像其他记录一样上行。
-- 遗留任务记录字段归一化：浮点 `timestamp` → `ts_ns`；记录新增
-  `level=info`、`node`、`stream`。快照 JSON 文件（process/action/stop）
-  保持其对外形态（`agent_log/snapshot` 契约）。
-- 模块级 dispatcher 代码（技能、中间件、vlm 客户端）通过进程单例发射器
-  发出，使进程内每条记录共享同一个单调 seq。
+- 过程、动作与停止记录经 `telemetry.emit(level, event, stream=..., **fields)`
+  装配，事件名保持 `process_record` / `action_log` / `stop_log`。
+- 所有汇点复用同一 `record.seq`，不得另建上行计数器或镜像追踪写入路径。
+- 上行采用稠密策略，停止记录与其他记录一样上行，不按退避策略过滤。
+- 任务记录采用 `ts_ns`、`level`、`node`、`stream`；快照 JSON 的 process/action/stop
+  对外形态保持一致，由同一记录服务产生，不能形成另一份事件账本。
+- 技能、中间件与推理客户端通过进程单例发射器记录，进程内共享单调 seq。
+- 记录服务接入状态与会话关联待办见 §9；这些规范不表示服务已在新版接入。
 
 ## 7. 生产者输出纪律
 
@@ -131,8 +122,7 @@ Parent: specs/implemented/observability.spec.md
 
 ROS 节点的 `ROS_INFO` / `ROS_DEBUG` 消息走 **stdout**；
 `ROS_WARN` / `ROS_ERROR` 走 **stderr**。在容器运行时下 stdout 始终是管道，
-于是 glibc **块缓冲**它：只有累积约 4 KiB 后、或进程退出时才刷出（根因于
-l2-px4ctrl 上发现并修复，2026-08-16）。
+于是 glibc **块缓冲**它：只有累积约 4 KiB 后、或进程退出时才刷出。
 
 强制要求 —— 每个打印诊断信息的 roslaunch `<node>`：
 
@@ -165,24 +155,23 @@ l2-px4ctrl 上发现并修复，2026-08-16）。
 - **A 层（目标）**：规范信封 —— 所有 l3 组件。
 - **B 层（遗留/第三方）**：rosconsole `ROSCONSOLE_FORMAT`
   `[/node] [LEVEL]` 前缀 —— roslaunch 自身输出、l0/l1/l2 节点，以及剩余
-  的 l3 B 层残留（§9）。消费者解析见 §11.1。
+  的 l3 待迁残留（接入约束见 §9）。消费者解析见 §11.1。
 - l3 诊断路径中的裸 `cout` / `printf` / `print` / `std::cerr` 是缺陷；
-  迁移表（§9）将其移除。
+  接入时须按 §9 验证并消除。
 
-## 9. 迁移状态
+## 9. 生产者归属与接入约束
 
-> 以整组件为阶段；每个 l3 阶段均于 2026-09-15 交付。唯一未关闭的 B 层
-> 残留逐行记录。
-
-| 组件 | 状态 |
-|-----------|-------|
-| mission C++ slog | 规范词汇表 + `seq`；rosout 汇点默认关闭；`odom_buffer` 已迁移 —— 已交付 |
-| mission py 副本 | 与 C++ 字节一致；`bridge_client` RPC 失败发出信封事件 —— 已交付 |
-| dispatcher slog + 记录 | 一个发射器 / 一个 seq / 稠密上行（§6）；模块级代码通过进程单例发射 —— 已交付 |
-| dispatcher `rospy.log*`/`print` | 全部迁移到信封事件 —— 已交付（已死的 vendored `parallel_serve_*` / `open_serve_count_video` 函数体未改动） |
-| ego_planner | 完整 slog 迁移（入口安装 + 全部源文件 + 头文件）—— 已交付 |
-| scene_graph | `ROS_*` 站点迁移到语义事件；`INFO_MSG*` 流宏改指向 slog（颜色→级别：RED→error，YELLOW→warning，plain/GREEN/CYAN→info，BLUE→debug）—— 已交付 |
-| bridges (drone_bridge) | 仍有 3 处 `rospy.log*` —— B 层；与共享 py 发射器合并一同迁移（dispatcher 未 catkin 安装进 devel，跨包 import 不可用） |
+- 工具流程事件由 dispatcher 的相应工具及工具状态机产生；通用执行事件由
+  dispatcher 内部共享执行模块产生，planner 只记录自身规划行为。
+- 不为日志采集构建或启动 `mission_executive`；旧生产者归属的历史见
+  [迁移记录](../../../doc/l3-dispatcher-planner/rest/spec-history-and-log-migration.md)。
+- §12 是场景导航能力接入时必须满足的完整聚合规范，不代表当前生产集合已注册该能力；
+  生产集合归 [工具面契约](l3-tool-plane.spec.md)。
+- 记录服务、快照、上行与场景工具接入时，须同步验证事件生产、采集标记与站端消费；
+  不以单侧改名或文档更新冒充端到端交付。
+- 当前缺口、接入触发条件与关闭证据由
+  [迁移台账](../../../doc/l3-dispatcher-planner/rest/dispatcher-deferred-dependencies.md)
+  及[日志迁移核对记录](../../../doc/l3-dispatcher-planner/rest/spec-history-and-log-migration.md)维护。
 
 ## 10. 采集流水线
 
@@ -210,7 +199,7 @@ l2-px4ctrl 上发现并修复，2026-08-16）。
 ```text
 任意 pod（jetson 上的 k3s lx-real）
   └─ stdout/stderr → /var/log/containers/*.log（按运行时编码：docker json-file | CRI text，§10.2）
-  └─ fluent-bit DaemonSet（tail + kubernetes filter + modify；v3 中只有输出这一跳变了）
+  └─ fluent-bit DaemonSet（tail + kubernetes filter + modify）
      └─ tcp out → loopback 127.0.0.1:18391（Format json_lines；loopback 不作为寻址 —— fluent-bit 3.1 的 out_tcp 没有 unix_path）
            └─ lx-log-relay sidecar（原样转发行，零重新序列化）
                 └─ zenoh pub lx/<stack-id>/logs  (Reliability=RELIABLE, CongestionControl=BLOCK)
@@ -219,14 +208,13 @@ l2-px4ctrl 上发现并修复，2026-08-16）。
                         → rerun "logs" 录制 → gRPC :9877 → 浏览器 web 查看器
 ```
 
-寻址不变量（v3）：**任何 Jetson 侧配置中都不存在 agent 站点主机地址，也
+寻址不变量：**任何 Jetson 侧配置中都不存在 agent 站点主机地址，也
 不存在汇点地址**。
 
 - 中继与 l4-visualizer 服务器各自向路由器引导端点打开自己的 zenoh 会话
   （client 模式，会话分离规则）。设备侧中继解析 `ZENOH_ROUTER`（k3s
   manifest）> 路由器拓扑常量；站点侧 visualizer 解析配置库行
-  `lx_zenoh_router` > 路由器拓扑常量（`agent-station-channels.spec.md`
-  §1.0）。
+  `lx_zenoh_router` > 路由器拓扑常量；具体端点保持在部署配置中。
 - 路由器丢失由 zenoh 重连吸收；fluent-bit 的
   `storage.type filesystem` + `Retry_Limit False` 在磁盘上缓冲整个中断
   期间的记录，因此链路端到端保持至少一次。
@@ -235,8 +223,7 @@ l2-px4ctrl 上发现并修复，2026-08-16）。
 
 > stack 键把任务、遥测与日志平面绑定到同一个逻辑身份。
 
-stack 键 `lx/<stack-id>/logs` 是绑定任务、遥测与日志平面的逻辑身份
-（`agent-station-fleet.spec.md`）。
+stack 键 `lx/<stack-id>/logs` 是绑定任务、遥测与日志平面的逻辑身份；`stack-id` 与 [l3/l4 RPC 契约](l3-l4-rpc.spec.md)中的身份一致。
 
 ### 10.2 采集器契约（fluent-bit + relay sidecar）
 
@@ -248,7 +235,7 @@ stack 键 `lx/<stack-id>/logs` 是绑定任务、遥测与日志平面的逻辑�
 代码在设备侧仓库 `big_brain/lx-series/lx-log-relay`）。中继在 pod 内监听
 loopback `127.0.0.1:18391` —— 无共享卷、无 pod 外部地址。
 
-每个 fluent-bit 部署都必须具备（v3 输出契约）：
+每个 fluent-bit 部署都必须具备（TCP 输出契约）：
 
 | 键 | 值 | 原因 |
 |-----|-------|--------|
@@ -259,8 +246,7 @@ loopback `127.0.0.1:18391` —— 无共享卷、无 pod 外部地址。
 | `Retry_Limit` | `False` | 永不丢弃分块（中断后清空积压） |
 | `storage.type` | `filesystem` | 中继/路由器/汇点不可达时的磁盘积压 |
 
-随 v3 退役：整个 HTTP 输出块（`Host` / `Port 8391` /
-`URI /api/logs/ingest` / `Format json` / `Json_date_key off`）。
+采集器输出必须采用上述 TCP 行协议，不配置 HTTP 摄入出口。
 
 中继契约（`lx-log-relay`，单进程）：
 
@@ -279,7 +265,7 @@ loopback `127.0.0.1:18391` —— 无共享卷、无 pod 外部地址。
 
 Tail 输入：`Path /var/log/containers/*.log`，排除 fluent-bit 自身与
 `kube-system`。tail 解析器必须匹配节点运行时的日志编码（按运行时选解析器
-规则，2026-08-18，issue #87）：
+规则）：
 
 | 节点运行时 | 日志行编码 | Tail 解析器 |
 |--------------|-------------------|-------------|
@@ -288,13 +274,13 @@ Tail 输入：`Path /var/log/containers/*.log`，排除 fluent-bit 自身与
 
 解析器/运行时不匹配不会报错。解析按行失败，fluent-bit 把该行整行原样
 投递，于是 CRI 信封（stream 标签、`F` 标志、时间戳）泄漏进 `message`，
-`ts` 退化为投递时间（2026-08-18 观测到）。modify 过滤器剥离当前变体的
+`ts` 退化为投递时间。modify 过滤器剥离当前变体的
 已解析元数据键：docker 为 `stream`；CRI 为 `stream` + `flags`。
 
 `Retry_Limit False` + INPUT 级 `storage.type filesystem` 是契约要求而非
 建议：归属站点不可达时，分块绝不能丢弃。
 
-解析器机制（与运行时无关，2026-08-18）：tail 输入不携带解析器；两个叠加
+解析器机制（与运行时无关）：tail 输入不携带解析器；两个叠加
 的 parser 过滤器先在原始 `log` 字段上试 `cri` 再试 `docker` —— 过滤器级
 解析失败会让记录原样通过，于是第二个过滤器获得机会。这样一份 manifest
 同时服务两种运行时。
@@ -307,25 +293,20 @@ message（已在 fluent-bit 3.1 验证）。
 一同剥离。fluent-bit 仅在启动时读取配置：ConfigMap 变更后必须
 rollout-restart DaemonSet。
 
-当前状态：lx-real
-`drone_projects/auto_deployer/k3s_config/real/fluentbit.yaml` 合规；
-sim DaemonSet 为 `k3s_config/sim/fluentbit.yaml`。`/rosout` 采集器
-（`collect/`）已退役（issue #88）：每节点身份经由
-`ROSCONSOLE_FORMAT ${node}` 与规范信封走 stdout 通道。
+部署配置须分别验证实际使用的 real/sim 变体；每节点身份经由
+`ROSCONSOLE_FORMAT ${node}` 与规范信封走 stdout 通道，不另建 `/rosout` 采集链。
 
 ## 11. 站点摄入（l4-visualizer）
 
 > l4-visualizer 服务器拥有自己的 zenoh 会话，订阅其租用的 stack，并通过
 > 一条流水线规范化记录。
 
-摄入绑定（v3，实现在 l4-visualizer `1ff9f9a`，2026-09-01；已废弃的
-`POST /api/logs/ingest` HTTP 路径已删除，v4 2026-09-10）：
+摄入绑定要求：
 
 - 服务器侧：`l4-agent/src/copaw/station_sidecar/visualizer/server.py`
   （`ZenohLogIngest`）打开自己的 zenoh 会话（client 模式，配置库
   路由器）并订阅 `lx/<stack-id>/logs` 及
-  `lx/<stack-id>/agent_log`（2026-09-15）；一旦桥上报绑定的 stack
-  （`agent-station-channels.spec.md` §1.1），就把每条记录送入**同一条**
+  `lx/<stack-id>/agent_log`；站端依据有效连接绑定 stack 后，就把每条记录送入**同一条**
   §11.1 流水线。agent_log 信封解包为其规范 `record`；稠密通道的 seq
   连续性按流检查（间隙以 `agent_log_seq_gap` 警告条目浮现），
   `(stack, node, seq)` 去重使同时到达两个通道的记录只保留一次
@@ -367,18 +348,17 @@ filter 的真值；已退役采集器的手工 `NODE_SERVICE_HINTS` 前缀表绝
 
 ### 11.2 可视化交接
 
-> 渲染归属仍属 l4-visualizer 产品 spec。
+> 日志渲染由 l4-visualizer 负责，非日志产品行为不在本规范内。
 
-规范化记录由 l4-visualizer 的 Logs 标签页（rerun TextLog）渲染。实体
-映射、gRPC/HTTP 端口与控制标签页规则归
-`specs/implemented/inner/l4-visualizer.spec.md` 所有。
+规范化记录由 l4-visualizer 的 Logs 标签页（rerun TextLog）渲染。日志链路端口
+见 §10.0；非日志实体映射与控制标签页行为不由本规范定义。
 
 ### 11.3 单一职责
 
 > 只有 l4-visualizer 渲染日志；第二个呈现面即缺陷。
 
-日志可视化**只**由 l4-visualizer 负责（specs/README.md 规则 6）。
-l4-agent copaw 控制台不渲染日志；重复可视化即缺陷（issue #16 跟踪）。
+日志可视化**只**由 l4-visualizer 负责（本节为该职责的规范来源）。
+l4-agent copaw 控制台不渲染日志；重复可视化即缺陷。
 
 ## 12. 场景导航任务聚合
 
@@ -389,25 +369,26 @@ l4-agent copaw 控制台不渲染日志；重复可视化即缺陷（issue #16 �
 
 > 一次 scene-nav 会话 = 同一 frame_id 关联的一次 navigation.scene_graph_nav 全过程。
 
-本 spec 的 scene-nav 会话是日志聚合单位，采用
-`specs/implemented/domain-lang.spec.md` 的 log record / result 区分。
-`terminal=auto_hover` 只关闭聚合窗口，不表示飞行成功；执行结果仍由
-`l3-dispatcher-mission-action.spec.md` 和 `flight-actions.spec.md` 定义。
+`layer=mission` 与 §12 的 `role=mission` 均为日志分类值，不是包或进程身份。
+
+日志记录用于观测，调用结果用于判定执行终态，两者不得互相替代。scene-nav 会话
+是日志聚合单位；`terminal=auto_hover` 只关闭聚合窗口，不表示飞行成功。调用终态
+归 [工具面契约](l3-tool-plane.spec.md)，基础飞行动作判据归
+[飞行动作契约](flight-actions.spec.md)；场景导航接入前须补齐其能力契约。
 
 一次 scene-nav 日志会话 = 可由同一 `frame_id` 关联的执行记录：一次
-`navigation.scene_graph_nav`（label 解析 + object-id nav）。map_search /
-smart_nav 两步流已退休（2026-09-09）。
+`navigation.scene_graph_nav`（label 解析 + object-id nav）。
 
 跨调用只有显式关联证据才能合并，不能从任务数字推断为同一会话。
 
 | 阶段 | 生产者 | 事件（slog event / 行） | 关键字段 |
 |------|--------|------------------------|----------|
 | **触发** | dispatcher (`dispatcher_node.py`) | `SCENE_NAV` 日志行（label resolve / object_id nav） | `frame_id`, prompt |
-| **导航开始** | mission_executive | `object_id_nav_start` | `target_obj_id`, `source_task_id`, `task_session_id` |
-| **路径规划** | mission_executive | `object_path_request` / `object_path_result` / `object_path_topo_sequence` | `target_obj_id`, `aim_pos`, `aim_yaw`, `path_size` |
-| **导航执行** | mission_executive | `object_nav_goal` / `object_topo_waypoint_command` / `waypoint_progress_received` / `waypoint_progress_advance` / `object_topo_progress` | `odom_pos`, `local_aim`, `aim_pos`, `path_index` |
-| **异常/重试** | mission_executive | `object_id_nav_replan_needed` / `topo_block_fallback` / `object_topo_final_approach` / `object_force_replan_unreachable_local_goal` | `reason`, `target_obj_id` |
-| **完成** | mission_executive | `object_id_nav_finish`（`finish_source` = ego_exec_finish / arrival_dwell） | `odom_pos`, `dis_2_aim_2d`, `dis_yaw` |
+| **导航开始** | dispatcher 场景导航工具及其状态机 | `object_id_nav_start` | `target_obj_id`, `tool_name`, `task_session_id` |
+| **路径规划** | dispatcher 场景导航工具及其状态机 | `object_path_request` / `object_path_result` / `object_path_topo_sequence` | `target_obj_id`, `aim_pos`, `aim_yaw`, `path_size` |
+| **导航执行** | dispatcher 场景导航工具及其状态机 | `object_nav_goal` / `object_topo_waypoint_command` / `waypoint_progress_received` / `waypoint_progress_advance` / `object_topo_progress` | `odom_pos`, `local_aim`, `aim_pos`, `path_index` |
+| **异常/重试** | dispatcher 场景导航工具及其状态机 | `object_id_nav_replan_needed` / `topo_block_fallback` / `object_topo_final_approach` / `object_force_replan_unreachable_local_goal` | `reason`, `target_obj_id` |
+| **完成** | dispatcher 场景导航工具及其状态机 | `object_id_nav_finish`（`finish_source` = ego_exec_finish / arrival_dwell） | `odom_pos`, `dis_2_aim_2d`, `dis_yaw` |
 | **结束信号** | px4ctrl | `[px4ctrl] State: AUTO_HOVER(2), ...` | `fsm_state` |
 
 ### 12.1 事件源与标记规则（fluent-bit）
@@ -419,8 +400,11 @@ fluent-bit 是**单行识别器**，不做跨行聚合。规则：对下列匹�
 | 源 pod | 匹配模式 | 追加字段 |
 |--------|----------|----------|
 | `l3-dispatcher-arm64` | 行含 `SCENE_NAV` | `scene_nav=1`, `role=trigger` |
-| `l3-mission-arm64` | slog event ∈ 表 12.0 的 mission 事件集 | `scene_nav=1`, `role=mission` |
+| `l3-dispatcher-arm64` | slog event ∈ 表 12.0 的导航执行事件集 | `scene_nav=1`, `role=mission` |
 | `l2-px4ctrl` | 行匹配 `State: (AUTO_HOVER\|AUTO_TAKEOFF\|AUTO_LAND)\(` | `scene_nav=1`, `role=fsm` |
+
+`role=mission` 是日志分类标签，不表示独立 mission 进程；`tool_name` 直接记录原始
+工具名，不恢复来源任务编号。事件名、分类标签及聚合阈值保持不变。
 
 实现：fluent-bit `lua` filter（Modify/rewrite 不便于正则匹配）。未命中
 原样透传（零影响）。
@@ -438,12 +422,11 @@ fluent-bit 是**单行识别器**，不做跨行聚合。规则：对下列匹�
 
 聚合 key 定义（按优先级）：
 
-1. **`frame_id`**（执行记录中的关联字段，包括 TaskAction.frame_id）——
-   关联 dispatcher/mission 记录。
-2. **`task_session_id`**（mission `active_instruction_session_id_`）——
-   mission 侧唯一，日志已带；当 frame_id 不可得时用它。
+1. **`frame_id`**（执行记录中的日志关联字段）——关联同次调用的工具与执行记录。
+2. **`task_session_id`**（日志会话关联字段）——在生产者会话内唯一；
+   frame_id 不可得时用它，不作为工具分发键、任务类别编号或物理飞行会话标识。
 3. **时序窗口**——同一 pod、`object_id_nav_start` 之后、下一次
-   `object_id_nav_start` 之前的 mission 行归为一次导航（兜底）。
+   `object_id_nav_start` 之前的导航事件行归为一次导航（兜底）。
 
 实际关联以 frame_id 为主；aggregator 须容忍 frame_id 缺失，此时用
 task_session_id + 时间窗合并。
@@ -458,7 +441,7 @@ task_session_id + 时间窗合并。
 2. 维护内存会话表：`key -> {frame_id, task_session_id, events[], state, start_ts, end_ts}`。
 3. 按事件类型更新会话状态：
    - `object_id_nav_start` → 会话开始（可覆盖旧会话）。
-   - `SCENE_NAV`（trigger）→ 记录 prompt/task_id/frame_id。
+   - `SCENE_NAV`（trigger）→ 记录 prompt/tool_name/frame_id。
    - `object_id_nav_finish` → 导航完成（记录 odom/距离）。
    - px4ctrl `AUTO_HOVER` → **会话结束标记** `terminal=auto_hover`。
 4. **会话关闭条件**（任一触发即落盘）：
@@ -478,7 +461,7 @@ task_session_id + 时间窗合并。
   "target": {"object_id": 2, "label": "front_end", "aim_pos": [], "aim_yaw": 0.0},
   "events": [
     {"ts": "...", "node": "dispatcher_node", "event": "SCENE_NAV", "detail": "...", "prompt": "智能导航到front_end"},
-    {"ts": "...", "node": "drone_0_mission_executive", "event": "object_id_nav_finish", "dis_2_aim_2d": 0.9}
+    {"ts": "...", "node": "dispatcher_node", "event": "object_id_nav_finish", "dis_2_aim_2d": 0.9}
   ],
   "outcome": {
     "reached_target": false,
@@ -506,11 +489,11 @@ task_session_id + 时间窗合并。
 
 ### 12.5 实现边界与委托
 
-> 契约在 diff-dockers，标记在 auto_deployer，聚合在 l4-visualizer。
+> 契约在 DiffAgent2 新版，采集标记归部署侧，聚合归 l4-visualizer。
 
 | 侧 | 内容 | 归属 |
 |----|------|------|
-| 本 spec | 契约 | station-host（diff-dockers） |
+| 本 spec | 契约 | station-host（DiffAgent2 新版） |
 | `auto_deployer` fluentbit.yaml lua filter | scene-nav 行标记 | station-host（drone_projects/auto_deployer） |
 | l4-visualizer server 聚合 + 落盘 | 会话聚合 + JSON 落盘 | l4-visualizer（station-host owner） |
 
@@ -527,8 +510,7 @@ task_session_id + 时间窗合并。
   （`/var/log/pods/<ns>_<pod>_<uid>/<container>/<N>.log`）；容器重启后该文件
   是 `N.log`（2/3/…），**不是** `0.log`，而对 `/var/log/containers/` 符号
   链接做 `stat` 得到的是符号链接 inode，不是数据。在信封时代，每个 l3 节点
-  还以周期性事件保持自身可见（dispatcher `dispatcher_state`，mission
-  `battery_voltage`，planner `ego_cloud_filter`）。
+  还以周期性事件保持自身可见（dispatcher `dispatcher_state`，planner `ego_cloud_filter`）。
 - **fluent-bit 的 pod 元数据需要 hostNetwork pod 可达的 API。**
   `hostNetwork` 的 fluent-bit 往往无法解析 `kubernetes.default.svc`
   （`getaddrinfo err=-3`），于是每条记录都不带 pod/container 字段，所有卡片
@@ -550,11 +532,9 @@ task_session_id + 时间窗合并。
 
 > 契约测试、编译门禁与缓冲延迟检查。
 
-- `uv run pytest`（l3 树）通过；mission-contract 字节 diff 通过
-  （提取器范围：排除 `bridge_client.py` —— 仅有 py 的 RPC 适配器，
-  无 C++ 对应文件）。
-- `drone_projects/auto_deployer/compile/station-host-compile-l3.sh` 通过
-  （面向每个已迁移 TU 的开发侧 C++ 编译门禁）。
+- dispatcher 工具及共享执行模块须验证日志信封、seq、级别、停止记录与资源释放；
+  C++ 生产者使用其所属包的编译与日志测试，不构建旧 mission 包或验证旧副本一致性。
+- 门禁命令与通过记录随对应实施方案维护；未迁移的外部编译脚本不能作为本仓库已通过的证据。
 - 缓冲：`kubectl rollout restart` 后，INFO 行在约 1 s 内出现在
   `kubectl logs -f` 中；`which stdbuf` → `/usr/bin/stdbuf`。
 - 默认门禁隐藏 debug 遥测：`kubectl logs --tail=200 | grep -c
@@ -565,21 +545,21 @@ task_session_id + 时间窗合并。
 > 面向采集器、中继与节点身份的可直接复制的 shell 检查。
 
 ```bash
-# fluent-bit 侧：输出指向 loopback 中继（v3）
+# fluent-bit 侧：输出指向 loopback 中继
 sudo -n k3s kubectl get cm fluent-bit-config -n lx-real -o jsonpath='{.data.fluent-bit\.conf}' | grep -E 'Parser|Host|Port'
 # 审计：任何采集器配置中都无汇点地址
 sudo -n k3s kubectl get cm fluent-bit-config -n lx-real -o jsonpath='{.data.fluent-bit\.conf}' | grep -c '192\.168'   # 必须为 0
 # 中继侧：relay 容器存活
 sudo -n k3s kubectl logs -n lx-real -l app=fluent-bit -c lx-log-relay --tail=5
 # stdout 行携带节点身份（B 层前缀 / 信封 JSON）
-sudo -n k3s kubectl logs -n lx-real deploy/l3-mission-arm64 --tail=5 | grep -o '"node":"[a-z_0-9]*"' | head -2
+sudo -n k3s kubectl logs -n lx-real deploy/l3-dispatcher-arm64 --tail=5 | grep -o '"node":"[a-z_0-9]*"' | head -2
 ```
 
 ### 14.3 站点摄入
 
 > 站点侧信封测试与实况抽查。
 
-- l4 `tests/test_visualizer_log_envelope.py` 通过：seq 提升、跨通道去重、
+- 站端日志信封测试必须覆盖：seq 提升、跨通道去重、
   agent_log 间隙条目、`_raw` 路由。
 - rollout 后设备抽查：每个 l3 pod 的结构化行都能解析为带 `node` + `seq` +
   规范 `level` 的 JSON；stdout 上不再残留 `warn`/`trace` 字符串；

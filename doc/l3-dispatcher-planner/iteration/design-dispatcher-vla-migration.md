@@ -5,7 +5,9 @@
 > fail-closed 三态、far_push/depth_match_ok/REPLAN 链」语义，接入新版动作账务
 > （SkillRouter / ActionGate / WaypointExecution）与工具发现面；`geometry.py`
 > 按用户要求保留在 `tools/vla/` 下并标注「vla 专用几何逻辑」，不通用化。
-> 依据：旧库快照 `1b5fef5`；rest 台账 R05/R07；[工具名与业务语义迁移遗留项](../../rest/task-id-to-tool-name-deferred.md)。
+> 依据：旧库当前 HEAD（`station-inf`，`636ecc6`）；台账快照 `1b5fef5` 后 vla 目录再经
+> `a77850f` / `acdffc9` / `7bcc999` 调整（见 §2 新增事实），证据一律以当前 HEAD 为准；
+> rest 台账 R05/R07；[工具名与业务语义迁移遗留项](../../rest/task-id-to-tool-name-deferred.md)。
 
 ## 0. 元信息
 
@@ -57,9 +59,10 @@
 - [ ] `N/core/tool_workflow.py#L52` 已有 `requires_perception and not input_ready() →
       chain_not_ready` 前置门；`N/engine.py#L228/L292` 分发时对
       `requires_perception` 技能就绪检查。VLA 置 `requires_perception=True` 可直接复用。
-- [ ] R05 旧版读取链：`O/vla_skill.py#L258-L305` 的 `on_action_result` 读 `replan_cmd`
-      决定 REPLAN；`O/engine.py:574` 用 `prompt_raw` 下发目标。新版不能读宿主
-      `ActionGate.pending_action` 私有（台账接入顺序），须技能自有 REPLAN 状态。
+- [ ] R05 旧版读取链：`O/vla_skill.py`（现 443 行）`on_action_result`（L258-301）直读
+      `host.pending_action.replan_cmd` 决定 REPLAN；旧 `O/engine.py:574` 的 prompt_raw
+      下发行已随 RPC 重构漂移、不再相关。新版不能读宿主 `ActionGate.pending_action`
+      私有（台账接入顺序），须技能自有 REPLAN 状态。
 - [ ] 旧 VLA 语义链（须逐字对齐）：`_consume_grounded_detection` 的 bbox_1000→像素换算、
       visible=false 与 odom 对齐失败的 fail-closed 三态（invalid_grounded_bbox /
       target_not_visible / odom_stamp_unavailable）；`_compute_waypoint_from_detection`
@@ -68,10 +71,27 @@
 - [ ] 旧 vla_nav 工具面（`O/tools/registry.py#L36-L74`）：必填 `object/prompt/bbox_1000/
       image_stamp`，可选 `side/distance_m/visible/finish/provider/image_width/image_height`，
       completion=`workflow_result`，带 `task_id=0`（新版 ToolSpec 无此字段，须去编号）。
-- [ ] R07 调试图目录：`O/vla_skill.py#L886` 起多图思考保存链；新版 `N/core/telemetry.py::
-      RunTelemetry.thinking_debug_dir`/`last_thinking_debug_dir` 仅创建、无消费者。
+- [ ] R07 调试图目录：旧多图思考保存链已随 VLM 迁云删除（`vla_skill.py` 收缩至 443 行，
+      旧 `L886` 链不复存在）；旧库 `O/engine.py#L277-L281` 与新版
+      `N/core/telemetry.py#L69-L73` 的 `thinking_debug_dir`/`last_thinking_debug_dir`
+      双侧均成「仅创建、无消费者」孤儿——归属裁决由「迁入技能」改为「删孤儿 + 台账关门」。
 - [ ] first 系列：旧 `first_rgb/first_bbox/first_frame` 与首帧发布器，用户明确暂不保留，
       本方案不迁、不恢复。
+
+### 2.1 旧库演进事实（台账快照 `1b5fef5` → 当前 HEAD `636ecc6`）
+
+| 提交 | 内容 | 对方案影响 |
+|------|------|-----------|
+| `a77850f` | 删除 vla 连续推理（`vla_skill.py` 减 78 行；engine/config/skill_api 同步删） | 印证「一轮 DISPATCH 单次消费」Non-Goal；`wait_action_tick` 空钩 |
+| `acdffc9` | drone 侧 VLM 推理整体迁云：`vla_skill.py` 1164→443 行、`geometry.py` 重写（原迁移 −248 行）、`registry.py` 重写为 grounded schema（`bbox_1000`/`image_stamp` 必填）、`skill_api.py::SkillHost.vlm`/`VlmFacade` 端口退役、engine −70 / base_policy −176 / rpc_plane −114、config.py −14（`nav_tools`/`segment_nav_enabled`/`search_thinking_enabled`/`inference_timeout`/`sleep_for_turn`/`max_yaw_search`/`search_rot_yaw`/`max_z_search`/`search_pos_z`/`reacquire_interval`/`partial_bbox_*`/`llm_stamp_match_tolerance` 全删） | 印证「板上零 VLM、station 单次接地」；fail-closed 三态与 grounded schema 以现 HEAD 为准；搜索参数不迁 |
+| `7bcc999` | l3/l4 全链对齐 `navigation.vla_nav`，去除错误的 `vla-reach` | 工具名与方案一致 ✓ |
+| `636ecc6` | 文档性提交：station 侧 vla 系列命名收敛（配置键 `lx_vla_*`、异常 `VlaBackendTimeout`/`VlaBackendError`、线上字段 `vla_latency_ms`、常量 `VLA_REQUEST_TIMEOUT_S`），避免同名异构；drone 侧退役 vlm 模块名保持历史；零行为变化 | vla 系列命名先例：语义唯一；geometry.py「vla 专用」标注同向 |
+
+旧库 `config.py` 当前保留的 VLA 关键值（已核 L210-222）：`search_success_distance_thresh=0.3`、
+`geometry_agree_safe_dis_radius_m=0.8` / `geometry_mismatch_safe_dis_radius_m=1.2`、
+`d_side=0.7` / `d_forward=0.0` / `behind_dist=2.0`、`stable_height=0.4` / `is_stable=False`、
+`far_push_distance_m=5.0`。几何原语仍经 engine（`BasePolicyNode` 混入）可达：
+`build_world_frame_for_image_stamp`（base_policy.py:906）、`pixel_to_world`（:2858）。
 
 ## 3. 目标与约束
 
@@ -80,7 +100,7 @@
      行为与旧链对齐（far_push / depth_match_ok / REPLAN / fail-closed 三态）。
   2. `geometry.py` 保留在 `tools/vla/`，文件头标注「vla 专用几何逻辑」；不抽成跨域共享服务。
   3. 工具发现面接入 `navigation.vla_nav`，同步更新 `l3-tool-plane.spec.md` 集合与 `revision`。
-  4. R05 的 REPLAN 判据迁为技能自有状态；R07 目录归属裁决落地。
+  4. R05 的 REPLAN 判据迁为技能自有状态；R07 归属裁决落地（删孤儿字段 + 台账关门）。
 - **Non-Goals**：
   - 不迁 VLM/bbox 推理（station 已承担）；
   - 不恢复 first 系列、机上探索编排（yaw/z 步进、扫圈耗尽、多图 thinking）；
@@ -114,6 +134,10 @@
   | 技能名 | 工具全名（去 task-id） | `navigation.vla_nav` |
   | 工具元数据 | 与 `flight/catalog.py` 同构 | `ToolSpec(name, title, description, schema, ...)` |
 
+> 命名依据：旧库 `636ecc6` 的 vla 系列命名收敛先例——凡服务于 drone-vla 功能的
+> 模块一律 `vla` 系列标注，避免同名异构；本方案 `geometry.py` 头注「vla 专用几何逻辑」
+> 即为该原则在技能侧的落地。
+
 - **接口形态**：
   - `VlaSkill(SkillBase)`：`name = "navigation.vla_nav"`、`requires_perception=True`、
     `synchronous=False`。钩子：`plan_tick / wait_action_tick(空) / action_done_gate /
@@ -146,11 +170,11 @@
 | `O/engine.py` 几何原语（经 base_policy） | `N/perception/base_policy.py` 原语（已存在，L798-L3016） | 复用注入 | 不改 base_policy 归属；VlaSkillHost 组合注入 |
 | `O/tools/vla/vla_skill.py::_consume_grounded_detection`（L383-443） | `N/vla_skill.py` 同名 | rename+适配 | bbox_1000→像素换算、fail-closed 三态逐字保留 |
 | `O/tools/vla/vla_skill.py::_dispatch_waypoint`（L317-377） | `N/vla_skill.py` 同名 | rewrite | 内联塑形保留；改为 `host.arm_action + send_task_goal + publish_mode_burst` |
-| `O/vla_skill.py::on_action_result` 读 `replan_cmd`（L258-305） | `N/vla_skill.py::on_action_result` 返回 `SkillVerdict.REPLAN` | rewrite | REPLAN 状态技能自有；R05 接入建议落地 |
+| `O/vla_skill.py::on_action_result` 读 `replan_cmd`（L258-301） | `N/vla_skill.py::on_action_result` 返回 `SkillVerdict.REPLAN` | rewrite | REPLAN 状态技能自有；R05 接入建议落地 |
 | `O/tools/registry.py::vla_nav` ToolSpec（L36-74，带 task_id） | `N/tools/vla/catalog.py` ToolSpec | rewrite | 去 task_id；schema 语义不变 |
 | `host.recording._record_process_event`（R05 记录消费） | 暂不迁；登记台账 | delete（本轮） | 记录服务未建；`publish_phase` 覆盖状态可见性 |
 | `first_rgb/first_bbox/first_frame` 首帧系列 | — | delete（不恢复） | 用户明确暂不保留 |
-| R07 多图思考调试保存链（`O/vla_skill.py#L886` 等） | 归属 VLA 技能，经 host 读 `RunTelemetry.thinking_debug_dir` | pending | 由弱到强：技能显式配置路径、按资源生命周期清理；不进 core |
+| R07 多图思考调试保存链（旧 `O/vla_skill.py#L886`） | 已随 VLM 迁云删除；新库不建消费者，删 `core/telemetry.py` 孤儿字段 `thinking_debug_dir`/`last_thinking_debug_dir` | delete | 双侧零消费者（旧 `O/engine.py#L277-L281` 亦孤儿）；过期必删；台账 R07 关门 |
 
 ## 6. 删除清单
 
@@ -159,6 +183,7 @@
 | 新版侧不新建 first 系列（`first_rgb` 等） | 用户明确暂不保留；台账「本轮明确删除，不自动恢复」 |
 | 新版不引入任意 `vla` 旧名桥 / `engine._geometry` 别名 / 任务编号枚举 | 反转接器 + 去 task-id 硬约束（G20/G23） |
 | 不迁移 `wait_action_tick` 定时重搜 | 一轮 DISPATCH 单次消费；壳通用完成判定已确认 |
+| 新版 `core/telemetry.py` 的 `thinking_debug_dir`/`last_thinking_debug_dir` 孤儿字段 | 旧多图思考保存链消费者已随 VLM 迁云删除（acdffc9），双侧零消费者；过期必删 |
 
 ## 7. 实施步骤（P0/P1/P2/P3/P4 分期）
 
@@ -166,8 +191,9 @@
 
 - 范围：先契约后代码（migration-protocol §1）。`l3-tool-plane.spec.md` §1 生产集合加入
   `navigation.vla_nav`（schema 按 §4 工具面），`revision` 重算并记录；若技能语义需要，
-  在 `l3-skill-contract.spec.md` 补 VLA 身份/四裁决说明；rest 台账 R05/R07 标记「由
-  design-dispatcher-vla-migration 接管」并刷新触发条件。
+  在 `l3-skill-contract.spec.md` 补 VLA 身份/四裁决说明；rest 台账 R05 标记「由
+  design-dispatcher-vla-migration 接管」并刷新触发条件；R07 标记「旧消费者已随 VLM
+  迁云删除（acdffc9），双侧无消费者，本方案删孤儿字段后关门」。
 - 行为不变式：发现面新增属性前不得改生产代码路径。
 - 验收：spec 门禁绿；文档 `revision` 与工具元数据可重算一致。
 - 回退：文档级回退，无代码残留。
@@ -178,6 +204,8 @@
   几何原语经注入的 perception 源调用（只声明 VLA 所需子集）；帧走 `latest_frame /
   get_fast_rgb`；动作账务走 `ActionGate`（复用 `DispatcherFlightHost.start_goal` 的武装
   序列：snapshot_owner → 代次 → `engine.action_finish=False` → WAIT_ACTION_FINISH）。
+  独立小改：删 `core/telemetry.py` 的 `thinking_debug_dir`/`last_thinking_debug_dir`
+  孤儿字段（R07 关门）。
 - 行为不变式：几何输出与旧库在相同输入下字节级一致；不触碰 core。
 - 验收：几何单测（构造 Frame/OdometryBuffer + 合成 bbox/深度/点云）对比旧链期望值；
   host 单测（owner/代次/完成门）。
@@ -226,7 +254,8 @@
       取消/覆盖后 REPLAN 状态清理。
 - [ ] fail-closed：`invalid_grounded_bbox` / `target_not_visible` /
       `odom_stamp_unavailable` 三态唯一 fail 终态；`slog` 事件名/transition reason 与旧链一致。
-- [ ] R05/R07 台账在同一改动内更新（接入位置、剩余触发条件）；无 first 系列残留
+- [ ] R05/R07 台账在同一改动内更新（R05 接入位置/剩余触发条件；R07 删除后关门）；
+      新库 grep `thinking_debug_dir` 0 命中；无 first 系列残留
       （grep `first_rgb|first_frame` 于新库 0 命中，除 `first_indices` 点云去重）。
 - [ ] 几何调试发布（`_publish_candidate_debug_points`/`_publish_p2w_marker`）topic 名
       与旧链一致或按显式配置关闭。
@@ -239,7 +268,7 @@
 | 几何输入难端到端复现（真机/仿真无 station） | 验收缺运行证据 | 构造 Frame/OdometryBuffer 单测覆盖 depth/cloud 双路、far_push、REPLAN；登记「本轮不可运行」与回归手段（migration-protocol §6） |
 | REPLAN 判据依赖动作结果语义 | 误 done / 误 advance | 技能自有 replan 状态 + 代次门；ActionGate 返回 None 时技能不判定（行动返回 REPLAN 仅由已确定结果触发） |
 | 与飞行独占/急停链路冲突 | 双 action 互踩 | 复用 `WaypointExecution` + `flight-exclusive`；急停走既有全局停止口，VLA 不发布独立急停 |
-| R07 目录清理误删/失败 | 任务终态或调试产物受损 | 禁用不建目录；失败不破坏终态；清理限本轮目录；关闭/取消后不异步写 |
+| R07 孤儿字段删除牵连未发现的消费者 | 误删引用报警 | 删除前 grep 全库（生产/测试）确认 `thinking_debug_dir` 0 命中；仅删 telemetry 字段，不动日志根目录 |
 
 ## 10. 修改点清单汇总
 
@@ -254,6 +283,7 @@
 | `.../tools/vla/ports.py` | 新增 | VlaSkillHost 协议 |
 | `.../tools/vla/vla_skill.py` | 新增 | VlaSkill 实现 |
 | `.../execution/composition.py` | 修改 | `install_vla(...)` 装配 + disposer |
+| `.../core/telemetry.py` | 修改 | 删 `thinking_debug_dir`/`last_thinking_debug_dir` 孤儿字段（R07 关门） |
 | `.../utils/control_plane.py`（或 runtime 汇入处） | 修改 | 生产工具集合并入 vla catalog |
 | `tests/tool-registry/test_vla_catalog.py` 等 | 新增 | 发现面 + schema 负例 + 技能/几何/宿主测试 |
 | `specs/implemented/architecture/2026-09-17-vla-migration.md` | 新增 | done 时归档决策记录 |

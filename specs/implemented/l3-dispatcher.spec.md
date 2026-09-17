@@ -6,14 +6,15 @@ Contract-ID: l3-dispatcher
 
 > 拥有 l3 层（任务分发 / 下行执行 / 运动规划）的系统边界、职责划分与不变量。
 > 具体裁剪清单、迁移步骤与每轮验收归 `doc/l3-dispatcher-planner/iteration/` 下的
-> 决策记录所有，不进本契约。
+> 迭代方案与执行记录所有，不进本契约。
 
 ## 不变量
 
 > 以下为 l3 的稳定骨架；任何一轮迁移都不得违反。
 
-- **三段构成**：l3 = 任务分发（dispatcher）+ 下行执行缝（execution seam）+
-  运动规划（planner）。planner 已独立分层，不在本契约的重构范围。
+- **职责构成**：l3 包含 dispatcher 与独立的 planner。dispatcher 内部由 core
+  分发任务，工具及工具状态机持有领域流程，共享执行能力提供通用动作机制。
+  下行执行缝是 dispatcher 的内部职责，不是第三个独立任务系统。
 - **core 只分发**：dispatcher core 持有六态 FSM 与任务队列，按工具名分发；
   不持有任何工具的领域语义。
 - **能力即技能**：每个对外任务能力是一个技能，按名注册；core 只按名解析，
@@ -24,8 +25,8 @@ Contract-ID: l3-dispatcher
   经抽象端口或内存状态获取数据。
 - **未注册即失败**：分发未命中已注册技能时必须上报失败并停在空闲态，不得
   排空队列后回报完成。
-- **终态唯一**：一次调用有且仅有一个终态事件（done / fail / cancel），相位
-  序列按此收敛。
+- **终态唯一**：每个已准入调用有且仅有一个终态事件；终态词汇、取消编码与
+  相位收敛规则由 `l3-dispatcher/tool-plane` 定义。
 - **节律不绑定语言**：执行缝的 tick 频率由能力需求决定（10 Hz 与 20 Hz 皆
   合法）；改变频率不要求改变实现语言。
 
@@ -37,7 +38,7 @@ Contract-ID: l3-dispatcher
 |----------|-----------|
 | `specs/implemented/inner/l3-core-boundary.spec.md` | dispatcher core 的准入与禁令 |
 | `specs/implemented/inner/l3-ros-adapter-boundary.spec.md` | ROS 收发隔离、端口与内存访问方式 |
-| `specs/implemented/inner/l3-execution-seam.spec.md` | 下行执行缝（原 mission_executive 的能力归属） |
+| `specs/implemented/inner/l3-execution-seam.spec.md` | dispatcher 内部共享执行能力与 planner 接口 |
 | `specs/implemented/inner/l3-skill-contract.spec.md` | 技能的身份、生命周期、端口与逆 |
 | `specs/implemented/inner/l3-migration-protocol.spec.md` | 旧库向新库迁移的裁决、准入与禁止事项 |
 | `specs/implemented/inner/l3-tool-plane.spec.md` | 工具发现/调用/事件/取消与连接租约的对外协议 |
