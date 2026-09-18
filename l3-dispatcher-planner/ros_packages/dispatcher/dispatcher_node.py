@@ -112,7 +112,9 @@ def create_dispatcher_engine(config_path: str):
                 key_aliases=CONFIG_KEY_ALIASES, log=config_log,
             )
     node.prompt_queue.sync_task_buffers_from_prepare(node.prepare_content)
-    return node
+    # perception（几何原语源）一并透出：VLA 装配（create_vla_runtime）经
+    # VlaSkillHost 组合注入；headless 时为 None。
+    return node, perception
 
 
 def create_flight_runtime(engine):
@@ -134,7 +136,65 @@ def create_flight_runtime(engine):
     except Exception:
         ports.close()
         raise
-    return host, dispose, ports.close
+    # ports/config 一并返回：VLA 与飞行共享同一出站口（flight-exclusive），
+    # 执行配置（state_timeout/action_timeout/高度界）同源。
+    return host, dispose, ports.close, ports, config
+
+
+def create_vla_runtime(engine, perception, ports, execution_config):
+    """装配 VLA 技能（navigation.vla_nav），返回资源逆操作。
+
+    - 技能层 slog 出站回调（emit）在 install_vla 内接 engine.runlog.emit；
+    - publish_mode_burst 的出站回调：EGO 直连栈当前没有规划器模式触发通道
+      （旧链 planner_mode_topic=/uav_planner/trigger 的 Int32 发布器在新栈
+      ros_adapter 各端口均无对应口），此处提供受控空实现——保留脉冲调用
+      形态与次数语义，通道接入时替换为真实发布器；装配时留痕一次。
+      未接线时 VlaSkillHost.publish_mode_burst 会直接失败（不静默降级），
+      空实现仅免除该失败，不引入其他行为漂移。
+    - 宿主只读配置经 ROS 私有参数 ~vla/* 覆盖（同 ~flight/* 机制），
+      默认值与旧库 config 逐项核对一致（VlaHostConfig）。
+    - VLA 几何/阈值配置同样经 ~vla/* 覆盖（默认值=旧库 config.py
+      UAV_POLICY_DEFAULTS + base_policy 默认，逐项核对一致）：技能层两阈值
+      search_success_distance_thresh(0.3)/far_push_distance_m(5.0) 与
+      VlaGeometryConfig 全字段（safe_dis_radius_m 0.4 / if_safe_dis True /
+      behind_dist 2.0 / d_side 0.7 / d_forward 0.0 / depth_source "cloud" /
+      is_stable False / stable_height 0.4 / geometry_agree_safe_dis_radius_m
+      0.8）。~vla/* 为 VLA 几何/阈值的唯一权威；perception 侧同名属性属
+      perception 自有（base_policy 段配置），VLA 几何不依赖。
+    """
+    from dispatcher.tools.vla.geometry import VlaGeometryConfig
+    from dispatcher.tools.vla.ports import VlaHostConfig
+    from dispatcher.execution.composition import install_vla
+
+    def planner_mode_sink_no_channel(mode_value: int) -> None:
+        """受控空实现：EGO 直连栈无规划器模式触发通道（见函数头注）。"""
+        return None
+
+    engine.runlog.emit(
+        "info",
+        "vla_planner_mode_channel_absent",
+        note="ego stack has no planner mode trigger channel; mode burst is a no-op",
+    )
+    values = {
+        field.name: params_ros.get_private_param("vla/" + field.name, field.default)
+        for field in fields(VlaHostConfig)
+        if field.name != "publish_planner_mode"
+    }
+    geometry_values = {
+        field.name: params_ros.get_private_param("vla/" + field.name, field.default)
+        for field in fields(VlaGeometryConfig)
+    }
+    _, dispose = install_vla(
+        engine, ports, execution_config,
+        VlaHostConfig(publish_planner_mode=planner_mode_sink_no_channel, **values),
+        perception,
+        geometry_config=VlaGeometryConfig(**geometry_values),
+        search_success_distance_thresh=params_ros.get_private_param(
+            "vla/search_success_distance_thresh", 0.3),
+        far_push_distance_m=params_ros.get_private_param(
+            "vla/far_push_distance_m", 5.0),
+    )
+    return dispose
 
 
 def start_dispatcher_workers(node):
@@ -153,11 +213,21 @@ def main():
     config_path = params_ros.get_private_param("config_path", "")
 
     print("Program starting...")
-    engine = create_dispatcher_engine(config_path)
+    engine, perception = create_dispatcher_engine(config_path)
 
-    flight_host, dispose_flight, close_flight_ports = create_flight_runtime(engine)
+    flight_host, dispose_flight, close_flight_ports, flight_ports, flight_config = (
+        create_flight_runtime(engine)
+    )
+    dispose_vla = None
+    if perception is not None:
+        # VLA 需要感知几何原语源；headless（无传感器）不装配——
+        # navigation.vla_nav 调用经 core 未注册路径 fail-closed
+        # （tool_not_registered 终态），不静默降级。
+        dispose_vla = create_vla_runtime(engine, perception, flight_ports, flight_config)
     with ExitStack() as resources:
         resources.callback(close_flight_ports)
+        if dispose_vla is not None:
+            resources.callback(dispose_vla)
         resources.callback(dispose_flight)
         control_plane = ToolControlPlane(
             engine.tools, log=RosLog(), shutdown=RosShutdown(),

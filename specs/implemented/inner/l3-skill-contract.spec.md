@@ -134,3 +134,25 @@ fail_sequence、stash_task_result 和只读 config。它不模拟旧版 engine �
 
 全局停止在清理通用动作状态前通知发布动作的技能实例；取消/覆盖由 dispatcher 推进批次并通过既有目标口发布保持意图，
 不要求 planner 提供新增取消端口。技能注册返回幂等 disposer，只移除所注册实例，不误删后注册实例。
+
+## 10. VLA 导航技能语义（navigation.vla_nav）
+
+> 身份与裁决声明；参数 schema、完成语义与发现面归
+> `l3-dispatcher/tool-plane` §1，迁移依据归当轮方案。
+
+- **身份**：`name = "navigation.vla_nav"`、`requires_perception = True`
+  （分发前决策链就绪检查生效）、`synchronous = False`（入队经 DISPATCH
+  逐 tick 推进）。
+- **端口**：使用 §7 通用 SkillHost 端口（最新帧、快速通道图像、动作武装、
+  航点下发、模式发布、相位上报、任务结果暂存、失败终止、代次守卫、队列
+  机械操作），不新增飞行专属端口；航点塑形（高度限幅、mode 脉冲）由技能
+  内联完成。
+- **四裁决**：REPLAN 由技能自有 replan 状态（replan_cmd / replan_reason）
+  在 `on_action_result` 内判定并返回，**不得读取宿主 `ActionGate.pending_action`
+  等私有对象**（§5、G14）；ADVANCE / IDLE 沿用 §4 通用语义；NEW_ACTION 仅
+  用于技能已自行武装并发布新动作的腿（如贴地腿），core 不替其调度。
+- **fail-closed**：grounded 消费预检失败只有三个终态原因——
+  `invalid_grounded_bbox`、`target_not_visible`、`odom_stamp_unavailable`；
+  无旋转、无重试、不静默回落到最新位姿。
+- 一轮 DISPATCH 只消费一次 grounded detection；机上不做 VLM/bbox 推理
+  （推理归 station）。

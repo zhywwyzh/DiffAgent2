@@ -487,7 +487,12 @@ def test_composition_preserves_configuration_on_perception_owner(tmp_path, monke
         def get_sensor_input_health(self):
             return {}
 
+    # 既有基线修复（评审修复轮登记）：dispatcher_node 顶部 import 链拖
+    # utils.control_plane → zenoh_rpc → zenoh（本环境缺 zenoh，与全量门禁
+    # 四个 ignore 的既有基线同源）；本测试只调 create_dispatcher_engine，
+    # 不消费 ToolControlPlane（main 专属），以 stub 顶替其模块级导入。
     fake_modules = {
+        "dispatcher.utils.control_plane": SimpleNamespace(ToolControlPlane=object),
         "dispatcher.perception.base_policy": SimpleNamespace(BasePolicyNode=Perception),
         "dispatcher.ros_adapter.clock_ros": SimpleNamespace(RosLog=Log, RosNode=object, RosShutdown=object),
         "dispatcher.ros_adapter.core_channels_ros": SimpleNamespace(
@@ -506,7 +511,7 @@ def test_composition_preserves_configuration_on_perception_owner(tmp_path, monke
         "uav_policy": {"geometry_agree_safe_dis_radius_m": 1.5, "min_action_wait": 0.7},
     })
     try:
-        node = module.create_dispatcher_engine("")
+        node, _ = module.create_dispatcher_engine("")
         perception = node.get_frame_snapshot.__self__
         assert isinstance(perception, Perception)
         assert perception.geometry_agree_safe_dis_radius_m == node.geometry_agree_safe_dis_radius_m == 1.5

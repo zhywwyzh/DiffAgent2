@@ -65,13 +65,6 @@ class RunTelemetry:
             log_dir=str(log_root),
         )
 
-        # 设为 None 可关闭调试落盘；设为目录路径则开启保存并在下一轮前清理上一轮。
-        self.thinking_debug_dir = log_root / "debug" / "thinking_multi"
-        self.last_thinking_debug_dir = None
-        if self.thinking_debug_dir is not None:
-            self.thinking_debug_dir.mkdir(parents=True, exist_ok=True)
-            self.info(f"[Thinking-Debug] 已开启，目录: {self.thinking_debug_dir}")
-
     def emit(self, level: str, event: str, **fields) -> None:
         """Emit a slog-compatible dispatcher decision event."""
         self.telemetry.emit(level, event, **fields)

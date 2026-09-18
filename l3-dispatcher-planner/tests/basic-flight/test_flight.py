@@ -180,7 +180,9 @@ def test_catalog_accepts_l4_parameters_and_rejects_legacy_return_target():
     with pytest.raises(ToolProtocolError) as caught:
         registry.normalize_call(payload)
     assert caught.value.data['reason'] == 'unknown_argument'
-    assert {tool['name'] for tool in ToolRegistry.default().list_tools()['tools']} == {spec.name for spec in flight_specs()}
+    # P3 起生产发现面 = 飞行六工具 + navigation.vla_nav（vla 并入 default()）
+    assert {tool['name'] for tool in ToolRegistry.default().list_tools()['tools']} \
+        == {spec.name for spec in flight_specs()} | {'navigation.vla_nav'}
 
 
 def test_cancel_and_new_call_ignore_late_result_while_fsm_runs(engine, monkeypatch):

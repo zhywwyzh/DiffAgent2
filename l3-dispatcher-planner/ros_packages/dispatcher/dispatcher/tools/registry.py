@@ -34,8 +34,11 @@ class ToolRegistry:
 
     @classmethod
     def default(cls) -> "ToolRegistry":
+        # 生产工具集合：六个 basic_flight.* + navigation.vla_nav（顺序固定，
+        # revision 随之锁定；权威记录 specs/implemented/inner/l3-tool-plane.spec.md §1）。
         from dispatcher.tools.flight.catalog import flight_specs
-        return cls(flight_specs())
+        from dispatcher.tools.vla.catalog import vla_specs
+        return cls(tuple(flight_specs()) + tuple(vla_specs()))
 
     def list_tools(self) -> dict:
         tools = [spec.public_dict() for spec in self._ordered]

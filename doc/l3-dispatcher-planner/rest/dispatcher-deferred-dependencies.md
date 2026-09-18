@@ -1,6 +1,6 @@
 # dispatcher 待迁依赖与保留项台账
 
-更新日期：2026-09-17。状态：R03/R05 的控制职责已上行修正到 dispatcher，修正版未重跑测试；R04 原点子能力保留，其余历史/VLA 消费继续保留；R01/R02/R06/R07 待迁；R08 已删除且不自动恢复。
+更新日期：2026-09-17。状态：R03/R05 的控制职责已上行修正到 dispatcher，修正版未重跑测试；R04 原点子能力保留，其余历史消费继续保留；R05 的 VLA 重规划与 R07 的调试目录已由 [dispatcher VLA 技能迁移方案](../iteration/design-dispatcher-vla-migration.md) 接管（R05 契约先行、P1–P3 分期实现，记录消费继续挂账；R07 裁决删孤儿字段后关门，删除动作在方案 P1）；R01/R02/R06 待迁；R08 已删除且不自动恢复。
 
 本文件记录已批准的暂时保留及后续处理线索，不定义新契约。用户明确要求：保留项在未来接入或优化时重新判断，不能因为当前生产技能为空而直接删除。未来实现方案仍按 `iteration/_TEMPLATE.md` 落盘；如需改变端口或行为契约，先更新 `specs/`。
 
@@ -90,12 +90,14 @@
 |----|----|
 | 对应审核 | C01–C03 |
 | 新版保留位置 | `N/core/action_gate.py::PendingAction`、`ActionGate.pending_action`；`handle_post_action` 的 REPLAN 标记清理和 `clear_action_state` 的全量清理。 |
-| 当前状态 | DispatcherFlightHost.start_goal 已接入飞行动作武装、实例归属、代次和当前批次反馈；取消/停止控制已改为 dispatcher 的目标覆盖方式，本次未复验。VLA 专属重规划和记录读取仍未接入，旧 arm_action 仅作历史线索。 |
+| 当前状态 | DispatcherFlightHost.start_goal 已接入飞行动作武装、实例归属、代次和当前批次反馈；取消/停止控制已改为 dispatcher 的目标覆盖方式，本次未复验。**VLA 专属重规划已由 [dispatcher VLA 技能迁移方案](../iteration/design-dispatcher-vla-migration.md) 接管（P0 契约先行，P1–P3 分期实现）**：REPLAN 判据迁为技能自有 replan 状态（replan_cmd / replan_reason），在 `on_action_result` 内判定并返回 `SkillVerdict.REPLAN`，技能不读宿主 `ActionGate.pending_action`；契约见 [技能契约 §10](../../../specs/implemented/inner/l3-skill-contract.spec.md)。旧 arm_action 仅作历史线索。 |
+| 记录消费现状 | 旧版 VLA 航点发布时的过程记录消费（`host.recording._record_process_event`，远推进腿不记）**暂不迁、继续挂账**：记录服务未建（R01/R06）；状态可见性先由 `publish_phase` 覆盖。 |
 | 旧版生产链 | `O/tools/vla/vla_skill.py:606`、`O/tools/flight/flight_skill.py:84` 和场景导航技能调用宿主 arm_action；`O/engine.py:1596` 武装，`:1623` 起写元数据。 |
 | 旧版读取链 | VLA `on_action_result`（`:487`）读取 replan_cmd 决定 REPLAN；`O/engine.py:574` 用 prompt_raw 下发目标；`O/recording.py:35` 用它回退当前任务文本；动作准备日志（`O/engine.py:1643`）读取 action_name、instruction_type。 |
 | 字段级区分 | replan_cmd、prompt_raw、action_name、instruction_type 有上述明确读点；replan_reason 见写入/清理；waypoint、look_forward、nav_yaw、yaw_source、is_far_push 在该上下文快照中未确认完整消费者，不能把 skill 中其他同名概念当成此对象读点。整类保留不等于每个字段永久保留。 |
-| 何时重新参考 | 实现 SkillHost.arm_action、动作结果回调、VLA 临时动作后重规划、飞行/场景技能动作发布，或调整动作元数据模型时。 |
-| 接入顺序 | 明确哪些是通用动作账务、哪些是技能内部语义；按端口接入动作武装、实例归属、代次、结果与清理；再迁 VLA 判据和记录消费。旧版 `host.pending_action` 当前已在 `ActionGate` 内，需设计显式读取/生命周期端口或技能自有状态，不复制宿主私有访问或造旧入口转接器。 |
+| 何时重新参考 | ~~实现 VLA 技能（navigation.vla_nav）动作结果接入与 REPLAN 判据时，按迁移方案 P1–P3 执行并回填证据~~（已执行并回填，见上行「已接入」）；实现 SkillHost.arm_action 通用化、飞行/场景技能动作发布，或调整动作元数据模型时仍须读本条。 |
+| 已接入（2026-09-17） | `navigation.vla_nav` 已按 [VLA 迁移方案](../iteration/design-dispatcher-vla-migration.md) P1–P3 落地：REPLAN 判据为技能自有 `_replan_cmd/_replan_reason`（`N/tools/vla/vla_skill.py::on_action_result` 四裁决），与 arm_action 记账同源写入，取消/覆盖/全局停止路径清理；重新武装后旧代次结果被完成门拒绝（tests/core-boundary/test_vla_skill.py 代次门与引擎节拍端到端用例）。剩余挂账：记录消费（下行）。 |
+| 接入顺序 | 通用动作账务与技能内部语义的区分已裁决：VLA 的 REPLAN 判据走**技能自有 replan 状态**（迁移方案 §4），不读宿主 `ActionGate.pending_action`，不造显式读取端口或旧入口转接器；契约依据为 [技能契约 §10](../../../specs/implemented/inner/l3-skill-contract.spec.md)。动作武装、实例归属、代次、结果与清理继续经端口接入；记录消费待记录服务（R01/R06）后另行接入。 |
 | 必须验证 | 临时动作完成只进入 REPLAN 且不提前 done；重新武装后旧结果被代次拒绝；停止/覆盖后标记清理；动作归属不随名字重新注册漂移；对外调用终态唯一。 |
 | 何时可删除 | 技能自有会话/通用动作记录已覆盖所有真实读点，并验证重规划、记录与发送文本后，逐字段裁剪或整体替换。保留清理生命周期，不能只搬数据而丢掉停止时的逆操作。 |
 
@@ -119,13 +121,19 @@
 | 项 | 内容 |
 |----|----|
 | 对应审核 | B15 |
-| 新版保留位置 | `N/core/telemetry.py::RunTelemetry.thinking_debug_dir`、`last_thinking_debug_dir` 及目录创建逻辑。 |
-| 当前状态 | 启动时创建目录并输出开启日志；没有生产 VLA 消费者写入。普通 trace 独立工作。 |
-| 旧版证据 | `O/tools/vla/vla_skill.py:886` 在搜索耗尽后的多图推理分支调用保存；`:1082` 清旧目录，`:1114` 创建本轮目录并保存视图与元数据，`:1190` 写 last_thinking_debug_dir。后者在核对快照中见赋值，不据此假定存在其他读取方。 |
-| 何时重新参考 | 接入 VLA 搜索、多图推理、调试图保存或修改日志落盘管理时。 |
-| 接入建议 | 决定目录归 VLA skill 还是共享记录服务；通过显式配置传路径，按资源生命周期管理写入与清理。旧版从 host 直接取字段，新版位于 RunTelemetry；不应把领域调试逻辑重新塞进 core。 |
-| 必须验证 | 禁用时不创建/写入；启用时保存当前轮视图和元数据；清理不删除其他调用/会话产物；目录不可写时的失败处理不破坏任务终态；关闭或取消后不继续异步写旧目录。 |
-| 何时可删除 | VLA 明确不需要该调试功能，或独立调试服务已接管路径与生命周期后，删除遥测对象上的旧字段、创建逻辑和日志，不影响 trace。 |
+| 新版保留位置 | 无（已删除）。原 `N/core/telemetry.py::RunTelemetry.thinking_debug_dir`、`last_thinking_debug_dir` 及目录创建逻辑已随 VLA 迁移方案 P1 移除。 |
+| 当前状态 | **已关门（2026-09-17，方案 P1）**：旧版唯一消费者（搜索耗尽后的多图推理保存链）已随 drone 侧 VLM 推理迁云删除（旧库 `acdffc9`），旧版 `O/engine.py` 侧同名目录与新版 `RunTelemetry` 字段均成「仅创建、无消费者」的双侧孤儿。按 [dispatcher VLA 技能迁移方案](../iteration/design-dispatcher-vla-migration.md) §6/§7 P1 删除孤儿字段，本条目关门。普通 trace 独立工作，不受影响。 |
+| 旧版证据 | `O/tools/vla/vla_skill.py:886` 在搜索耗尽后的多图推理分支调用保存；`:1082` 清旧目录，`:1114` 创建本轮目录并保存视图与元数据，`:1190` 写 last_thinking_debug_dir。后者在核对快照中见赋值，不据此假定存在其他读取方。按旧库当前 HEAD（`636ecc6`）复核：`vla_skill.py` 已收缩至 443 行，多图推理分支不复存在；`O/engine.py` 的目录创建亦无读取方。 |
+| 何时重新参考 | 已关门，无常规触发条件。若未来需要多图推理调试落盘，按新需求重新设计归属，不恢复旧字段名。 |
+| 归属裁决 | 不迁入技能、不建共享调试服务：双侧零消费者的孤儿字段按过期必删处理；删除范围仅 `N/core/telemetry.py` 的 `thinking_debug_dir`/`last_thinking_debug_dir` 字段、创建逻辑与开启日志，不动日志根目录与 trace。 |
+| 必须验证 | 删除前全库 grep（生产/测试）`thinking_debug_dir` 零命中；删除后 trace 行为不变；不影响任务终态与运行日志根目录。 |
+| 何时可删除 | 已执行：P1 删除后留本记录关门（证据见下）。 |
+
+R07 关门证据（2026-09-17，方案 P1）：
+
+- 删前 grep：`l3-dispatcher-planner/` 代码树（生产 + tests）内 `thinking_debug_dir` 仅 `core/telemetry.py` L69-L73 自身定义命中（零消费者）；`specs/` 0 命中；`doc/` 命中均为台账/方案记录文字。
+- 删后 grep：`l3-dispatcher-planner/` 全树 `thinking_debug_dir` **0 命中**。
+- 行为核验：trace（`attach_trace`/session_tag）与 `dispatcher_started` 事件不受影响（删除块位于二者之后）；core-boundary 既有测试回归通过（30 项中 29 通过，唯一失败为环境缺 zenoh 的收集错误，与本次改动前的基线一致）。
 
 <a id="r08"></a>
 ## R08 — GRASP 抓取感知（已删除登记项，不自动恢复）
@@ -173,6 +181,8 @@
 | 2026-09-16 | R01–R07 | 保留待接入 | 见各项新版位置，本轮不迁生产技能 | 本轮验证保留状态未被清理，不能替代未来生产能力验收 | 按各项“何时重新参考”触发 |
 | 2026-09-16 | R03、R05 与 l4 对接前置 | 继续保留；设计中 | [RPC 对接方案](../iteration/20260915-20260917/design-dispatcher-l4-rpc-integration.md)、[基础飞行方案](../iteration/20260915-20260917/design-dispatcher-basic-flight-migration.md) | 只读检查发现 owner watch 未接 acquire；复现快速终态丢失、非法 JSON 顶层无回复和失效租约重放获准。未改生产代码，未完成物理停止验证 | 前置轮次先修协议与监听；飞行轮次接完整执行缝、动作账务与急停轨迹；VLA 专属重规划仍待其技能迁移 |
 | 2026-09-16 | R04、R06 原点/历史边界 | 继续保留；仅原点子能力已出方案 | [基础飞行方案 §4.5](../iteration/20260915-20260917/design-dispatcher-basic-flight-migration.md#45-原点服务与-r04-范围) | 当前只读 l4 的 plan_tools.json 定义 return 空参返回起飞点；FlightSession 仅为设计，尚无实现/运行证据 | 起飞原点随基础飞行接入；previous、历史集合、游标和文本回退待真实消费者迁移，不因本轮无公开入口裁掉；日志 session_tag 不等于飞行会话 |
+| 2026-09-17 | R05、R07 | R05 由 VLA 迁移方案接管（P0 契约先行）；R07 裁决删孤儿后关门（删除动作在方案 P1） | [dispatcher VLA 技能迁移方案](../iteration/design-dispatcher-vla-migration.md) §5/§7；[工具面契约 §1](../../../specs/implemented/inner/l3-tool-plane.spec.md)；[技能契约 §10](../../../specs/implemented/inner/l3-skill-contract.spec.md) | 本轮仅文档与 spec 更新，无代码与运行证据；工具面 revision 新值已按 §1 七工具元数据重算一致 | R05：P1–P3 实现后按方案 §8 回填验收（REPLAN 技能自有状态、不读宿主 pending_action），`_record_process_event` 记录消费待记录服务（R01/R06）继续挂账；R07：方案 P1 删字段并 grep 零命中后关门 |
+| 2026-09-17 | R07 | **已关门**（方案 P1 执行删除） | `l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/core/telemetry.py`：删 `thinking_debug_dir`/`last_thinking_debug_dir` 孤儿字段与目录创建逻辑，原位留中文注释指向本条目 | 删前 grep：代码树内仅 telemetry.py 自身定义命中（零消费者），specs/ 0 命中；删后 grep：`l3-dispatcher-planner/` 全树 `thinking_debug_dir` 0 命中；core-boundary 回归通过（当轮 29 passed，环境缺 zenoh 的 1 项为基线环境问题） | 无（关门）；未来多图调试需求按新设计重新立项，不恢复旧字段 |
 
 未来处理后在此追加记录并同步 README 索引。若仍不能接入，不只写“以后处理”，应说明缺少哪个端口/服务、下一次由哪种任务触发；若决定删除，应记录旧版消费者如何退役或被替代。
 

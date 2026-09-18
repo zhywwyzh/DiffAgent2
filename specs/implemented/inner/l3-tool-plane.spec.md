@@ -26,10 +26,39 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 
 **当前生产工具集合**：`basic_flight.takeoff`、`basic_flight.land`、
 `basic_flight.translate`、`basic_flight.rotate`、`basic_flight.return`、
-`basic_flight.emergency_stop`。动作参数与完成语义归 [基础飞行动作契约](flight-actions.spec.md)。
-测试自有能力不注册到生产默认集合；后续能力同样须有完整实现与测试。
+`basic_flight.emergency_stop`、`navigation.vla_nav`。基础飞行动作参数与
+完成语义归 [基础飞行动作契约](flight-actions.spec.md)；`navigation.vla_nav`
+的元数据见下。测试自有能力不注册到生产默认集合；后续能力同样须有完整
+实现与测试。
 
-**`revision` 记录值（现行）**：`sha256:39102fa2e900df83c2d4a6d9fd1e795a384f133dc00de6d0fb3946fc69aa1685`
+**`navigation.vla_nav`**：station 单次接地的 grounded detection 载体，
+完成语义 `workflow_result`，`requires_perception=true`，并发语义同 §4
+飞行独占。`title` 为 `Reach a visual target`；`description` 为
+`Reach a station-grounded visual target: consume the bbox downlinked by
+the station (rgb camera stamp bound) and execute the waypoint chain.`；
+`outputSchema` 为空 object（`type=object`、`properties={}`、
+`additionalProperties=false`）。`inputSchema` 顶层 `type=object`、
+`additionalProperties=false`，字段：
+
+| 字段 | 必填 | 规则 |
+|------|------|------|
+| `object` | 是 | `string`，`minLength=1` |
+| `prompt` | 是 | `string`，`minLength=1` |
+| `bbox_1000` | 是 | `array[number]`，恰 4 项；0..1000 值域与 `x1<x2`、`y1<y2` 的语义校验由技能 fail-closed，不进 schema |
+| `image_stamp` | 是 | `number`，`exclusiveMinimum=0`；station 下发 bbox 携带的 rgb 相机时戳 |
+| `side` | 否 | `enum`：`front`/`left`/`right`/`above` |
+| `distance_m` | 否 | `number`，`exclusiveMinimum=0` |
+| `visible` | 否 | `boolean`，缺省 `true` |
+| `finish` | 否 | `boolean`，缺省 `false` |
+| `provider` | 否 | `string`，`enum` 仅 `station`，缺省 `station` |
+| `image_width` | 否 | `integer`，`exclusiveMinimum=0`；bbox_1000→像素换算的显式声明，非正值按缺省约定处理 |
+| `image_height` | 否 | `integer`，`exclusiveMinimum=0`；同 `image_width` |
+
+> schema 与 DiffAgent2 旧版 `tools/registry.py` 同名 ToolSpec 逐字对齐，仅无
+> 任务编号（`l3-core-boundary` B2/B7/B8；migration-protocol G23）。像素换算
+> 的缺省约定为 1000 空间→640x480。
+
+**`revision` 记录值（现行）**：`sha256:cacb240ea0d6b94294831f23574d4bde9f7781528f617d69ed2583c4eb08f269`
 
 ## 2. 按名分发与准入
 
@@ -126,7 +155,7 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 
 | 门禁 | 检查 |
 |------|------|
-| G24 | 发现面断言：工具名集合 == §1 集合（六个基础飞行动作），`revision` == §1 记录的现行值 |
+| G24 | 发现面断言：工具名集合 == §1 集合（六个基础飞行动作 + `navigation.vla_nav`），`revision` == §1 记录的现行值 |
 | G25 | 进程内 runtime ack 与事件键集判定（必备键子集 + 负例）：ack 必含 `call_id` 与租约身份三键；事件必含 `call_id`/`status`/`phase`/`event_id`/`seq`；status ⊆ §8 三值、phase ⊆ §8 词表；二者均不得携带任务编号标识 |
 | G26 | 代码产出的拒绝 reason 集合 ⊆ §3 两层词表；新增 reason 须先改本契约 |
 | G27 | 负例判定：未注册名 → `tool_not_registered`；异源占用 → `flight_busy`；非 owner→ `connection_not_owner` |

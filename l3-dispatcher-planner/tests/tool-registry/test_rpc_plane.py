@@ -23,7 +23,7 @@ REMOVED_NAMES = (
     "flight.takeoff", "flight.land", "flight.translate", "flight.rotate",
     "flight.return", "flight.emergency_stop", "scene_nav.graph.list",
     "scene_nav.graph.select", "scene_nav.graph.save", "scene_nav.graph.objects",
-    "scene_nav.graph.object_pose", "navigation.vla_nav", "navigation.scene_graph_nav",
+    "scene_nav.graph.object_pose", "navigation.scene_graph_nav",
 )
 
 
@@ -78,9 +78,12 @@ def test_connection_rpc_remains_available_with_no_tools():
 
 
 def test_production_discovery_revision_matches_spec():
-    revision = ToolRegistry.default().list_tools()["revision"]
+    """G24：生产发现面 == 七工具（六 basic_flight.* + navigation.vla_nav），
+    revision 与 l3-tool-plane.spec.md §1 记录的现行值一致。"""
+    listing = ToolRegistry.default().list_tools()
+    revision = listing["revision"]
     spec = (REPO.parent / "specs/implemented/inner/l3-tool-plane.spec.md").read_text()
-    assert len(ToolRegistry.default().list_tools()["tools"]) == 6
+    assert len(listing["tools"]) == 7
     assert revision in spec
 
 

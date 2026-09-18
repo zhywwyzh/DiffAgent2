@@ -15,7 +15,7 @@
 |----|----|
 | 日期 | 2026-09-17 |
 | 目标路径 | `l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/vla/` |
-| 状态 | proposed |
+| 状态 | done |
 | 关联文档 | [基础飞行方案](design-dispatcher-basic-flight-migration.md)、[l3-l4 RPC 对接方案](design-dispatcher-l4-rpc-integration.md)、[l3-skill-contract.spec.md](../../../specs/implemented/inner/l3-skill-contract.spec.md)、[l3-tool-plane.spec.md](../../../specs/implemented/inner/l3-tool-plane.spec.md)、[l3-migration-protocol.spec.md](../../../specs/implemented/inner/l3-migration-protocol.spec.md)、[rest 台账](../rest/dispatcher-deferred-dependencies.md) |
 
 ## 1. 背景与动机

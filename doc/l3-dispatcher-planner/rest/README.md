@@ -9,14 +9,14 @@
 | 停止记录、任务覆盖、重置、记录服务 | [R01](dispatcher-deferred-dependencies.md#r01)、[R02](dispatcher-deferred-dependencies.md#r02)、[R06](dispatcher-deferred-dependencies.md#r06) | 保留接口/状态，记录能力未接入 |
 | 飞行技能、急停悬停、执行缝、planner/飞控连接 | [R03](dispatcher-deferred-dependencies.md#r03)、[R05](dispatcher-deferred-dependencies.md#r05) | 取消覆盖已上行修正；修正版未重跑验证 |
 | 返回上一位置、返回原点、轨迹/过程历史 | [R04](dispatcher-deferred-dependencies.md#r04)、[R06](dispatcher-deferred-dependencies.md#r06) | origin 已接入；逐步历史/文本消费者待迁 |
-| VLA 动作发布、重规划、动作结果接入 | [R05](dispatcher-deferred-dependencies.md#r05) | 飞行动作账务已接入；VLA 专属判据待迁 |
-| VLA 多图思考、搜索调试输出 | [R07](dispatcher-deferred-dependencies.md#r07) | 调试目录保留，VLA 消费者未迁入 |
+| VLA 动作发布、重规划、动作结果接入 | [R05](dispatcher-deferred-dependencies.md#r05) | VLA 判据已接入（技能自有 REPLAN 状态，代次门验证）；记录消费仍挂账 |
+| VLA 多图思考、搜索调试输出 | [R07](dispatcher-deferred-dependencies.md#r07) | 旧消费者已随 VLM 迁云删除；孤儿字段由方案 P1 删除后关门 |
 | 队列精简、core 字段删除、宿主端口调整 | 全部条目及台账的“当前队列如何执行” | 不能仅凭新版无读点判定可删 |
 | 去除 task-id、迁入原工具名、panorama 来源策略或来源日志 | [工具名与业务语义迁移遗留项](../../rest/task-id-to-tool-name-deferred.md) | 按名分发已接入，旧来源判据尚须逐项迁移；去编号不等于删除业务语义 |
 
 每项已说明旧版生产方/消费者、新版位置、当前缺口、何时接入、建议改造位置、验收及可删除条件。未来处理时，在同一改动中更新该项为“已接入／已迁移归属／已删除／继续保留”，写明代码与测试证据、后续触发条件；同步本索引。不要把临时保留变成永久无人认领，也不要在接入时原样复制旧版私有属性访问或任务编号。
 
-本轮实施和审核记录见[接口收紧方案](../iteration/20260915-20260917/design-dispatcher-interface-tightening.md)。当前默认集合已包含六个 basic_flight；其他技能的能力状态仍须按各自实现证据判断。
+本轮实施和审核记录见[接口收紧方案](../iteration/20260915-20260917/design-dispatcher-interface-tightening.md)。六个 basic_flight 已实现并注册；`navigation.vla_nav` 已随 [dispatcher VLA 技能迁移方案](../iteration/design-dispatcher-vla-migration.md) 进入契约（[工具面契约 §1](../../../specs/implemented/inner/l3-tool-plane.spec.md) 记录七项目标集合与 revision），代码按 P1–P3 分期接入；其他技能的能力状态仍须按各自实现证据判断。
 
 ## 基础飞行接入结果
 
@@ -32,8 +32,9 @@
 未修改 l4 或旧版仓库；未验证 cmd 下游处理。
 
 R03 的停止/保持意图现在由 dispatcher 经通用目标口编排，已撤回 planner 专属改动；R04 的起飞原点已接入，逐步历史、游标和任务文本回退
-继续保留；R05 的飞行动作账务已接入，VLA 生产判据待迁。R01/R02/R06/R07 的记录与
-调试依赖仍未交付，不随本次飞行功能完成而关闭。
+继续保留；R05 的飞行动作账务已接入，VLA 判据已按 [dispatcher VLA 技能迁移方案](../iteration/design-dispatcher-vla-migration.md) P1–P3 接入并回填证据（技能自有 REPLAN 状态 + 代次门验证；记录消费仍挂账）。R01/R02/R06
+的记录依赖仍未交付；R07 孤儿字段已随方案 P1 删除并关门（删后 `l3-dispatcher-planner/` 全树
+grep 零命中，见台账 R07 证据）。上述保留项不随本次飞行功能完成而关闭。
 
 ## 日志规范与生产者迁移
 
