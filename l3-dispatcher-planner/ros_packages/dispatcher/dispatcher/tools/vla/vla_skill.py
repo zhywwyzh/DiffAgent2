@@ -43,7 +43,7 @@ from typing import Any, Callable
 import numpy as np
 
 from dispatcher.tools.skill_api import SkillBase, SkillVerdict
-from dispatcher.tools.vla.geometry import GeometryService, VlaGeometryConfig
+from dispatcher.tools.vla.vla_geometry import GeometryService, VlaGeometryConfig
 
 
 class VlaSkill(SkillBase):
@@ -70,7 +70,7 @@ class VlaSkill(SkillBase):
         self._geometry = GeometryService(
             host.geometry_source(), geometry_config, self._emit
         )
-        # 技能层阈值（旧库 config；方案 §2/geometry.py 头注：不属几何配置）
+        # 技能层阈值（旧库 config；方案 §2/vla_geometry.py 头注：不属几何配置）
         self._search_success_distance_thresh = float(search_success_distance_thresh)
         self._far_push_distance_m = float(far_push_distance_m)
         # 技能自有 REPLAN 状态（R05：替代旧链直读 pending_action.replan_cmd）

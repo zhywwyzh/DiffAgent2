@@ -16,7 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, Protocol
 
-from dispatcher.tools.vla.geometry import VlaGeometrySource
+from dispatcher.tools.vla.vla_geometry import VlaGeometrySource
 
 
 @dataclass(frozen=True)

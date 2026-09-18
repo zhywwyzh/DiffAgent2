@@ -1,9 +1,7 @@
 """运行遥测对象（S3 方案 §2.4/§5）：slog 事件、trace 落盘、监控发布、等待诊断。
 
-自 engine.py 迁出（零语义变更：slog 事件名/键集、trace 文件格式、
-dispatcher_started 键集、monitor/command_content payload、等待诊断串格式
-「channel=topic:age / never」字节级一致）。运行日志经注入的 LogSink 端口
-提供（engine/core 零 rospy，G7）；命令内容监控经 CoreChannels 端口发布。
+运行日志经注入的 LogSink 端口提供（engine/core 零 rospy，G7）；
+命令内容监控经 CoreChannels 端口发布。
 """
 
 from __future__ import annotations
@@ -85,8 +83,7 @@ class RunTelemetry:
         未启用的可选通道不进入健康表，也不在此
         显示——缺席即关闭，区别于“在但死”。
         health 由外部传入（S3 §5）：engine 侧负责调 get_sensor_input_health
-        并对取值异常兜底为 input_health_unavailable（与迁移前 try/except
-        包裹的语义一致）。
+        并对取值异常兜底为 input_health_unavailable。
         """
         return " ".join(
             f"{channel}={topic}:{self.fmt_wait_age(age)}"

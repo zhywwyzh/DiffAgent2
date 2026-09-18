@@ -46,15 +46,15 @@ def install_vla(
     - 几何原语源为 perception（base_policy 实例，经 VlaSkillHost 组合注入），
       技能层 slog 出站回调接 engine.runlog.emit；
     - VLA 几何/阈值配置唯一权威为调用方显式注入的 geometry_config 与两个
-      技能层阈值（装配层经 ~vla/* 私有参数读取，默认值=旧库值）；perception
+      技能层阈值（装配层经 ~vla/* 私有参数读取）；perception
       侧同名属性（behind_dist/is_stable/stable_height 等）属 perception
       自有，VLA 几何不依赖——避免双存储假象；
-    - mission_type 接入（旧语义，装配侧）：旧链 vla_skill.plan_tick 每轮置
+    - mission_type 接入（装配侧）：装配时置
       host.mission_type=MISSION_TYPE.NAVIGATION，消费方为几何原语
       _finalize_waypoint_candidate 的 NAVIGATION 分支（side/above/front 腿的
-      目标偏移组合）。新库 mission_type 唯一写点是 base_policy 初始化
-      NOT_MISSION（无其他写者），装配时一次性置位与旧链每轮置位等价；
-      disposer 恢复原值。if_safe_mode 旧库仅剩留壳写、零读取，不接入。
+      目标偏移组合）。mission_type 唯一写点是 base_policy 初始化
+      NOT_MISSION（无其他写者），装配时一次性置位；
+      disposer 恢复原值。if_safe_mode 仅写不读，不接入。
     """
     execution = WaypointExecution(ports, execution_config)
     host = VlaSkillHost(engine, execution, perception, host_config)

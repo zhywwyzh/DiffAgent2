@@ -1,10 +1,10 @@
-"""VLA 几何链回归：对比旧链（DiffAgent2 旧版 tools/vla/geometry.py）期望值。
+"""VLA 几何链回归：校验几何原语的期望值。
 
 运行环境：需 ROS Noetic（rospy/cv2/visualization_msgs）。本机以
 `PYTHONNOUSERSITE=1 python3 -m pytest` 运行（用户 site 的 numpy 2.x 与
 ROS cv2 不兼容）。
 
-期望值推导依据（旧链逐分支）：
+期望值推导依据：
 - 深度路：`_estimate_region_point_depth` 对 bbox ROI 取深度簇中位数
   （`_select_bbox_depth_cluster`），本测试合成恒定深度 → depth_raw=合成值；
   `bbox_candidate_to_body_incremental_waypoints` 以 z 模式回投
@@ -15,12 +15,12 @@ ROS cv2 不兼容）。
   （geometry_agree），不一致（|Δ|>0.3）→ 1.2（geometry_mismatch）；
   target_increment_x = max(0, d - safe)。
 - far_push 判据：depth_match_ok=False（overdepth 比例 > max_overdepth=0.5）；
-  远推进航点按旧 vla_skill.plan_tick（O/tools/vla/vla_skill.py L226-L234）
-  `waypoint = [x+push*cos(yaw), y+push*sin(yaw), z]`（push=5.0，yaw=0）。
+  远推进航点 `waypoint = [x+push*cos(yaw), y+push*sin(yaw), z]`
+  （push=5.0，yaw=0）。
 - 三向偏移：`_finalize_waypoint_candidate` NAVIGATION 分支
   left: P + (half_w+max(d_side,half_w))*left + d_forward*forward；
   up: P + 0.2*forward, z += half_h+0.8；front: object - max(safe,distance)*forward。
-  half_w=0.5*(x_span/fx)*Z_forward、half_h=0.5*(y_span/fy)*Z_forward（旧链公式）。
+  half_w=0.5*(x_span/fx)*Z_forward、half_h=0.5*(y_span/fy)*Z_forward。
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ from dispatcher.perception.base_policy import (  # noqa: E402
     OdometryBuffer,
 )
 from dispatcher.tools.model import ToolCall  # noqa: E402
-from dispatcher.tools.vla.geometry import (  # noqa: E402
+from dispatcher.tools.vla.vla_geometry import (  # noqa: E402
     GeometryService,
     VlaGeometryConfig,
     derive_nav_mode,
@@ -208,7 +208,7 @@ def make_service(policy, config=None, events=None):
 
 
 def test_depth_source_basic_waypoint():
-    """depth 单源：object=(3,0,1)、target=(3-0.8,0,1)，结构键与旧链一致。"""
+    """depth 单源：object=(3,0,1)、target=(3-0.8,0,1)。"""
     policy = make_policy(depth_source="depth")
     service = make_service(policy)
     frame = make_frame(depth_image=make_depth_image(3.0))
@@ -268,17 +268,17 @@ def test_cloud_depth_mismatch_uses_geometry_mismatch_radius():
     assert info["cloud_depth_mismatch"] is True
     assert info["object_pose"] == pytest.approx([3.0, 0.0, 1.0, 0.0, 0.0, 0.0])
     assert info["target_pose"] == pytest.approx([1.8, 0.0, 1.0, 0.0, 0.0, 0.0])
-    # 旧链取更近候选：cloud(3.0) < depth(4.5)
+    # 取更近候选：cloud(3.0) < depth(4.5)
     assert info["geometry_source"] == "cloud"
 
 
 # ---------------------------------------------------------------------------
-# far_push 判据（depth_match_ok=False → 技能按旧公式沿机头推进 5m）
+# far_push 判据（depth_match_ok=False → 技能沿机头推进 5m）
 # ---------------------------------------------------------------------------
 
 
 def test_overdepth_cloud_reports_depth_match_not_ok_and_far_push_waypoint():
-    """60% 点云超程 → match_ok=False；远推进期望 = 机头 5m（旧 vla_skill L226-L234）。"""
+    """60% 点云超程 → match_ok=False；远推进期望 = 机头 5m。"""
     policy = make_policy(depth_source="cloud", far_ratio=0.6)
     service = make_service(policy)
     frame = make_frame(cloud_xyz=policy._test_cloud)
@@ -286,7 +286,7 @@ def test_overdepth_cloud_reports_depth_match_not_ok_and_far_push_waypoint():
         make_call(), frame, make_detection()
     )
     assert info["depth_match_ok"] is False
-    # 旧链远推进公式（far_push_distance_m=5.0）：
+    # 远推进公式（far_push_distance_m=5.0）：
     # waypoint = [x+push*cos(yaw), y+push*sin(yaw), z]，yaw=0、pos=(0,0,1)
     far_push = [5.0 * math.cos(0.0), 5.0 * math.sin(0.0), 1.0]
     assert far_push == pytest.approx([5.0, 0.0, 1.0])
@@ -298,7 +298,7 @@ def test_overdepth_cloud_reports_depth_match_not_ok_and_far_push_waypoint():
 
 
 def _half_spans():
-    """旧链 half_w/half_h：以「调整后」前向深度回投计算。
+    """half_w/half_h：以「调整后」前向深度回投计算。
 
     推导：_estimate_region_point_depth 内 depth_val =
     _compute_adjusted_depth_value(3.0, 5.0, 1.0)；if_safe_dis=True 且
@@ -320,7 +320,7 @@ def test_side_left_offset_uses_d_side():
         make_call({"side": "left"}), frame, make_detection()
     )
     half_w, _ = _half_spans()
-    side_total = half_w + max(0.7, half_w)  # d_side=0.7（旧 config）
+    side_total = half_w + max(0.7, half_w)  # d_side=0.7
     assert info["object_pose"] == pytest.approx([3.0, 0.0, 1.0, 0.0, 0.0, 0.0])
     assert info["target_pose"] == pytest.approx(
         [3.0 - 0.8, side_total, 1.0, 0.0, 0.0, 0.0]
@@ -372,7 +372,7 @@ def test_front_offset_keeps_safe_distance():
         make_call({"side": "front"}), frame, make_detection()
     )
     assert info["target_pose"] == pytest.approx([2.2, 0.0, 1.0, 0.0, 0.0, 0.0])
-    # 指定接近距离大于安全半径时取较大者（旧链 keep_dist=max(safe, distance_m)）
+    # 指定接近距离大于安全半径时取较大者（keep_dist=max(safe, distance_m)）
     info_far = service._compute_waypoint_from_detection(
         make_call({"side": "front", "distance_m": 1.5}), frame, make_detection()
     )
@@ -380,7 +380,7 @@ def test_front_offset_keeps_safe_distance():
 
 
 def test_behind_dist_d_side_d_forward_passthrough_to_finalize():
-    """behind_dist=2.0 / d_side=0.7 / d_forward=0.0 逐字透传 _finalize_waypoint_candidate。"""
+    """behind_dist=2.0 / d_side=0.7 / d_forward=0.0 透传 _finalize_waypoint_candidate。"""
     calls = []
     policy = make_policy(depth_source="depth")
 
@@ -439,18 +439,18 @@ def test_minus_one_pos_returns_current_state_and_restores_override():
     info = service._compute_waypoint_from_detection(
         make_call(), frame, make_detection(pos=[-1, -1], bbox=[0, 0, 1, 1])
     )
-    expected = [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]  # 旧链 pixel_to_world [-1,-1] 分支
+    expected = [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]  # pixel_to_world [-1,-1] 分支
     assert info == {
         "object_pose": pytest.approx(expected),
         "target_pose": pytest.approx(expected),
     }
-    # 临时覆盖恢复：几何原语源存储回到原值（旧链单存储备份/恢复语义）
+    # 临时覆盖恢复：几何原语源存储回到原值
     assert policy.safe_dis_radius_m == pytest.approx(0.4)
     assert policy.if_safe_dis is True
 
 
 # ---------------------------------------------------------------------------
-# mix 遥测事件（事件名/字段与旧链一致）
+# mix 遥测事件
 # ---------------------------------------------------------------------------
 
 
@@ -468,7 +468,7 @@ def test_mix_source_telemetry_events():
     selected = next(fields for name, event, fields in events
                     if event == "geometry_source_selected")
     assert selected["mode"] == "mix"
-    assert selected["source"] == "lidar"  # cloud 候选 → lidar（旧链映射）
+    assert selected["source"] == "lidar"  # cloud 候选 → lidar
     assert selected["safe_distance_m"] == pytest.approx(0.8)
     assert selected["cloud_depth_mismatch"] is False
     assert selected["aligned_depth_range_m"] == pytest.approx(3.0)
@@ -511,7 +511,7 @@ def test_resolve_world_frame_fail_closed():
 
 
 def test_derive_nav_mode_and_normalize_direction_unchanged():
-    """side → nav_mode 派生与方位词归一（旧链单一来源，逐字一致）。"""
+    """side → nav_mode 派生与方位词归一。"""
     assert derive_nav_mode("left") == "side"
     assert derive_nav_mode("right") == "side"
     assert derive_nav_mode("above") == "above"
@@ -524,7 +524,7 @@ def test_derive_nav_mode_and_normalize_direction_unchanged():
 
 
 # ---------------------------------------------------------------------------
-# R2：side/above/front 分支携带 depth_match_ok（候选可信度语义对齐旧链）
+# R2：side/above/front 分支携带 depth_match_ok（候选可信度语义）
 # ---------------------------------------------------------------------------
 
 
@@ -532,7 +532,7 @@ def test_derive_nav_mode_and_normalize_direction_unchanged():
 def test_directional_legs_carry_depth_match_ok(side):
     """R2：三个方向分支的返回 dict 均携带 depth_match_ok = 候选 match_ok。
 
-    旧链对照：side/above/front 腿经 _finalize_waypoint_candidate 写引擎级
+    side/above/front 腿经 _finalize_waypoint_candidate 写引擎级
     depth_match_ok（base_policy：bool(candidate.match_ok)；_candidate_with_
     safe_distance 的 replace() 派生不触碰 match_ok → 与 base_candidate
     恒等值）。可信（match_ok=True）与超程（match_ok=False，60% 点云

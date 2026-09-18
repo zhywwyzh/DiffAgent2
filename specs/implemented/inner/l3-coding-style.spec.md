@@ -165,4 +165,5 @@ Parent: specs/implemented/development-workflow.spec.md
 3. 包级迁移在大型重构窗口期用专用 `refactor:` 提交完成，随后跟一个专用
    `style:` clang-format 提交。两个提交分开以便评审。
 4. 每次迁移的验证：`make compile` 干净 + 字符串契约 diff（slog 事件 /
-   迁移原因 / topic 保持不变）。
+   迁移原因 / topic 保持不变）。**统一声明**：除非使用者明确许可，否则跳过
+   验收测试工作（`AGENTS.md` 硬性约束 §9）。

@@ -119,7 +119,7 @@ class DispatcherEngine:
         - shutdown_program=False: 仅中断当前任务，回到 WAIT_FOR_MISSION。
         - emit_soft_stop_log: 软急停时是否打印日志。
         - record_stop_event: 保留的停止记录开关，记录服务尚未接入，当前不生效。
-        - publish_hold: 急停悬停开关；当前仅发布急停信号，旧版的额外悬停目标
+        - publish_hold: 急停悬停开关；当前仅发布急停信号，额外悬停目标
           下发尚未接入。覆盖和取消传 False，避免引入运动副作用。
         保留项与接入时机见 doc/l3-dispatcher-planner/rest/dispatcher-deferred-dependencies.md。
         """

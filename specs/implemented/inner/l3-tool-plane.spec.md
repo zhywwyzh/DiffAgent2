@@ -163,3 +163,5 @@ the station (rgb camera stamp bound) and execute the waypoint chain.`；
 
 > G24–G28 为本叶新增，与既有 G1–G23 全局编号不冲突。`specs/tools/*` 门禁
 > 引擎迁移前，以等价命令与既有 pytest 承担判定。
+>
+> **统一声明**：除非使用者明确许可，否则跳过验收测试工作（`AGENTS.md` 硬性约束 §9）。

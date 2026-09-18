@@ -1,17 +1,17 @@
 """VLA 技能（tools/vla/vla_skill.py）回归：plan_tick 语义链 / 四裁决 / 门禁。
 
-期望值从旧链（DiffAgent2 旧版 tools/vla/vla_skill.py）逻辑推导：
-- 像素换算（旧 _consume_grounded_detection L416-427）：scale=像素宽高/1000、
+期望值推导依据：
+- 像素换算（_consume_grounded_detection）：scale=像素宽高/1000、
   int 取整、中心=两点均值取整；image_width/height 非正值回落 640x480。
-- fail-closed 三态（旧 L111-122/L151-162/L397-414）：invalid_grounded_bbox /
-  target_not_visible / odom_stamp_unavailable；事件名 vla_grounded_detection_failed /
-  vla_odom_stamp_unavailable 与旧链一致。
-- far_push（旧 L226-234）：depth_match_ok=False → 沿机头推进
+- fail-closed 三态：invalid_grounded_bbox / target_not_visible /
+  odom_stamp_unavailable；事件名 vla_grounded_detection_failed /
+  vla_odom_stamp_unavailable。
+- far_push：depth_match_ok=False → 沿机头推进
   far_push_distance_m=5.0：[x+push*cos(yaw), y+push*sin(yaw), z]。
-- 接近判定（旧 L176-190）：‖target-pos‖ < search_success_distance_thresh=0.3
+- 接近判定：‖target-pos‖ < search_success_distance_thresh=0.3
   → vla_waypoint_too_close + advance_prompt（不 dispatch）。
-- 高度 clamp（旧 _dispatch_waypoint L361）：z ∈ [min_height=0, max_height=1.8]。
-- 贴地腿（旧 L274-295）：waypoint=(x, y, 0.1, 0, 0, yaw)，look_forward=False
+- 高度 clamp（_dispatch_waypoint）：z ∈ [min_height=0, max_height=1.8]。
+- 贴地腿：waypoint=(x, y, 0.1, 0, 0, yaw)，look_forward=False
   → dispatched_yaw=yaw，NEW_ACTION。
 
 几何原语走假件（真值几何回归归 tests/perception/test_vla_geometry.py）；
@@ -292,7 +292,7 @@ def test_identity_and_protocol_hooks(stack):
 
 
 # ---------------------------------------------------------------------------
-# grounded detection 消费（旧 _consume_grounded_detection L383-443）
+# grounded detection 消费
 # ---------------------------------------------------------------------------
 
 
@@ -355,7 +355,7 @@ def test_nonfinite_stamp_fails_closed(stack):
 
 
 # ---------------------------------------------------------------------------
-# plan_tick fail-closed 三态（唯一 fail 终态原因；事件名与旧链一致）
+# plan_tick fail-closed 三态（唯一 fail 终态原因）
 # ---------------------------------------------------------------------------
 
 
@@ -417,7 +417,7 @@ def test_normal_leg_dispatches_waypoint(stack):
     assert pending.action_name == "search"
     assert pending.nav_yaw is None  # look_forward → nav_yaw 簿记 None
     assert pending.yaw_source == "current_odom"
-    # 模式脉冲经受控回调出海（repeat=3）；slog 事件与旧链一致
+    # 模式脉冲经受控回调出海（repeat=3）
     assert stack.modes == [1, 1, 1]
     assert "vla_waypoint_published" in [event for _, event, _ in stack.slog]
     # bbox 命中相位（携带像素坐标，前端呈现检测框）
@@ -434,7 +434,7 @@ def test_far_push_along_body_heading(stack):
 
 
 def test_far_push_follows_current_yaw(stack):
-    """yaw=π/2：推进航点 = (0, 5, 1)（[x+5cos, y+5sin, z] 旧公式）。"""
+    """yaw=π/2：推进航点 = (0, 5, 1)（[x+5cos, y+5sin, z]）。"""
     stack.perception.match_ok = False
     stack.frame.current_state[5] = np.pi / 2
     dispatch(stack)
@@ -442,7 +442,7 @@ def test_far_push_follows_current_yaw(stack):
 
 
 def test_far_push_overrides_finish_flag(stack):
-    """远推进不算到达：finish=True 也被覆盖回 replan 腿（旧链置回 RUNNING）。"""
+    """远推进不算到达：finish=True 也被覆盖回 replan 腿。"""
     stack.perception.match_ok = False
     call = dispatch(stack, dict(GROUNDED, finish=True))
     assert stack.engine.action_gate.pending_action.replan_cmd == call.arguments["prompt"]
@@ -452,8 +452,7 @@ def test_far_push_overrides_finish_flag(stack):
 @pytest.mark.parametrize("side", ["left", "above", "front"])
 def test_far_push_on_directional_legs_when_candidate_untrusted(stack, side):
     """R2：side/above/front 腿候选不可信（match_ok=False）同样触发 far_push
-    （沿机头 5m）——旧链经 _finalize_waypoint_candidate 写引擎级
-    depth_match_ok（候选可信度语义），新链由返回 dict 携带该键，
+    （沿机头 5m）——返回 dict 携带 depth_match_ok（候选可信度语义），
     三个方向分支不再恒 False。"""
     stack.perception.match_ok = False
     dispatch(stack, dict(GROUNDED, side=side))
@@ -479,7 +478,7 @@ def test_directional_legs_dispatch_when_candidate_trusted(stack, side):
 @pytest.mark.parametrize("target,expected_goal", [
     ((0.1, 0.0, 1.0), None),    # 距离 0.1 < 0.3 → 不 dispatch，推进 prompt
     ((0.35, 0.0, 1.0), (0.35, 0.0, 1.0)),  # 距离 0.35 ≥ 0.3 → 正常出海
-    ((0.3, 0.0, 1.0), (0.3, 0.0, 1.0)),    # 边界：恰 0.3 不算接近（旧链 < 严格）
+    ((0.3, 0.0, 1.0), (0.3, 0.0, 1.0)),    # 边界：恰 0.3 不算接近（< 严格）
 ])
 def test_close_distance_threshold(stack, target, expected_goal):
     stack.perception.target_world = np.asarray(target, dtype=np.float64)
@@ -534,7 +533,7 @@ def test_replan_verdict_does_not_finish_early(stack):
     dispatch(stack)
     verdict = stack.skill.on_action_result(finish_active(stack))
     assert verdict is SkillVerdict.REPLAN
-    # 技能自有 replan 状态已清（旧链由壳清 pending 记账；core REPLAN 分支同款）
+    # 技能自有 replan 状态已清（core REPLAN 分支同款）
     assert stack.skill._replan_cmd is None and stack.skill._replan_reason is None
     # 无 done 相位（提前完成被拒绝）；再次裁决回落通用分支
     assert all(p["phase"] != "done" for p in stack.engine.channels.phases)
@@ -606,7 +605,7 @@ def test_landing_final_approach_returns_new_action(stack):
     assert stack.skill._if_landing is True
     verdict = stack.skill.on_action_result(finish_active(stack))
     assert verdict is SkillVerdict.NEW_ACTION
-    # 序列推进（旧链 _load_next_prompt 经 advance_prompt 端口等价）：队空 →
+    # 序列推进（advance_prompt 端口）：队空 →
     # done 相位携带 workflow_result（stash 由 load_next_prompt 随 done 消费）
     assert engine.ledger.command_status == COMMAND_STATUS.MISSION_DONE
     done = [p for p in engine.channels.phases if p["phase"] == "done"]

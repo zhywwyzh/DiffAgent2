@@ -90,7 +90,7 @@ class WaypointExecution:
         self._hold_pending = False
 
     def cancel(self):
-        """旧 stopMotion 职责上行：同一个目标口发布新批次保持意图。"""
+        """取消：同一目标口发布新批次保持意图。"""
         with self._lock:
             if self._active is not None or self._hold_pending:
                 self._publish_hold()

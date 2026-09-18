@@ -2,7 +2,7 @@
 
 覆盖 P3 验收四要素：
 - 正常装配：WaypointExecution/VlaSkillHost/VlaSkill 构造、navigation.vla_nav
-  注册可见、mission_type 按旧语义在装配侧置 NAVIGATION（消费方为几何原语
+  注册可见、mission_type 在装配侧置 NAVIGATION（消费方为几何原语
   _finalize_waypoint_candidate 的 NAVIGATION 分支，见 install_vla 注释）；
 - 异常回滚：注册失败时异常上抛、技能不可见、mission_type 恢复原值；
 - disposer：注销后技能不可见、幂等、不误删替换实例（flight 同款语义）；
@@ -37,7 +37,7 @@ from dispatcher.execution.skill_host import VlaSkillHost  # noqa: E402
 from dispatcher.tools.flight.ports import FlightConfig, FlightState, Progress  # noqa: E402
 from dispatcher.tools.model import SkillCommand, ToolCall  # noqa: E402
 from dispatcher.tools.registry import ToolRegistry  # noqa: E402
-from dispatcher.tools.vla.geometry import VlaGeometryConfig  # noqa: E402
+from dispatcher.tools.vla.vla_geometry import VlaGeometryConfig  # noqa: E402
 from dispatcher.tools.vla.ports import VlaHostConfig  # noqa: E402
 from dispatcher.utils.state import DISPATCHER_STATE, MISSION_TYPE  # noqa: E402
 
@@ -247,8 +247,7 @@ def dispatch_vla(stack, arguments=None):
 
 
 def test_install_registers_skill_and_sets_navigation_mission_type(stack):
-    """装配后 navigation.vla_nav 注册可见；mission_type 置 NAVIGATION（旧语义：
-    旧链 vla_skill.plan_tick 每轮置位，新库无其他写者，装配时置位等价）。"""
+    """装配后 navigation.vla_nav 注册可见；mission_type 置 NAVIGATION。"""
     engine, skill = stack.engine, stack.engine.skills.get("navigation.vla_nav")
     assert skill is not None
     assert skill.name == "navigation.vla_nav"
@@ -400,7 +399,7 @@ def test_install_vla_passes_geometry_and_threshold_overrides(tmp_path, monkeypat
 
 def test_create_vla_runtime_reads_vla_private_params(tmp_path, monkeypatch):
     """R1：~vla/* 私有参数逐字段读取（VlaHostConfig + VlaGeometryConfig 全字段
-    + 技能两阈值），未覆盖字段保持旧库默认值——~vla/* 为 VLA 几何/阈值唯一权威。"""
+    + 技能两阈值），未覆盖字段保持默认值——~vla/* 为 VLA 几何/阈值唯一权威。"""
     # dispatcher_node 顶部 import 链拖 utils.control_plane → zenoh（本环境
     # 无 zenoh，与全量门禁四个 ignore 的既有基线同源）；create_vla_runtime
     # 不消费 ToolControlPlane（main 专属），以 stub 顶替其模块级导入后加载。
@@ -435,7 +434,7 @@ def test_create_vla_runtime_reads_vla_private_params(tmp_path, monkeypatch):
         # 技能层阈值（~vla/* 覆盖生效）
         assert skill._far_push_distance_m == 3.0
         assert skill._search_success_distance_thresh == 0.5
-        # VlaGeometryConfig 覆盖 / 未覆盖字段（默认值=旧库值逐项核对）
+        # VlaGeometryConfig 覆盖 / 未覆盖字段（默认值逐项核对）
         config = skill._geometry._config
         assert config.d_side == 1.0
         assert config.depth_source == "depth"

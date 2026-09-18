@@ -3,7 +3,7 @@
 本文件是 engine/core 零 rospy（G7/G8）的唯一代价点：急停、if_handle_yaw、
 命令内容监控、任务相位四类通道的 rospy.Publisher 与 ROS 消息类型只允许
 出现在这里（R1/R4 裁决，总纲 §4.5）；topic 名、默认值、消息类型、
-queue_size 与 payload 发布表达式和迁移前 engine.py 逐字一致。
+queue_size 与 payload 发布表达式。
 同文件承载最小运行端口实现（RosRuntimeClock / RosLogSink）——S4 的
 clock_ros.py 只服务装配/传输面（control_plane/zenoh_rpc），不得再迁本
 文件的运行端口（禁止二次搬迁）。

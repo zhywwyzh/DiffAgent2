@@ -2,9 +2,7 @@
 
 S2 包拓扑归位（方案 §4.7）：承载执行平面与支撑面共享的协议词汇——
 异常类型 ToolProtocolError 与错误码 METHOD_NOT_FOUND / INVALID_PARAMS /
-BUSINESS_REJECTED、租约身份字段词表 LEASE_IDENTITY_FIELDS。各定义自
-tools/model.py、tools/registry.py、tools/runtime.py 迁入，旧位置定义
-已直接删除（无 from-import 转发桩）。
+BUSINESS_REJECTED、租约身份字段词表 LEASE_IDENTITY_FIELDS。
 """
 
 from __future__ import annotations

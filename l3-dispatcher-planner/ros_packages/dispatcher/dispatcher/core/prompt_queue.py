@@ -25,7 +25,7 @@ class PromptQueue:
         """将 prepare_content 同步到执行期的任务缓存。"""
         # 防误配守卫：配置面（real.yaml prepare_content）可注入字符串等非法
         # 元素——流到 DISPATCH 解包时，2 字符字符串会被静默拆成单字符、其他长度
-        # 直接 ValueError 进异常自愈循环。恢复旧代码对误配的「跳过」容忍：
+        # 直接 ValueError 进异常自愈循环。对误配采取「跳过」容忍：
         # 只保留合法 (prompt, SkillCommand) 元组，非法元素丢弃并点名索引与内容。
         valid_entries = []
         for index, entry in enumerate(config):

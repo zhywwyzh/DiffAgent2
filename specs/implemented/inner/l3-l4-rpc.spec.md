@@ -96,6 +96,8 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 
 ## 6. 验收
 
+> **统一声明**：除非使用者明确许可，否则跳过验收测试工作（`AGENTS.md` 硬性约束 §9）。
+
 | 标识 | 判据 |
 |---|---|
 | RPC1 | task presence 被站端解析；acquire/renew/status/release 的真实消费者读取结果正确 |

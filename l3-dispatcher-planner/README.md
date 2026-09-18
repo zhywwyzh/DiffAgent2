@@ -1,11 +1,10 @@
 # l3 dispatcher 与 EGO 直连运行
 
 本轮已实现六个 `basic_flight.*` 工具。dispatcher 持有六态任务 FSM，经普通 ROS
-消息直接驱动 EGO，输出到 `/setpoint_cmd`；不启动 mission_executive 或任何旧 action
+消息直接驱动 EGO，输出到 `/setpoint_cmd`；不启动 mission_executive 或任何 action
 转换节点。cmd 下游处理不属于此处交付范围。
 
-迁移记录和维护入口见[执行总纲](../doc/l3-dispatcher-planner/iteration/design-dispatcher-migration-execution-order.md)。
-动作规则归[基础飞行动作契约](../specs/implemented/inner/flight-actions.spec.md)，线上
+维护入口见[执行总纲](../doc/l3-dispatcher-planner/iteration/design-dispatcher-migration-execution-order.md)。动作规则归[基础飞行动作契约](../specs/implemented/inner/flight-actions.spec.md)，线上
 信封归[RPC 契约](../specs/implemented/inner/l3-l4-rpc.spec.md)。
 
 ## 环境与构建
@@ -27,7 +26,7 @@ source "$L3_PYTHON_ENV/bin/activate"
 python3 -m pip install -r l3-dispatcher-planner/ros_packages/dispatcher/requirements.txt
 ```
 
-构建只包含 dispatcher、EGO 和所需的最小消息/可视化依赖，不拉入旧版场景图、
+构建只包含 dispatcher、EGO 和所需的最小消息/可视化依赖，不拉入场景图、
 遥测 bridge、mission 或 waypoint action 转发脚本。其他 planner 的代码仍在仓库，
 但本轮只完成 EGO 的构建和六能力验收，不承诺直接切换到其他后端后能力等价。
 

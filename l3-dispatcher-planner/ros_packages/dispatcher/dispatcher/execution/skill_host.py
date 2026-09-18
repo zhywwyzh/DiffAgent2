@@ -106,7 +106,7 @@ class VlaSkillHost:
     动作武装复用 DispatcherFlightHost.start_goal 的武装序列
     （snapshot_owner → 代次 → action_finish=False → WAIT_ACTION_FINISH），
     动作出海复用 WaypointExecution；与飞行共用飞行独占
-    （_meta.lx.concurrency = "flight-exclusive"）。不模拟旧版 engine 属性、
+    （_meta.lx.concurrency = "flight-exclusive"）。不模拟 engine 属性、
     不给 core 增加领域几何方法。
     """
 
@@ -151,11 +151,11 @@ class VlaSkillHost:
 
         只做账务不发 goal——航点类技能随后调用 send_task_goal 传输原语
         （航点塑形由技能内联完成）。owner 归属沿用飞行同款守卫：快照后
-        归属必须与传入 owner 一致（本轮 DISPATCH 命中者），旧引擎的
-        跨技能直写归属无消费者，不做私有写入。
+        归属必须与传入 owner 一致（本轮 DISPATCH 命中者），不做跨技能
+        私有写入。
         """
         engine = self.engine
-        # 与旧链 _can_accept_new_action 同源的门：停止态/急停拒绝新动作
+        # 停止态/急停拒绝新动作的门
         if (
             engine.dispatcher_state == DISPATCHER_STATE.STOP
             or engine.ledger.command_type == COMMAND_TYPE.STOP
@@ -263,12 +263,11 @@ class VlaSkillHost:
         self.engine.task_phase.publish(phase, **kwargs)
 
     def fail_sequence(self, reason: str):
-        """VLA fail 序列唯一写口；相位 error.code 携带语义原因（旧链行为）。
+        """VLA fail 序列唯一写口；相位 error.code 携带语义原因。
 
         invalid_grounded_bbox / target_not_visible / odom_stamp_unavailable
-        三态经 reason 传入并原样出现在 fail 相位（与旧 engine 的
-        error={"code": reason, ...} 口径一致）；区别于飞行宿主的
-        execution_failed 通用码。
+        三态经 reason 传入并原样出现在 fail 相位（error={"code": reason, ...}）；
+        区别于飞行宿主的 execution_failed 通用码。
         """
         try:
             self.execution.cancel()
@@ -304,7 +303,7 @@ class VlaSkillHost:
         return False
 
     def consume_head_prompt(self) -> None:
-        """本条 prompt 已转化为动作：置 ADVANCE_READY 并弹出队首（顺序与旧链一致）。"""
+        """本条 prompt 已转化为动作：置 ADVANCE_READY 并弹出队首。"""
         self.engine.ledger.command_status = COMMAND_STATUS.ADVANCE_READY
         if self.engine.prompt_queue.command_content:
             self.engine.prompt_queue.command_content.pop(0)

@@ -1,8 +1,8 @@
 """任务相位桥（S3 方案 §2.5/§5）：相位事件组装与上报。
 
-自 engine.py 迁出（零语义变更：/agent_task_phase payload 键序与取值、
-on_tool_phase 触发时机与先后（先 middleware 后 topic）、task_phase_published
-事件键集字节级一致）。zenoh middleware 出口不是 ROS 通道（§4.5 裁定），
+/agent_task_phase payload 键序与取值、on_tool_phase 触发时机与先后
+（先 middleware 后 topic）、task_phase_published 事件键集保持稳定。
+zenoh middleware 出口不是 ROS 通道（§4.5 裁定），
 由本桥持有引用（经 set_middleware 设置，workflow.bind_tool_middleware 时
 同步），topic 发布经 CoreChannels 端口。
 """

@@ -1,10 +1,10 @@
 """planner 动作面（S3 方案 §2.8/§5）：yaw 模式切换指令。
 
-自 engine.py 迁出（零语义变更）：if_handle_yaw topic 名与发布值、
-变更守卫（getattr(..., True)==enabled 早退）保持不变；发布经
-CoreChannels 端口（if_handle_yaw_pub 已迁 ros_adapter，S3 §4.6）。
-守卫初值（原 engine 配置属性 if_handle_yaw，UAV_POLICY_DEFAULTS 默认
-True，yaml 无同名键覆盖——迁移前实测）经构造注入。
+if_handle_yaw topic 名与发布值、变更守卫
+（getattr(..., True)==enabled 早退）保持不变；发布经
+CoreChannels 端口（if_handle_yaw_pub 在 ros_adapter，S3 §4.6）。
+守卫初值（engine 配置属性 if_handle_yaw，UAV_POLICY_DEFAULTS 默认
+True，yaml 无同名键覆盖）经构造注入。
 """
 
 from __future__ import annotations

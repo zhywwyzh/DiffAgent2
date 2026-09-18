@@ -146,15 +146,12 @@ def create_vla_runtime(engine, perception, ports, execution_config):
 
     - 技能层 slog 出站回调（emit）在 install_vla 内接 engine.runlog.emit；
     - publish_mode_burst 的出站回调：EGO 直连栈当前没有规划器模式触发通道
-      （旧链 planner_mode_topic=/uav_planner/trigger 的 Int32 发布器在新栈
-      ros_adapter 各端口均无对应口），此处提供受控空实现——保留脉冲调用
+      （ros_adapter 各端口均无对应口），此处提供受控空实现——保留脉冲调用
       形态与次数语义，通道接入时替换为真实发布器；装配时留痕一次。
       未接线时 VlaSkillHost.publish_mode_burst 会直接失败（不静默降级），
       空实现仅免除该失败，不引入其他行为漂移。
-    - 宿主只读配置经 ROS 私有参数 ~vla/* 覆盖（同 ~flight/* 机制），
-      默认值与旧库 config 逐项核对一致（VlaHostConfig）。
-    - VLA 几何/阈值配置同样经 ~vla/* 覆盖（默认值=旧库 config.py
-      UAV_POLICY_DEFAULTS + base_policy 默认，逐项核对一致）：技能层两阈值
+    - 宿主只读配置经 ROS 私有参数 ~vla/* 覆盖（同 ~flight/* 机制）。
+    - VLA 几何/阈值配置同样经 ~vla/* 覆盖：技能层两阈值
       search_success_distance_thresh(0.3)/far_push_distance_m(5.0) 与
       VlaGeometryConfig 全字段（safe_dis_radius_m 0.4 / if_safe_dis True /
       behind_dist 2.0 / d_side 0.7 / d_forward 0.0 / depth_source "cloud" /
@@ -162,7 +159,7 @@ def create_vla_runtime(engine, perception, ports, execution_config):
       0.8）。~vla/* 为 VLA 几何/阈值的唯一权威；perception 侧同名属性属
       perception 自有（base_policy 段配置），VLA 几何不依赖。
     """
-    from dispatcher.tools.vla.geometry import VlaGeometryConfig
+    from dispatcher.tools.vla.vla_geometry import VlaGeometryConfig
     from dispatcher.tools.vla.ports import VlaHostConfig
     from dispatcher.execution.composition import install_vla
 

@@ -212,7 +212,7 @@ def test_arm_action_rejects_owner_mismatch(stack):
 
 
 def test_arm_action_skipped_when_globally_stopped(stack):
-    """急停/停止态拒绝新动作（旧链 _can_accept_new_action 同源门）。"""
+    """急停/停止态拒绝新动作。"""
     stack.engine.global_stop_active = True
     assert dispatch_and_arm(stack).armed is False
     assert "arm_action_skipped_task_stopped" in [e for e, _ in stack.engine.events]
@@ -269,7 +269,7 @@ def test_send_task_goal_books_waypoint_and_rolls_back_on_failure(stack):
 
 
 def test_fail_sequence_carries_reason_as_error_code(stack):
-    """fail 唯一写口：error.code=reason（旧链口径），回 WAIT_FOR_MISSION。"""
+    """fail 唯一写口：error.code=reason，回 WAIT_FOR_MISSION。"""
     dispatch_and_arm(stack)
     stack.host.send_task_goal(2.2, 0.0, 1.0, None)
     stack.host.fail_sequence("invalid_grounded_bbox")
