@@ -1,7 +1,7 @@
 """原点由确认的飞行会话拥有，任务覆盖不重写原点。"""
 import math
 import threading
-from dispatcher.tools.flight.ports import FlightConfig, FlightState
+from dispatcher.execution.ports import FlightConfig, FlightState
 
 
 class FlightSession:

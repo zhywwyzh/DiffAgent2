@@ -2,7 +2,7 @@
 
 import time
 
-from dispatcher.utils.state import COMMAND_STATUS
+from dispatcher.support.state import COMMAND_STATUS
 
 
 class PromptQueue:

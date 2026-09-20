@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 
-from dispatcher.tools.protocol import (
+from dispatcher.tool_plane.protocol import (
     BUSINESS_REJECTED,
     INVALID_PARAMS,
     METHOD_NOT_FOUND,
@@ -55,14 +55,14 @@ def _admission_reason(err: ToolProtocolError) -> str:
     return "internal_error"
 
 
-class RpcPlane:
+class RpcMethods:
     """`lx/<stack>/rpc` queryable + `lx/<stack>/rpc_outcome` publisher."""
 
     def __init__(self, middleware) -> None:
         self._mw = middleware
         self._session = middleware._zenoh_session
         if self._session is None:
-            raise RuntimeError("RpcPlane requires an open zenoh session")
+            raise RuntimeError("RpcMethods requires an open zenoh session")
         self._queryable = None
         self._outcome = None
 
@@ -76,7 +76,7 @@ class RpcPlane:
             f"{self._mw.prefix}/rpc", self._on_rpc, complete=True
         )
         print(
-            f"[rpc_plane] rpc plane up: lx/{self._mw.stack_id}/rpc",
+            f"[methods] rpc plane up: lx/{self._mw.stack_id}/rpc",
             flush=True,
         )
 
@@ -130,7 +130,7 @@ class RpcPlane:
         try:
             publisher.put(json.dumps(outcome, ensure_ascii=False).encode())
         except Exception as exc:  # noqa: BLE001 — never kill the emitter thread
-            print(f"[rpc_plane] outcome publish FAILED: {exc}", flush=True)
+            print(f"[methods] outcome publish FAILED: {exc}", flush=True)
 
     # ------------------------------------------------------------------
     # queryable handler

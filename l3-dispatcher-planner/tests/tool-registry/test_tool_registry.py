@@ -15,13 +15,13 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "ros_packages" / "dispatcher"))
 
-from dispatcher.utils.connection_lease import ConnectionLeaseManager  # noqa: E402
-from dispatcher.tools.executor import ToolExecutor  # noqa: E402
-from dispatcher.tools.protocol import ToolProtocolError  # noqa: E402
-from dispatcher.tools.registry import ToolRegistry  # noqa: E402
+from dispatcher.tool_plane.connection_lease import ConnectionLeaseManager  # noqa: E402
+from dispatcher.tool_plane.intake import ToolIntake  # noqa: E402
+from dispatcher.tool_plane.protocol import ToolProtocolError  # noqa: E402
+from dispatcher.tool_plane.registry import ToolRegistry  # noqa: E402
 from registry_support import test_registry
 from types import SimpleNamespace
-from dispatcher.tools.runtime import ToolRuntime  # noqa: E402
+from dispatcher.tool_plane.runtime import ToolRuntime  # noqa: E402
 
 EXPECTED_TOOLS = {'basic_flight.' + name for name in ('takeoff', 'land', 'translate', 'rotate', 'return', 'emergency_stop')} | {'navigation.vla_nav'}
 
@@ -178,7 +178,7 @@ def test_executor_routes_translate_into_skill_workflow() -> None:
 
     registry = test_registry()
     host = Host()
-    executor = ToolExecutor(registry, host)
+    executor = ToolIntake(registry, host)
     call = registry.normalize_call(
         {
             "call_id": "call_1",
@@ -188,14 +188,14 @@ def test_executor_routes_translate_into_skill_workflow() -> None:
         }
     )
 
-    executor.execute(call)
+    executor.start(call)
 
     assert host.started[0][0] is call
     assert host.started[0][1].call is call  # SkillCommand 携带原生 ToolCall
     assert host.started[0][1].requires_perception is False
 
 
-def test_executor_routes_perception_requirement() -> None:
+def test_intake_routes_perception_requirement() -> None:
     """P3.8：test.sense 的 requires_perception=True 由注册表
     ToolSpec 声明驱动（原 vla adapter 硬编码下沉为元数据）。"""
 
@@ -208,7 +208,7 @@ def test_executor_routes_perception_requirement() -> None:
 
     registry = test_registry()
     host = Host()
-    executor = ToolExecutor(registry, host)
+    executor = ToolIntake(registry, host)
     call = registry.normalize_call(
         {
             "call_id": "call_1",
@@ -218,7 +218,7 @@ def test_executor_routes_perception_requirement() -> None:
         }
     )
 
-    executor.execute(call)
+    executor.start(call)
 
     assert host.started[0][1].call is call
     assert host.started[0][1].requires_perception is True

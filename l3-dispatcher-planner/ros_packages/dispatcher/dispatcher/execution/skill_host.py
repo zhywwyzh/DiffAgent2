@@ -1,7 +1,7 @@
 """执行宿主的通用 FSM/动作记账实现（飞行 / VLA）；不承载工具名分支。"""
 import time
-from dispatcher.utils.state import COMMAND_STATUS, COMMAND_TYPE, DISPATCHER_STATE
-from dispatcher.tools.flight.ports import Goal
+from dispatcher.support.state import COMMAND_STATUS, COMMAND_TYPE, DISPATCHER_STATE
+from dispatcher.execution.ports import Goal
 from dispatcher.tools.vla.ports import VlaHostConfig
 
 
@@ -102,7 +102,7 @@ class VlaSkillHost:
     """VLA 技能宿主：组合注入 engine（动作账务+代数）+ perception（几何原语源）+ 配置。
 
     端口契约见 dispatcher/tools/vla/ports.py::VlaSkillHost（与
-    skill_api.py::SkillHost 通用端口对齐，增加 geometry_source 访问）。
+    tools/skill_api.py::SkillHost 通用端口对齐，增加 geometry_source 访问）。
     动作武装复用 DispatcherFlightHost.start_goal 的武装序列
     （snapshot_owner → 代次 → action_finish=False → WAIT_ACTION_FINISH），
     动作出海复用 WaypointExecution；与飞行共用飞行独占

@@ -11,14 +11,14 @@ from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from dispatcher.tools.model import ToolCall, ToolCommand
-from dispatcher.tools.protocol import (
+from dispatcher.tool_plane.model import ToolCall, ToolCommand
+from dispatcher.tool_plane.protocol import (
     BUSINESS_REJECTED,
     INVALID_PARAMS,
     LEASE_IDENTITY_FIELDS,
     ToolProtocolError,
 )
-from dispatcher.tools.registry import ToolRegistry
+from dispatcher.tool_plane.registry import ToolRegistry
 
 
 def _same_station_owner(a: ToolCall, b: ToolCall) -> bool:

@@ -50,8 +50,8 @@ def test_real_ego_generates_cmd_and_cancels_current_batch(tmp_path, station):
         from sensor_msgs.msg import PointCloud2
         from quadrotor_msgs.msg import PositionCommand
         from dispatcher.ros_adapter.planner_execution_ros import RosFlightPorts
-        from dispatcher.tools.flight.ports import Goal, FlightConfig
-        from dispatcher.execution.waypoint_execution import WaypointExecution
+        from dispatcher.execution.ports import Goal, FlightConfig
+        from dispatcher.execution.waypoint import WaypointExecution
 
         rospy.init_node('cmd_boundary_test', anonymous=True, disable_signals=True)
         odometry = rospy.Publisher('/test/odom', Odometry, queue_size=1)
@@ -119,7 +119,7 @@ def test_real_ego_generates_cmd_and_cancels_current_batch(tmp_path, station):
         # Run all six concrete skills through the actual dispatcher FSM and ROS ports.
         from dispatcher.engine import DispatcherEngine
         from dispatcher.execution.composition import install_flight
-        from dispatcher.tools.model import ToolCall, SkillCommand
+        from dispatcher.tool_plane.model import ToolCall, SkillCommand
         from quadrotor_msgs.msg import TakeoffLand
         from test_core_boundary import Channels, Log
 

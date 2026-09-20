@@ -17,7 +17,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Callable
 
-from dispatcher.tools.protocol import INVALID_PARAMS, ToolProtocolError
+from dispatcher.tool_plane.protocol import INVALID_PARAMS, ToolProtocolError
 
 BUSINESS_REJECTED = -32000
 

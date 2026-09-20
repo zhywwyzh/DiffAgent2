@@ -1,6 +1,6 @@
 """状态与代次账本；宿主状态经读写回调保持唯一来源。"""
 
-from dispatcher.utils.state import COMMAND_TYPE, COMMAND_STATUS, DISPATCHER_STATE
+from dispatcher.support.state import COMMAND_TYPE, COMMAND_STATUS, DISPATCHER_STATE
 
 
 class StateLedger:

@@ -1,7 +1,7 @@
 """按调用时机体水平朝向构造平移目标。"""
 import math
-from dispatcher.services.flight_motion import FlightMotion
-from dispatcher.tools.flight.ports import Goal
+from dispatcher.tools.flight.motion import FlightMotion
+from dispatcher.execution.ports import Goal
 
 
 class TranslateSkill(FlightMotion):

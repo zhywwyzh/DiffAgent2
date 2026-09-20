@@ -1,5 +1,5 @@
 """基础飞行元数据；完整验收前只由测试显式装配。"""
-from dispatcher.tools.model import ToolSpec
+from dispatcher.tool_plane.model import ToolSpec
 
 
 def flight_specs():

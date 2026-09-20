@@ -9,7 +9,7 @@ from nav_msgs.msg import Odometry
 from std_msgs.msg import Empty
 from quadrotor_msgs.msg import LocalGoalSet, WaypointProgress, TakeoffLand
 
-from dispatcher.tools.flight.ports import FlightState, Progress
+from dispatcher.execution.ports import FlightState, Progress
 
 
 class RosFlightPorts:

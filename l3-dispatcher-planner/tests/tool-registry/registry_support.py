@@ -1,7 +1,7 @@
 """通用机制测试自有的能力元数据；不进入生产默认注册表。"""
 
-from dispatcher.tools.model import ToolSpec
-from dispatcher.tools.registry import ToolRegistry
+from dispatcher.tool_plane.model import ToolSpec
+from dispatcher.tool_plane.registry import ToolRegistry
 
 
 def test_registry():

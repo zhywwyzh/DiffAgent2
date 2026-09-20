@@ -5,7 +5,7 @@
 出现在这里（R1/R4 裁决，总纲 §4.5）；topic 名、默认值、消息类型、
 queue_size 与 payload 发布表达式。
 同文件承载最小运行端口实现（RosRuntimeClock / RosLogSink）——S4 的
-clock_ros.py 只服务装配/传输面（control_plane/zenoh_rpc），不得再迁本
+clock_ros.py 只服务装配/传输面（control_plane/zenoh_transport），不得再迁本
 文件的运行端口（禁止二次搬迁）。
 """
 

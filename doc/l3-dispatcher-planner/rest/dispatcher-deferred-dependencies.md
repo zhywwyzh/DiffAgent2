@@ -131,7 +131,7 @@ R07 关门证据（2026-09-17，方案 P1）：
 | 项 | 内容 |
 |----|----|
 | 状态 | **已删除，不自动恢复**。由 [grasp 退役登记方案](../iteration/20260915-20260917/design-dispatcher-grasp-retirement.md) 裁定为不迁移并登记。 |
-| 新版已删除面 | `N/iteration/design-dispatcher-unmigrated-chain-removal.md:108`：资源主题 `grasp_result/*`、ROS 反馈 `/agent/grasp_result_image`、grasp 线程均已删除；`N/tests/tool-registry/test_rpc_plane.py:21-29` 空发现面锚定 22 个已删除名一律 `method_not_found`；新版 l3 代码与 specs 全树 grep “grasp” 0 命中。 |
+| 新版已删除面 | `N/iteration/design-dispatcher-unmigrated-chain-removal.md:108`：资源主题 `grasp_result/*`、ROS 反馈 `/agent/grasp_result_image`、grasp 线程均已删除；`N/tests/tool-registry/test_methods.py:21-29` 空发现面锚定 22 个已删除名一律 `method_not_found`；新版 l3 代码与 specs 全树 grep “grasp” 0 命中。 |
 | 何时重新参考 | 仅当出现**真实站端消费者**需求（如站端在飞行动作词汇上明确要求 GRASP 抓取感知结果）时，先读本条目与 [grasp 退役登记方案](../iteration/20260915-20260917/design-dispatcher-grasp-retirement.md)。不存在“顺手恢复”场景。 |
 | 接入条件（技能化） | 先按 `l3-skill-contract.spec.md` 出契约（身份三声明、生命周期钩子、四裁决、语义端口）；实现与测试**同批**交付并通过 `N/tests/core-boundary/`、`N/tests/tool-registry/`；技能进入发现面时同步更新 `l3-tool-plane.spec.md` 的集合与 `revision`。感知入口（如 vla 私有的 `_serve_search`）与几何能力（`GeometryService`）若复用须重新设计归属，不原样搬运、不造转接器、不引入任务编号。 |
 | 必须验证 | 技能完成门/裁决与实例归属；感知结果与图像按现行端口契约出站；发现面 revision 与 spec 一致；站端读模型有真实消费者且非恒 404 的占位路由。 |
@@ -191,7 +191,7 @@ R04/R05 继续等待对应飞行实现，不以 RPC 完成关闭。
 | 条目 | 当前处置 | 实现/证据 | 剩余触发条件 |
 |---|---|---|---|
 | R03 | 已接入至 cmd | planner_execution_ros.py、EGO cancel/mandatoryStop 回调、ego.launch；tests/ros/test_ego_cmd.py 验证实际保持命令 | 更换后端、停止/恢复机制变化时复核；cmd 下游不属本轮 |
-| R04 | origin 子能力已接入，其余保留 | services/flight_session.py、ReturnSkill；无原点失败、会话/坐标重置及真实返航测试 | previous、历史集合、文本回退的真实消费者接入时继续核对 |
+| R04 | origin 子能力已接入，其余保留 | tools/flight/session.py、ReturnSkill；无原点失败、会话/坐标重置及真实返航测试 | previous、历史集合、文本回退的真实消费者接入时继续核对 |
 | R05 | 飞行动作账务已接入，VLA 部分保留 | execution/skill_host.py、WaypointExecution、ActionGate、生命周期锁；迟到结果/取消/覆盖/实例归属测试 | VLA REPLAN 判据、记录元数据消费接入时继续核对 |
 
 上述实现曾有 115 项完整测试通过；对应 EGO 专属取消/停止代码现已撤回，此结果不覆盖修正版。R01/R02/R06/R07 不被删除或标为已迁。

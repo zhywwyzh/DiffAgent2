@@ -1,6 +1,6 @@
 """空参返回本飞行会话起飞点的水平位置，不自动降落。"""
-from dispatcher.services.flight_motion import FlightMotion
-from dispatcher.tools.flight.ports import Goal
+from dispatcher.tools.flight.motion import FlightMotion
+from dispatcher.execution.ports import Goal
 
 
 class ReturnSkill(FlightMotion):

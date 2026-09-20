@@ -1,6 +1,6 @@
 """vla 工具发现面元数据：navigation.vla_nav 的 ToolSpec（P3 起并入生产集合）。
 
-经 dispatcher/tools/registry.py::ToolRegistry.default()（flight_specs() +
+经 dispatcher/tool_plane/registry.py::ToolRegistry.default()（flight_specs() +
 vla_specs()，顺序固定）汇入生产发现面；revision 权威记录见
 specs/implemented/inner/l3-tool-plane.spec.md §1。
 
@@ -10,7 +10,7 @@ image_stamp；可选 side/distance_m/visible/finish/provider/image_width/image_h
 完成语义 workflow_result；requires_perception=True。0..1000 值域与 x1<x2、y1<y2
 的语义校验由 vla_skill._consume_grounded_detection fail-closed，不进 schema。
 """
-from dispatcher.tools.model import ToolSpec
+from dispatcher.tool_plane.model import ToolSpec
 
 
 def vla_specs():

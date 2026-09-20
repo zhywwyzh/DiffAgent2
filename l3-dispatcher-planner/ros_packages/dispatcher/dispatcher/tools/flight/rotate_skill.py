@@ -1,7 +1,7 @@
 """有符号偏航分段执行，跨圈不取模丢失动作。"""
 import math
-from dispatcher.services.flight_motion import FlightMotion
-from dispatcher.tools.flight.ports import Goal
+from dispatcher.tools.flight.motion import FlightMotion
+from dispatcher.execution.ports import Goal
 
 
 class RotateSkill(FlightMotion):

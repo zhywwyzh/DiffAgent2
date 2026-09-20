@@ -23,8 +23,10 @@ core 只做五件事：
 
 > 违反任一条即缺陷。
 
-- **B1 领域无关**：core 不得 import 任何技能模块或领域包（`skills/*`、
-  `tools/vla`、`tools/flight`、`tools/scene_nav`等）。
+- **B1 领域无关**：core 不得 import 任何技能家族实现或领域包
+  （`tools/flight`、`tools/vla` 等 `tools/<family>/*`）；仅允许 import
+  技能协议模块 `tools/skill_api.py`（技能身份、生命周期、宿主端口与
+  四裁决词汇）。子包平面划分归 `l3-dispatcher/package-layout`。
 - **B2 无任务编号**：l3 中不存在任务编号这一概念。core 不得定义、映射或
   按任务编号做分支；直接依据 rpc-json 解析出的任务名进行分配与处理。
   引入编号作为中间表示属无谓开销与概念污染。

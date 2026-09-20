@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from dispatcher.tools.skill_api import SkillVerdict
-from dispatcher.utils.state import DISPATCHER_STATE
+from dispatcher.support.state import DISPATCHER_STATE
 
 
 @dataclass

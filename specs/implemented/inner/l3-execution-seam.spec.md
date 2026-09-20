@@ -44,6 +44,9 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 - 不迁入 `/mission/task` 及其客户端、服务端或兼容入口；该旧中间层的退役依据见
   [直连决策](../architecture/2026-09-16-dispatcher-direct-planner.md)。
 - dispatcher 经通用动作端口与 ROS 适配层直接使用 planner 的实际输入和反馈接口。
+  通用动作端口（`Goal`、`FlightPorts`、`FlightState`、`Progress`、`ActionResult`、
+  `FlightConfig`）定义于 `dispatcher/dispatcher/execution/ports.py`，飞行与 VLA
+  共用；子包平面划分归 `l3-dispatcher/package-layout`。
   planner 的 topic、消息字段、坐标系及单位保持其现行契约；任何必要变更先登记和评审，
   不通过重建旧接口或双写兼容路径解决。
 - 执行缝不感知工具语义：它接收"航点意图 / 目标对象 / 动作指令"，不识别具体

@@ -1,4 +1,4 @@
-"""VLA 工具家族：navigation.vla_nav 的技能、几何与宿主端口。
+"""VLA 技能家族：navigation.vla_nav 的技能、几何与宿主端口。
 
 几何保留在本目录（tools/vla/vla_geometry.py，vla 专用、不通用共享）；
 感知原语本体归 dispatcher/perception/base_policy.py，经宿主注入到达。

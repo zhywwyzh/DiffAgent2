@@ -11,10 +11,10 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "ros_packages/dispatcher"))
 
-from dispatcher.tools.registry import ToolRegistry
-from dispatcher.tools.runtime import ToolRuntime
-from dispatcher.utils.connection_lease import ConnectionLeaseManager
-from dispatcher.utils.rpc_plane import RpcPlane
+from dispatcher.tool_plane.registry import ToolRegistry
+from dispatcher.tool_plane.runtime import ToolRuntime
+from dispatcher.tool_plane.connection_lease import ConnectionLeaseManager
+from dispatcher.tool_plane.methods import RpcMethods
 from registry_support import test_registry
 
 
@@ -30,7 +30,7 @@ REMOVED_NAMES = (
 def setup_plane(registry):
     manager = ConnectionLeaseManager("test/core")
     runtime = ToolRuntime(registry, queue.Queue(), manager)
-    plane = RpcPlane(SimpleNamespace(runtime=runtime, leases=manager, _zenoh_session=object()))
+    plane = RpcMethods(SimpleNamespace(runtime=runtime, leases=manager, _zenoh_session=object()))
     acquired = manager.acquire("station", "instance")
     identity = {key: acquired[key] for key in ("station_id", "station_instance_id", "lease_id")}
     return plane, runtime, identity

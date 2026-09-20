@@ -20,17 +20,17 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "ros_packages" / "dispatcher"))
 
-from dispatcher.utils import zenoh_rpc  # noqa: E402
-from dispatcher.utils.connection_lease import (  # noqa: E402
+from dispatcher.tool_plane import zenoh_transport  # noqa: E402
+from dispatcher.tool_plane.connection_lease import (  # noqa: E402
     CANCELLING,
     SAFETY_REQUESTED,
     ConnectionLeaseManager,
 )
-from dispatcher.tools.protocol import ToolProtocolError  # noqa: E402
-from dispatcher.tools.registry import ToolRegistry  # noqa: E402
+from dispatcher.tool_plane.protocol import ToolProtocolError  # noqa: E402
+from dispatcher.tool_plane.registry import ToolRegistry  # noqa: E402
 from registry_support import test_registry
 from types import SimpleNamespace
-from dispatcher.tools.runtime import ToolRuntime  # noqa: E402
+from dispatcher.tool_plane.runtime import ToolRuntime  # noqa: E402
 
 STACK = "sim/0"
 TTL_S = 15.0
@@ -435,11 +435,11 @@ def test_status_is_claim_free() -> None:
 def test_middleware_requires_explicit_stack_id(monkeypatch) -> None:
     monkeypatch.delenv("LX_STACK_ID", raising=False)
     with pytest.raises(RuntimeError, match="LX_STACK_ID"):
-        zenoh_rpc.ZenohTaskMiddleware(queue.Queue())
+        zenoh_transport.ZenohTaskMiddleware(queue.Queue())
 
 
 def test_middleware_declares_fleet_keys() -> None:
-    middleware = zenoh_rpc.ZenohTaskMiddleware(queue.Queue(), stack_id=STACK)
+    middleware = zenoh_transport.ZenohTaskMiddleware(queue.Queue(), stack_id=STACK)
 
     suffixes = middleware.queryable_suffixes()
     assert suffixes == ("sim/reset", "health")
@@ -502,11 +502,11 @@ class _FakeConf:
 
 
 def test_watchdog_reaps_silent_expiry_without_incoming_request(monkeypatch) -> None:
-    monkeypatch.setattr(zenoh_rpc.zenoh, "open", lambda conf: _FakeZenohSession())
-    monkeypatch.setattr(zenoh_rpc.zenoh, "Config", _FakeConf)
+    monkeypatch.setattr(zenoh_transport.zenoh, "open", lambda conf: _FakeZenohSession())
+    monkeypatch.setattr(zenoh_transport.zenoh, "Config", _FakeConf)
 
     commands = queue.Queue()
-    middleware = zenoh_rpc.ZenohTaskMiddleware(
+    middleware = zenoh_transport.ZenohTaskMiddleware(
         commands,
         stack_id=STACK,
         lease_ttl_s=0.15,
@@ -553,12 +553,12 @@ if __name__ == "__main__":
 
 def test_rpc_acquire_watches_owner_and_ignores_stale_delete():
     from types import SimpleNamespace
-    from dispatcher.utils.rpc_plane import RpcPlane
-    middleware = zenoh_rpc.ZenohTaskMiddleware(queue.Queue(), stack_id=STACK,
+    from dispatcher.tool_plane.methods import RpcMethods
+    middleware = zenoh_transport.ZenohTaskMiddleware(queue.Queue(), stack_id=STACK,
                                                safety_stop=lambda reason: None)
     session = _FakeZenohSession()
     middleware._zenoh_session = session
-    plane = RpcPlane(middleware)
+    plane = RpcMethods(middleware)
     params = {'station_id': 'station-a', 'station_instance_id': 'instance-a'}
     first = plane._connection_call('connection.acquire', params)['result']
     plane._connection_call('connection.acquire', params)
@@ -569,9 +569,9 @@ def test_rpc_acquire_watches_owner_and_ignores_stale_delete():
     plane._connection_call('connection.release', identity)
     assert handle.undeclared
     second = plane._connection_call('connection.acquire', params)['result']
-    callback(SimpleNamespace(kind=zenoh_rpc.zenoh.SampleKind.DELETE))
+    callback(SimpleNamespace(kind=zenoh_transport.zenoh.SampleKind.DELETE))
     assert middleware.leases.is_current_owner('station-a', second['lease_id'])
-    session._liveliness.subs[-1][1](SimpleNamespace(kind=zenoh_rpc.zenoh.SampleKind.DELETE))
+    session._liveliness.subs[-1][1](SimpleNamespace(kind=zenoh_transport.zenoh.SampleKind.DELETE))
     assert not middleware.leases.status()['owned']
     middleware.close()
 
@@ -589,8 +589,8 @@ def test_partial_start_failure_releases_all_acquired_resources(monkeypatch):
     session.declare_publisher = broken_publisher
     closed = []
     session.close = lambda: closed.append(True)
-    monkeypatch.setattr(zenoh_rpc.zenoh, 'open', lambda conf: session)
-    middleware = zenoh_rpc.ZenohTaskMiddleware(queue.Queue(), stack_id=STACK)
+    monkeypatch.setattr(zenoh_transport.zenoh, 'open', lambda conf: session)
+    middleware = zenoh_transport.ZenohTaskMiddleware(queue.Queue(), stack_id=STACK)
     with pytest.raises(RuntimeError, match='publisher unavailable'):
         middleware.start()
     assert closed == [True]

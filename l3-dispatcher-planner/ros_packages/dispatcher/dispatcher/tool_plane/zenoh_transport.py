@@ -22,9 +22,15 @@ from datetime import datetime, timezone
 
 import zenoh
 
-from dispatcher.utils.connection_lease import ConnectionLeaseManager
-from dispatcher.tools import ToolProtocolError, ToolRegistry, ToolRuntime
-from dispatcher.tools.protocol import BUSINESS_REJECTED, INVALID_PARAMS, LEASE_IDENTITY_FIELDS
+from dispatcher.tool_plane.connection_lease import ConnectionLeaseManager
+from dispatcher.tool_plane.protocol import (
+    BUSINESS_REJECTED,
+    INVALID_PARAMS,
+    LEASE_IDENTITY_FIELDS,
+    ToolProtocolError,
+)
+from dispatcher.tool_plane.registry import ToolRegistry
+from dispatcher.tool_plane.runtime import ToolRuntime
 
 INTERNAL_ERROR = -32603
 TASK_REJECTED = BUSINESS_REJECTED
@@ -80,7 +86,7 @@ class ZenohTaskMiddleware:
         self._presence_token = None
         self._owner_watch: tuple[str, str, object] | None = None
         self._owner_watch_lock = threading.RLock()
-        self.rpc_plane = None
+        self.methods = None
 
         # 端口注入（S4a P1/P3）：日志/关停由组合根经 control_plane 透传；
         # 反馈面由 factory 在此构造（或 bind_feedback 显式注入），
@@ -101,7 +107,7 @@ class ZenohTaskMiddleware:
         """Declared resource key suffixes under lx/<stack-id>/ (testable surface).
 
         The task plane lives on `lx/<stack-id>/rpc` + `lx/<stack-id>/rpc_outcome`
-        and is declared by `RpcPlane`; only resources remain here.
+        and is declared by `RpcMethods`; only resources remain here.
         """
         return (
             "sim/reset",
@@ -146,25 +152,25 @@ class ZenohTaskMiddleware:
             )
         self.runtime.event_sink = self._publish_event
         # RPC plane is the task plane (lockstep adoption): always on.
-        from dispatcher.utils.rpc_plane import RpcPlane
+        from dispatcher.tool_plane.methods import RpcMethods
 
-        self.rpc_plane = RpcPlane(self)
-        self.rpc_plane.start()
+        self.methods = RpcMethods(self)
+        self.methods.start()
         self._presence_token = self._zenoh_session.liveliness().declare_token(self.presence_token_key)
         # 反馈面订阅位点（原 _start_ros_subscriptions 调用点）：由组合根注入的
         # FeedbackPlane 承担 ROS 订阅，启动序列顺序不变（方案 §5.1）。
         self._start_lease_watchdog()
         print(
-            f"[zenoh_rpc] rpc plane up: lx/{self.stack_id}/rpc via {self.router}",
+            f"[zenoh_transport] rpc plane up: lx/{self.stack_id}/rpc via {self.router}",
             flush=True,
         )
 
     def close(self) -> None:
         self._stop_lease_watchdog()
         self._forget_owner_watch()
-        handles = [self._presence_token, self.rpc_plane, *reversed(self._queryables)]
+        handles = [self._presence_token, self.methods, *reversed(self._queryables)]
         self._presence_token = None
-        self.rpc_plane = None
+        self.methods = None
         self._queryables.clear()
         self.runtime.event_sink = None
         for handle in handles:
@@ -175,7 +181,7 @@ class ZenohTaskMiddleware:
                     else:
                         handle.close()
                 except Exception as exc:
-                    print(f"[zenoh_rpc] resource close failed: {exc}", flush=True)
+                    print(f"[zenoh_transport] resource close failed: {exc}", flush=True)
         session, self._zenoh_session = self._zenoh_session, None
         if session is not None:
             session.close()
@@ -209,7 +215,7 @@ class ZenohTaskMiddleware:
                 if not self.leases.expire_if_due():
                     self.leases.resume_pending_loss()
             except Exception as exc:  # noqa: BLE001 — watchdog must survive
-                print(f"[zenoh_rpc] lease watchdog error: {exc}", flush=True)
+                print(f"[zenoh_transport] lease watchdog error: {exc}", flush=True)
 
     # ------------------------------------------------------------------
     # queryable handlers
@@ -217,8 +223,8 @@ class ZenohTaskMiddleware:
 
     def _publish_event(self, event: dict) -> None:
         """Feed one runtime lifecycle event to the RPC outcome bridge."""
-        if self.rpc_plane is not None:
-            self.rpc_plane.on_event(event)
+        if self.methods is not None:
+            self.methods.on_event(event)
 
     def _reply_ok(self, query, result) -> None:
         try:
@@ -229,9 +235,9 @@ class ZenohTaskMiddleware:
                 )
             else:
                 query.reply(query.key_expr, bytes(result))
-            print(f"[zenoh_rpc] reply ok on {query.key_expr}", flush=True)
+            print(f"[zenoh_transport] reply ok on {query.key_expr}", flush=True)
         except Exception as exc:  # noqa: BLE001 — never kill the zenoh thread
-            print(f"[zenoh_rpc] reply FAILED on {query.key_expr}: {exc}", flush=True)
+            print(f"[zenoh_transport] reply FAILED on {query.key_expr}: {exc}", flush=True)
 
     def _reply_err(self, query, err: ToolProtocolError) -> None:
         query.reply_err(json.dumps(err.to_dict(), ensure_ascii=False).encode())
@@ -307,7 +313,7 @@ class ZenohTaskMiddleware:
                 history=True,
             )
         except Exception as exc:
-            print(f"[zenoh_rpc] owner-token watch unavailable on {key}: {exc}; TTL remains authoritative", flush=True)
+            print(f"[zenoh_transport] owner-token watch unavailable on {key}: {exc}; TTL remains authoritative", flush=True)
             return
         with self._owner_watch_lock:
             install = (self._owner_watch is pending
@@ -327,7 +333,7 @@ class ZenohTaskMiddleware:
             try:
                 watch[2].undeclare()
             except Exception as exc:
-                print(f"[zenoh_rpc] owner-token watch undeclare failed: {exc}", flush=True)
+                print(f"[zenoh_transport] owner-token watch undeclare failed: {exc}", flush=True)
 
     def _on_owner_token_sample(self, sample, station_id: str, lease_id: str) -> None:
         if getattr(sample, "kind", None) != zenoh.SampleKind.DELETE:

@@ -25,7 +25,7 @@ from typing import Any, Callable, Protocol
 
 import numpy as np
 
-from dispatcher.tools.model import ToolCall
+from dispatcher.tool_plane.model import ToolCall
 
 
 # ---------------------------------------------------------------------------

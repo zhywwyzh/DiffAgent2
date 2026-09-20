@@ -36,17 +36,17 @@ sys.path.insert(0, str(PACKAGE))
 
 from dispatcher.engine import DispatcherEngine  # noqa: E402
 from dispatcher.execution.skill_host import VlaSkillHost  # noqa: E402
-from dispatcher.execution.waypoint_execution import WaypointExecution  # noqa: E402
-from dispatcher.tools.flight.ports import (  # noqa: E402
+from dispatcher.execution.waypoint import WaypointExecution  # noqa: E402
+from dispatcher.execution.ports import (  # noqa: E402
     FlightConfig,
     FlightState,
     Progress,
 )
-from dispatcher.tools.model import SkillCommand, ToolCall  # noqa: E402
+from dispatcher.tool_plane.model import SkillCommand, ToolCall  # noqa: E402
 from dispatcher.tools.skill_api import SkillVerdict  # noqa: E402
 from dispatcher.tools.vla.ports import VlaHostConfig  # noqa: E402
 from dispatcher.tools.vla.vla_skill import VlaSkill  # noqa: E402
-from dispatcher.utils.state import COMMAND_STATUS, DISPATCHER_STATE  # noqa: E402
+from dispatcher.support.state import COMMAND_STATUS, DISPATCHER_STATE  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # 合成环境：原点上方 1m、朝 +x（yaw=0）的机体；station 下发 1000 空间 bbox

@@ -6,9 +6,9 @@ import logging
 import queue
 import threading
 
-from dispatcher.utils.zenoh_rpc import ZenohTaskMiddleware
+from dispatcher.tool_plane.zenoh_transport import ZenohTaskMiddleware
 
-from dispatcher.tools.executor import ToolExecutor
+from dispatcher.tool_plane.intake import ToolIntake
 
 
 class _LocalShutdown:
@@ -53,7 +53,7 @@ class ToolControlPlane:
             feedback_factory=feedback_factory,
             safety_stop=lambda reason: host.enter_global_stop(reason, shutdown_program=False),
         )
-        self._executor = ToolExecutor(self.middleware.registry, host)
+        self._intake = ToolIntake(self.middleware.registry, host)
         self._threads: list[threading.Thread] = []
         self._stop = threading.Event()
         host.bind_tool_middleware(self.middleware)
@@ -95,7 +95,7 @@ class ToolControlPlane:
                 if command.kind == "call":
                     if not self.middleware.runtime.can_execute(command.call.call_id):
                         continue
-                    self._executor.execute(command.call)
+                    self._intake.start(command.call)
                 elif command.kind == "cancel":
                     self._host.cancel_tool_call(command.call, command.reason)
                 else:
@@ -123,6 +123,6 @@ class ToolControlPlane:
             except Exception as exc:  # noqa: BLE001 - reconnect supervisor
                 self.middleware.close()
                 self._log.err(
-                    "[zenoh_rpc] middleware start failed (%s); retry in 5s", exc
+                    "[zenoh_transport] middleware start failed (%s); retry in 5s", exc
                 )
                 self._stop.wait(5.0)

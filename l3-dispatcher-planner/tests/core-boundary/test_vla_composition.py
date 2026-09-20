@@ -34,12 +34,12 @@ sys.path.insert(0, str(PACKAGE))
 from dispatcher.engine import DispatcherEngine  # noqa: E402
 from dispatcher.execution.composition import install_flight, install_vla  # noqa: E402
 from dispatcher.execution.skill_host import VlaSkillHost  # noqa: E402
-from dispatcher.tools.flight.ports import FlightConfig, FlightState, Progress  # noqa: E402
-from dispatcher.tools.model import SkillCommand, ToolCall  # noqa: E402
-from dispatcher.tools.registry import ToolRegistry  # noqa: E402
+from dispatcher.execution.ports import FlightConfig, FlightState, Progress  # noqa: E402
+from dispatcher.tool_plane.model import SkillCommand, ToolCall  # noqa: E402
+from dispatcher.tool_plane.registry import ToolRegistry  # noqa: E402
 from dispatcher.tools.vla.vla_geometry import VlaGeometryConfig  # noqa: E402
 from dispatcher.tools.vla.ports import VlaHostConfig  # noqa: E402
-from dispatcher.utils.state import DISPATCHER_STATE, MISSION_TYPE  # noqa: E402
+from dispatcher.support.state import DISPATCHER_STATE, MISSION_TYPE  # noqa: E402
 
 GROUNDED = {
     "object": "red marker",
@@ -403,9 +403,9 @@ def test_create_vla_runtime_reads_vla_private_params(tmp_path, monkeypatch):
     # dispatcher_node 顶部 import 链拖 utils.control_plane → zenoh（本环境
     # 无 zenoh，与全量门禁四个 ignore 的既有基线同源）；create_vla_runtime
     # 不消费 ToolControlPlane（main 专属），以 stub 顶替其模块级导入后加载。
-    stub = types.ModuleType("dispatcher.utils.control_plane")
+    stub = types.ModuleType("dispatcher.tool_plane.control_plane")
     stub.ToolControlPlane = object
-    monkeypatch.setitem(sys.modules, "dispatcher.utils.control_plane", stub)
+    monkeypatch.setitem(sys.modules, "dispatcher.tool_plane.control_plane", stub)
     import dispatcher_node
 
     overrides = {
@@ -559,8 +559,8 @@ def test_same_owner_preemption_applies_to_vla_on_production_surface():
     飞行独占与同源抢占机制按工具面统一适用，navigation.vla_nav 无豁免。"""
     import queue
 
-    from dispatcher.tools.runtime import ToolRuntime
-    from dispatcher.utils.connection_lease import ConnectionLeaseManager
+    from dispatcher.tool_plane.runtime import ToolRuntime
+    from dispatcher.tool_plane.connection_lease import ConnectionLeaseManager
 
     commands = queue.Queue()
     manager = ConnectionLeaseManager("sim/dispatcher")

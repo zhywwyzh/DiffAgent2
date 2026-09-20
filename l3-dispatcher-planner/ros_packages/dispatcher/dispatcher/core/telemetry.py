@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 
 from dispatcher.core.ports import CoreChannels, LogSink
-from dispatcher.utils.slog import StructuredLogger
+from dispatcher.support.slog import StructuredLogger
 
 
 class RunTelemetry:

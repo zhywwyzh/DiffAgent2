@@ -35,7 +35,7 @@
 | 位置 | 已确认事实 | 结论 |
 |---|---|---|
 | `l4-agent/src/copaw/agents/tools/plan_tools.json:92` | 上层工具名包含 `navigation.vla_nav` | 沿用实际调用名，不凭旧编号另造名称 |
-| `l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/utils/rpc_plane.py::_execution_call` | 将请求 method 作为调用的 name 交给 runtime | 任务身份仍在，编号不是必要中间层 |
+| `l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/methods.py::_execution_call` | 将请求 method 作为调用的 name 交给 runtime | 任务身份仍在，编号不是必要中间层 |
 | `l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/core/skill_router.py::dispatch_plan` | 按 `skill_command.call.name` 查表分发 | core 只负责按名分发，不承担工具领域分支 |
 | `l3-dispatcher-planner/ros_packages/utils/quadrotor_msgs/msg/LocalGoalSet.msg` | 已移除 `source_task_id`、`SOURCE_TASK_*`；其他被误删字段已恢复 | 消息去编号不等于原业务判据迁移完成 |
 | `l3-dispatcher-planner/ros_packages/planner/ego_planner/plan_manage/src/ego_replan_fsm.cpp` 的修改前版本 | `aimCallback`、`aimCallbackYawPreset` 曾按来源编号限制 panorama | 移除来源判断有行为影响，不能只按编译通过结案 |

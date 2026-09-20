@@ -7,7 +7,7 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 
 > 定义技能（tool）的身份、生命周期、端口与逆。适用于 `ros_packages/dispatcher`
 > 下一切对外任务能力。
-> `dispatcher/dispatcher/skill_api.py` 是本契约的参考实现；两者冲突时以本契约为
+> `dispatcher/dispatcher/tools/skill_api.py` 是本契约的参考实现；两者冲突时以本契约为
 > 准并修正实现。
 
 ## 1. 技能是什么
@@ -124,10 +124,13 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 
 ## 9. 基础飞行能力端口
 
-基础飞行使用独立的 FlightHost Protocol，由 execution/skill_host 实现通用生命周期，
-由 FlightPorts 承载 planner 通信。其成员为 state、origin、start_goal、poll_result、
-cancel_execution、request_takeoff、request_land、request_safety_stop、publish_phase、
-fail_sequence、stash_task_result 和只读 config。它不模拟旧版 engine 属性。
+基础飞行使用独立的 FlightHost 宿主端口，成员集由本节定义，由
+execution/skill_host 实现通用生命周期；planner 通信由 FlightPorts 承载
+（定义于 execution/ports.py，与 VLA 共用）。FlightHost 端口成员为 state、
+origin、start_goal、poll_result、cancel_execution、request_takeoff、
+request_land、request_safety_stop、publish_phase、fail_sequence、
+stash_task_result 和只读 config。它不模拟旧版 engine 属性，不再单独保留
+Protocol 类型声明。
 
 原点服务由新鲜 odometry 与显式配置的地面高度判定地面/升空；无地面配置时起飞/原点
 不能伪造成功。基础飞行不要求视觉帧；在 cmd 边界内不引入 MAVROS 控制器依赖。

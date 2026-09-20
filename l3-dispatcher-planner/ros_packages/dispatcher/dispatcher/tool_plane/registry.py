@@ -7,8 +7,8 @@ import json
 import math
 from datetime import datetime, timezone
 
-from dispatcher.tools.model import ToolCall, ToolSpec
-from dispatcher.tools.protocol import (
+from dispatcher.tool_plane.model import ToolCall, ToolSpec
+from dispatcher.tool_plane.protocol import (
     INVALID_PARAMS,
     METHOD_NOT_FOUND,
     ToolProtocolError,

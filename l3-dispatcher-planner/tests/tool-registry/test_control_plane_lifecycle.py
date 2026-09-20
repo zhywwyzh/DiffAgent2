@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "ros_packages/dispatcher"))
 
-from dispatcher.utils.control_plane import ToolControlPlane
+from dispatcher.tool_plane.control_plane import ToolControlPlane
 
 
 def test_close_interrupts_start_retry_and_joins_workers(monkeypatch):

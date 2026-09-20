@@ -1,8 +1,8 @@
 """组合飞行 / VLA 领域对象；ROS 端口由调用方注入。"""
-from dispatcher.utils.state import MISSION_TYPE
+from dispatcher.support.state import MISSION_TYPE
 from dispatcher.execution.skill_host import DispatcherFlightHost, VlaSkillHost
-from dispatcher.execution.waypoint_execution import WaypointExecution
-from dispatcher.services.flight_session import FlightSession
+from dispatcher.execution.waypoint import WaypointExecution
+from dispatcher.tools.flight.session import FlightSession
 from dispatcher.tools.flight.takeoff_skill import TakeoffSkill
 from dispatcher.tools.flight.land_skill import LandSkill
 from dispatcher.tools.flight.translate_skill import TranslateSkill

@@ -3,7 +3,7 @@ import math
 import secrets
 import threading
 import time
-from dispatcher.tools.flight.ports import ActionResult, FlightConfig, FlightPorts, Goal
+from dispatcher.execution.ports import ActionResult, FlightConfig, FlightPorts, Goal
 
 
 class WaypointExecution:

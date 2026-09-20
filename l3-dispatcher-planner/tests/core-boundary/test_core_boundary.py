@@ -19,9 +19,9 @@ sys.path.insert(0, str(PACKAGE))
 
 from dispatcher.engine import DispatcherEngine
 from dispatcher.core.telemetry import RunTelemetry
-from dispatcher.tools.model import SkillCommand, ToolCall
+from dispatcher.tool_plane.model import SkillCommand, ToolCall
 from dispatcher.tools.skill_api import SkillBase, SkillVerdict
-from dispatcher.utils.state import COMMAND_STATUS, DISPATCHER_STATE
+from dispatcher.support.state import COMMAND_STATUS, DISPATCHER_STATE
 
 
 class Channels:
@@ -156,8 +156,8 @@ def test_import_closure_has_no_domain_or_ros():
             for name in imports:
                 assert not any(part.endswith("_msgs") for part in name.split(".")), (path, name)
                 assert not name.startswith(("rospy", "cv_bridge", "dispatcher.perception", "dispatcher.ros_adapter",
-                                            "dispatcher.skills", "dispatcher.tools.vla", "dispatcher.tools.flight",
-                                            "dispatcher.tools.scene_nav")), (path, name)
+                                            "dispatcher.tools.flight", "dispatcher.tools.vla",
+                                            "dispatcher.execution", "dispatcher.tool_plane")), (path, name)
                 if name.startswith("dispatcher."):
                     dependency = PACKAGE / (name.replace(".", "/") + ".py")
                     if not dependency.exists():
@@ -488,11 +488,11 @@ def test_composition_preserves_configuration_on_perception_owner(tmp_path, monke
             return {}
 
     # 既有基线修复（评审修复轮登记）：dispatcher_node 顶部 import 链拖
-    # utils.control_plane → zenoh_rpc → zenoh（本环境缺 zenoh，与全量门禁
+    # rpc.control_plane → zenoh_transport → zenoh（本环境缺 zenoh，与全量门禁
     # 四个 ignore 的既有基线同源）；本测试只调 create_dispatcher_engine，
     # 不消费 ToolControlPlane（main 专属），以 stub 顶替其模块级导入。
     fake_modules = {
-        "dispatcher.utils.control_plane": SimpleNamespace(ToolControlPlane=object),
+        "dispatcher.tool_plane.control_plane": SimpleNamespace(ToolControlPlane=object),
         "dispatcher.perception.base_policy": SimpleNamespace(BasePolicyNode=Perception),
         "dispatcher.ros_adapter.clock_ros": SimpleNamespace(RosLog=Log, RosNode=object, RosShutdown=object),
         "dispatcher.ros_adapter.core_channels_ros": SimpleNamespace(

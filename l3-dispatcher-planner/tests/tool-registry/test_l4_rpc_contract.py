@@ -17,7 +17,7 @@ import zenoh
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "l3-dispatcher-planner/ros_packages/dispatcher"))
 
-from dispatcher.utils.zenoh_rpc import ZenohTaskMiddleware
+from dispatcher.tool_plane.zenoh_transport import ZenohTaskMiddleware
 from registry_support import test_registry
 
 
@@ -39,7 +39,7 @@ def station(monkeypatch):
     monkeypatch.setitem(sys.modules, kv.__name__, kv)
     sources = {}
     modules = {}
-    for suffix in ('station_sidecar.rpc_plane', 'station_sidecar.fleet',
+    for suffix in ('station_sidecar.methods', 'station_sidecar.fleet',
                    'station_sidecar.flight.models', 'station_sidecar.flight.rpc_bridge'):
         path = base / (suffix.replace('.', '/') + '.py')
         sources[path] = hashlib.sha256(path.read_bytes()).hexdigest()
@@ -123,7 +123,7 @@ def test_real_station_fleet_admission_outcome_and_owner_loss(station, monkeypatc
         fleet._connection_token = None
         eventually(lambda: not middleware.leases.status()['owned'])
         assert stops == ['station_connection_token_lost']
-        with pytest.raises(station['rpc_plane'].RpcPlaneError) as rejected:
+        with pytest.raises(station['methods'].RpcMethodsError) as rejected:
             bridge._client.execution('test.start', {}, call_id='wire-once', context=context)
         assert rejected.value.reason == 'connection_not_owner'
     finally:
@@ -136,7 +136,7 @@ def test_real_station_fleet_admission_outcome_and_owner_loss(station, monkeypatc
 
 def test_station_terminal_can_arrive_before_admission_reply(station):
     from types import SimpleNamespace
-    from test_rpc_plane import setup_plane, query
+    from test_methods import setup_plane, query
     plane, runtime, identity = setup_plane(test_registry())
     bridge = station['rpc_bridge'].RpcFlightBridge(lambda *args: None)
     bridge.stack_id = 'test/contract'

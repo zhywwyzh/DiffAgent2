@@ -7,8 +7,8 @@ import threading
 from pathlib import Path
 from typing import Any, Callable
 
-from dispatcher.utils.state import COMMAND_TYPE, COMMAND_STATUS, DISPATCHER_STATE
-from dispatcher.utils.config import UAV_POLICY_DEFAULTS, set_defaults
+from dispatcher.support.state import COMMAND_TYPE, COMMAND_STATUS, DISPATCHER_STATE
+from dispatcher.support.config import UAV_POLICY_DEFAULTS, set_defaults
 from dispatcher.core.ports import CoreChannels, RuntimeClock, LogSink
 from dispatcher.core.telemetry import RunTelemetry
 from dispatcher.core.task_phase import TaskPhaseBridge

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Callable
 
-from dispatcher.tools.model import SkillCommand, ToolCall
+from dispatcher.tool_plane.model import SkillCommand, ToolCall
 
 
 class SkillRouter:

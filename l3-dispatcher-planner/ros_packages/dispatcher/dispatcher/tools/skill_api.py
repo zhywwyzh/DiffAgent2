@@ -6,7 +6,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
-    from dispatcher.tools.model import SkillCommand
+    from dispatcher.tool_plane.model import SkillCommand
 
 
 class SkillVerdict(Enum):       # post_action 的裁决，替代 _handle_post_action 内部分支

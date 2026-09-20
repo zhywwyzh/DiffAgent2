@@ -11,14 +11,14 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT / 'ros_packages/dispatcher'), str(ROOT / 'tests/core-boundary')]
 from test_core_boundary import engine
 from dispatcher.execution.composition import install_flight
-from dispatcher.execution.waypoint_execution import WaypointExecution
-from dispatcher.services.flight_session import FlightSession
-from dispatcher.tools.flight.ports import FlightConfig, FlightState, Goal, Progress
+from dispatcher.execution.waypoint import WaypointExecution
+from dispatcher.tools.flight.session import FlightSession
+from dispatcher.execution.ports import FlightConfig, FlightState, Goal, Progress
 from dispatcher.tools.flight.catalog import flight_specs
-from dispatcher.tools.registry import ToolRegistry
-from dispatcher.tools.protocol import ToolProtocolError
-from dispatcher.tools.model import ToolCall, SkillCommand
-from dispatcher.utils.state import DISPATCHER_STATE
+from dispatcher.tool_plane.registry import ToolRegistry
+from dispatcher.tool_plane.protocol import ToolProtocolError
+from dispatcher.tool_plane.model import ToolCall, SkillCommand
+from dispatcher.support.state import DISPATCHER_STATE
 
 
 class Ports:

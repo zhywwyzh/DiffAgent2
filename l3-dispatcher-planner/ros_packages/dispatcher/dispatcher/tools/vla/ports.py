@@ -38,7 +38,7 @@ class VlaHostConfig:
 
 
 class VlaSkillHost(Protocol):
-    """VLA 技能宿主端口；成员签名与 skill_api.py::SkillHost 通用端口对齐。"""
+    """VLA 技能宿主端口；成员签名与 tools/skill_api.py::SkillHost 通用端口对齐。"""
 
     min_height: float  # 只读配置：最低允许飞行高度（clamp 下界）
     max_height: float  # 只读配置：最高允许飞行高度（clamp 上界）

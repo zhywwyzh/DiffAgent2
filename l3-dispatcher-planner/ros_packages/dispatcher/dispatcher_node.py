@@ -10,9 +10,9 @@ from dataclasses import fields
 import threading
 from pathlib import Path
 
-from dispatcher.utils.control_plane import ToolControlPlane
+from dispatcher.tool_plane.control_plane import ToolControlPlane
 from dispatcher.engine import DispatcherEngine
-from dispatcher.utils.config import (
+from dispatcher.support.config import (
     CONFIG_KEY_ALIASES,
     UAV_POLICY_DEFAULTS,
     set_defaults,
@@ -119,7 +119,7 @@ def create_dispatcher_engine(config_path: str):
 
 def create_flight_runtime(engine):
     """装配直连端口与六技能，返回资源逆操作；不含领域判定。"""
-    from dispatcher.tools.flight.ports import FlightConfig
+    from dispatcher.execution.ports import FlightConfig
     from dispatcher.ros_adapter.planner_execution_ros import RosFlightPorts
     from dispatcher.execution.composition import install_flight
 

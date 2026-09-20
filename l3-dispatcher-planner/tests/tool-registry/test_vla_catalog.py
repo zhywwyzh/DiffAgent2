@@ -24,9 +24,9 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "ros_packages" / "dispatcher"))
 
-from dispatcher.tools.model import ToolSpec  # noqa: E402
-from dispatcher.tools.protocol import ToolProtocolError  # noqa: E402
-from dispatcher.tools.registry import ToolRegistry  # noqa: E402
+from dispatcher.tool_plane.model import ToolSpec  # noqa: E402
+from dispatcher.tool_plane.protocol import ToolProtocolError  # noqa: E402
+from dispatcher.tool_plane.registry import ToolRegistry  # noqa: E402
 from dispatcher.tools.vla.catalog import vla_specs  # noqa: E402
 
 # l3-tool-plane.spec.md §1 记录的现行 revision

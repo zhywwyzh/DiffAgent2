@@ -43,14 +43,14 @@ from dispatcher.perception.base_policy import (  # noqa: E402
     Frame,
     OdometryBuffer,
 )
-from dispatcher.tools.model import ToolCall  # noqa: E402
+from dispatcher.tool_plane.model import ToolCall  # noqa: E402
 from dispatcher.tools.vla.vla_geometry import (  # noqa: E402
     GeometryService,
     VlaGeometryConfig,
     derive_nav_mode,
     normalize_direction,
 )
-from dispatcher.utils.state import MISSION_TYPE  # noqa: E402
+from dispatcher.support.state import MISSION_TYPE  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

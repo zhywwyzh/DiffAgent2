@@ -44,9 +44,11 @@ Contract-ID: l3-dispatcher
 | `specs/implemented/inner/l3-tool-plane.spec.md` | 工具发现/调用/事件/取消与连接租约的对外协议 |
 | `specs/implemented/inner/l3-l4-rpc.spec.md` | l4 线上请求/准入/终态信封、presence 与连接生命周期 |
 | `specs/implemented/inner/flight-actions.spec.md` | 六个基础飞行动作的参数、完成语义和 cmd 输出边界 |
+| `specs/implemented/inner/l3-package-layout.spec.md` | dispatcher 子包平面划分、命名规范与依赖方向 |
 
 ## 边界
 
-本契约不拥有：planner 的内部算法与后端选择；l4 侧协议与站端行为；编码风格
-与命名（归 `development-workflow/l3-coding-style`）；镜像构建、部署与集群
+本契约不拥有：planner 的内部算法与后端选择；l4 侧协议与站端行为；C++
+编码风格（归 `development-workflow/l3-coding-style`）；dispatcher Python
+子包的目录与命名（归 `l3-dispatcher/package-layout`）；镜像构建、部署与集群
 编排；某一轮的具体裁剪清单与验收步骤。
