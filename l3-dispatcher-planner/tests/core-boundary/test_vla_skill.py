@@ -13,7 +13,7 @@
 - 贴地腿：waypoint=(x, y, 0.1, 0, 0, yaw)，look_forward=False →
   dispatched_yaw=yaw，NEW_ACTION；headless 无帧时不发贴地腿（IDLE 收敛）。
 
-动作账务走真实 VlaSkillHost + WaypointExecution + DispatcherEngine。
+动作账务走真实 VlaSkillHost + VlaWaypointExecution + DispatcherEngine。
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ sys.path.insert(0, str(PACKAGE))
 
 from dispatcher.engine import DispatcherEngine  # noqa: E402
 from dispatcher.execution.skill_host import VlaSkillHost  # noqa: E402
-from dispatcher.execution.waypoint import WaypointExecution  # noqa: E402
+from dispatcher.tools.vla.vla_waypoint import VlaWaypointExecution  # noqa: E402
 from dispatcher.execution.ports import (  # noqa: E402
     FlightConfig,
     FlightState,
@@ -105,7 +105,7 @@ class Clock:
 
 
 class FakePorts:
-    """WaypointExecution 的 FlightPorts 假件：记录 goal/stop，进度可注入。"""
+    """VlaWaypointExecution 的 FlightPorts 假件：记录 goal/stop，进度可注入。"""
 
     def __init__(self):
         self.goals = []
@@ -147,7 +147,7 @@ def stack(tmp_path, monkeypatch):
     frame = SimpleNamespace(current_state=FRAME_STATE.copy())
     engine.get_frame_snapshot = lambda: frame  # 距离过近判定消费
     ports = FakePorts()
-    execution = WaypointExecution(ports, FlightConfig(
+    execution = VlaWaypointExecution(ports, FlightConfig(
         min_height=0.0, max_height=1.8, state_timeout=1.0, action_timeout=60.0))
     modes = []
     host = VlaSkillHost(engine, execution, VlaHostConfig(

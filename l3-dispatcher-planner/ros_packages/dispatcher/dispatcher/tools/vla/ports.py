@@ -7,7 +7,8 @@ l3-skill-contract.spec.md §7/§10：VLA 技能使用通用 SkillHost 端口
 几何解算：waypoint_world 由站端解算后随调用下行，本协议不含几何原语源。
 
 实现见 dispatcher/execution/skill_host.py::VlaSkillHost（与
-DispatcherFlightHost 同文件的执行宿主，动作出海共用 WaypointExecution）。
+DispatcherFlightHost 同文件的执行宿主，动作出海用 VLA 家族航点执行
+VlaWaypointExecution）。
 """
 
 from __future__ import annotations
@@ -60,7 +61,7 @@ class VlaSkillHost(Protocol):
         self, mode_value: int, repeat: int = None, interval: float = None
     ) -> None: ...
 
-    def poll_result(self) -> Any: ...                        # 轮询共享执行（WaypointExecution）；结果到达置 action_finish
+    def poll_result(self) -> Any: ...                        # 轮询家族航点执行（VlaWaypointExecution）；结果到达置 action_finish
     def cancel_execution(self, owner=None) -> None: ...      # 取消当前执行（归属校验后发布保持意图）
     def stash_task_result(self, result: dict) -> None: ...   # 技能暂存任务级结果（随 done 相位上报）
     def publish_phase(self, phase: str, **kw: Any) -> None: ...  # 相位/终态上报

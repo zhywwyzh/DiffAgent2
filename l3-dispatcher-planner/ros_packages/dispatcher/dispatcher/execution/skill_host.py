@@ -106,7 +106,7 @@ class VlaSkillHost:
     waypoint_world 由站端解算随调用下行）。
     动作武装复用 DispatcherFlightHost.start_goal 的武装序列
     （snapshot_owner → 代次 → action_finish=False → WAIT_ACTION_FINISH），
-    动作出海复用 WaypointExecution；与飞行共用飞行独占
+    动作出海用 VLA 家族航点执行（tools/vla/vla_waypoint.py）；与飞行共用飞行独占
     （_meta.lx.concurrency = "flight-exclusive"）。不模拟 engine 属性、
     不给 core 增加领域方法。
     """
@@ -188,7 +188,7 @@ class VlaSkillHost:
         return True
 
     def send_task_goal(self, x, y, z, yaw, yaw_source: str = "unspecified"):
-        """航点下发（传输原语）：经 WaypointExecution 出海；塑形由技能内联完成。
+        """航点下发（传输原语）：经 VlaWaypointExecution 出海；塑形由技能内联完成。
 
         yaw=None 表示 look_forward（沿路径朝前）——Goal 契约要求 yaw 为有限
         数值（LocalGoalSet.yaw 消息字段），look_forward=True 时以 0.0 占位、

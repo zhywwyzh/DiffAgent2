@@ -38,7 +38,7 @@ Contract-ID: l3-dispatcher
 |----------|-----------|
 | `specs/implemented/inner/l3-core-boundary.spec.md` | dispatcher core 的准入与禁令 |
 | `specs/implemented/inner/l3-ros-adapter-boundary.spec.md` | ROS 收发隔离、端口与内存访问方式 |
-| `specs/implemented/inner/l3-execution-seam.spec.md` | dispatcher 内部共享执行能力与 planner 接口 |
+| `specs/implemented/inner/l3-execution-seam.spec.md` | 共享动作端口、家族宿主与装配及 planner 接口 |
 | `specs/implemented/inner/l3-skill-contract.spec.md` | 技能的身份、生命周期、端口与逆 |
 | `specs/implemented/inner/l3-migration-protocol.spec.md` | 旧库向新库迁移的裁决、准入与禁止事项 |
 | `specs/implemented/inner/l3-tool-plane.spec.md` | 工具发现/调用/事件/取消与连接租约的对外协议 |

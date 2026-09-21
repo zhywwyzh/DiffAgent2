@@ -1,7 +1,7 @@
 """VLA 装配（execution/composition.py::install_vla）与发现面汇入回归。
 
 覆盖验收要素（航点执行器形态，无感知/几何注入）：
-- 正常装配：WaypointExecution/VlaSkillHost/VlaSkill 构造、navigation.vla_nav
+- 正常装配：VlaWaypointExecution/VlaSkillHost/VlaSkill 构造、navigation.vla_nav
   注册可见（requires_perception=False）；
 - 异常回滚：注册失败时异常上抛、技能不可见；
 - disposer：注销后技能不可见、幂等、不误删替换实例（flight 同款语义）；
@@ -92,7 +92,7 @@ class Clock:
 
 
 class FakePorts:
-    """WaypointExecution 的 FlightPorts 假件：记录 goal/stop，进度可注入。"""
+    """VlaWaypointExecution 的 FlightPorts 假件：记录 goal/stop，进度可注入。"""
 
     def __init__(self):
         self.goals = []

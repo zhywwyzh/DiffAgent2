@@ -41,7 +41,7 @@ class VlaSkill(SkillBase):
     """navigation.vla_nav：经 prompt 队列进 DISPATCH 的异步技能（航点执行器）。"""
 
     name = "navigation.vla_nav"
-    requires_perception = False  # 机上仅需 odom（WaypointExecution.state() 校验）
+    requires_perception = False  # 机上仅需 odom（VlaWaypointExecution.state() 校验）
     synchronous = False  # 入队经 DISPATCH 逐 tick 推进；动作完成走壳通用完成判定
 
     def __init__(

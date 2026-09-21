@@ -21,7 +21,7 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 | `core/` | 六态 FSM 与任务队列 | `l3-dispatcher/core-boundary` |
 | `tool_plane/` | 工具面：承接 l4 工具调用的传输、协议、工具发现、调用准入、事件、取消与连接租约，及服务栈线程装配 | `l3-dispatcher/tool-plane`、`l3-dispatcher/l4-rpc` |
 | `tools/` | 工具本体：技能协议（`skill_api.py`）与家族实现（`flight/`、`vla/`、`scene_nav/`） | `l3-dispatcher/skill-contract` |
-| `execution/` | 共享执行（执行缝）与共享动作端口 | `l3-dispatcher/execution-seam` |
+| `execution/` | 共享动作端口、家族宿主与装配 | `l3-dispatcher/execution-seam` |
 | `ros_adapter/` | ROS 收发 | `l3-dispatcher/ros-adapter-boundary` |
 | `perception/` | 共享感知数据面：原始数据投影与几何换算；技能经端口只读 | `l3-dispatcher/scenegraph` |
 | `support/` | 系统支撑：状态枚举、配置、结构化日志 | — |
@@ -40,9 +40,10 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 | 子包（平面） | 契约术语的单一英文名；禁 `utils`/`helpers`/`misc`/`common` 泛名；`tools` 为开发组协定名例外保留 | `tool_plane/`、`support/` |
 | 模块（家族内） | 家族前缀，`__init__` 除外 | `tools/vla/vla_geometry.py` |
 | 模块（家族基础设施） | 领域名词，不带家族前缀（目录已表达家族） | `tools/<family>/catalog.py`、`tools/<family>/ports.py` |
+| 模块（家族执行） | 家族前缀（两家族同名实现，靠前缀区分） | `tools/flight/flight_waypoint.py`、`tools/vla/vla_waypoint.py` |
 | 模块（平面基础设施） | 领域名词，不带平面前缀（目录已表达平面） | `tool_plane/registry.py` |
-| 模块（执行缝） | 语义名词，不重复平面前缀 | `execution/waypoint.py` |
-| 类 | PascalCase 领域名词；类名不重复所在平面目录名 | `ToolIntake`、`WaypointExecution` |
+| 模块（执行缝） | 语义名词，不重复平面前缀 | `execution/ports.py` |
+| 类 | PascalCase 领域名词；类名不重复所在平面目录名；家族执行实现带家族前缀 | `ToolIntake`、`FlightWaypointExecution`/`VlaWaypointExecution` |
 | 函数/方法 | snake_case 动词开头 | `start_tool_workflow` |
 | 私有成员 | 单下划线前缀 | `_active_call_id` |
 | 常量 | UPPER_SNAKE_CASE | `DISPATCHER_STATE` |
@@ -81,6 +82,9 @@ Parent: specs/implemented/l3-dispatcher.spec.md
   `l3-dispatcher/core-boundary` B1 的显式豁免。
 - execution 允许家族端口模块仅因 `execution/skill_host.py` 实现各家族
   宿主端口；家族技能实现模块不得进入 execution。
+- `execution/composition.py` 是装配根，允许引入各家族执行实现
+  （`tools/<family>/<family>_waypoint.py`）；家族执行实现 import
+  `execution/ports.py` 取共享动作端口。
 - 感知数据面经 `perception/` 单向流动：`ros_adapter/` 是唯一写入方，
   `execution/skill_host.py` 是唯一读取方（再经端口交给技能）。技能不直接
   import `perception/`，`perception/` 不 import 任何平面，读写均遵守

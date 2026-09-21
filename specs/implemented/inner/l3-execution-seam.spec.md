@@ -5,25 +5,28 @@ Status: implemented
 Contract-ID: l3-dispatcher/execution-seam
 Parent: specs/implemented/l3-dispatcher.spec.md
 
-> 定义 dispatcher 内部共享执行能力及其与工具、planner 的接口。
+> 定义 dispatcher 共享动作端口、家族宿主与装配的边界，及其与工具、planner 的
+> 接口；航点下发的执行实现归使用它的工具家族。
 
 ## 1. 职责归属
 
 工具专属的流程、子状态推进、目标构造与完成裁决归 dispatcher 的工具及工具状态机。
-跨工具共享的动作发送、批次关联、反馈、超时与取消机制归 dispatcher 内部执行模块，
-经端口与 ROS 适配层直接使用 planner。共享执行模块不持有第二套任务队列或工具流程 FSM。
+航点下发的动作发送、批次关联、反馈、超时与取消机制归使用它的工具家族
+（`tools/<family>/<family>_waypoint.py`），经共享动作端口与 ROS 适配层直接使用 planner。
+家族执行实现不持有第二套任务队列或工具流程 FSM。
 
 `mission_executive` 不得在本仓库迁入、构建或启动，也不得恢复旧 mission FSM；退役依据见[直连决策](../architecture/2026-09-16-dispatcher-direct-planner.md)。
 
 | 能力 | 归属 |
 |---|---|
 | 单一工具的执行流程、子状态、完成判据 | 对应工具及工具状态机 |
-| 多工具共用的动作发送、批次记账、反馈和取消 | dispatcher 内部共享执行能力 |
+| 航点下发的动作发送、批次记账、反馈和取消 | 使用它的工具家族（`tools/<family>/<family>_waypoint.py`） |
+| 跨家族共享的动作端口、家族宿主与装配 | `dispatcher/execution/`（ports / skill_host / composition） |
 | 上游尚未实现的能力 | 只在迁移台账登记，不创建代码占位或注册生产能力 |
 
 ## 2. 节律
 
-- 执行缝的 tick 频率由能力需求确定，**10 Hz 与 20 Hz 均为合法选择**；频率
+- 航点执行实现的 tick 频率由能力需求确定，**10 Hz 与 20 Hz 均为合法选择**；频率
   不构成对实现语言的约束。
 - 改变频率不要求改写实现语言；频率与实现在同一次迁移中可分别演进。
 
@@ -32,8 +35,8 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 > 按计算密度分层，而非按包边界一刀切。
 
 - **低密度**（状态推进、完成判定、编排、参数装载）→ Python。
-- **高密度**（几何、拓扑搜索、走廊与轨迹优化）→ C++，经 pybind 暴露为执行缝
-  的一个能力端口。
+- **高密度**（几何、拓扑搜索、走廊与轨迹优化）→ C++，经 pybind 暴露为共享
+  执行平面的一个能力端口。
 - **混合衔接**：Python 与 C++ 之间以"端口调用 + 内存共享状态"衔接；禁止为
   每次小计算做跨语言往返调用。
 - C++ 内部同样遵守 `l3-dispatcher/ros-adapter-boundary`：领域核心不含
@@ -62,12 +65,12 @@ Parent: specs/implemented/l3-dispatcher.spec.md
   共用；子包平面划分归 `l3-dispatcher/package-layout`。
   planner 的 topic、消息字段、坐标系及单位保持其现行契约；任何必要变更先登记和评审，
   不通过重建旧接口或双写兼容路径解决。
-- 执行缝不感知工具语义：它接收"航点意图 / 目标对象 / 动作指令"，不识别具体
-  工具名。
-- 执行缝向 dispatcher 回传唯一的完成信号。完成判定若需工具专属条件，由技能
-  的完成门裁决，执行缝只上报执行结果。
+- 共享动作端口与各家族执行实现均不感知工具语义：它们接收"航点意图 / 目标
+  对象 / 动作指令"，不识别具体工具名。
+- 家族执行实现向 dispatcher 回传唯一的完成信号。完成判定若需工具专属条件，由
+  技能的完成门裁决，执行实现只上报执行结果。
 - 动作结果必须来自真实反馈及明确判据；取消、覆盖和停止必须使旧动作失效并作用到
-  planner。不得以“直连”为由只保留发布而丢掉结果、失败、超时与取消语义。
+  planner。不得以"直连"为由只保留发布而丢掉结果、失败、超时与取消语义。
 - core 仍只运行六态任务 FSM 并按名分发；飞行目标构造与专属完成门归技能，通用
   执行记账归共享执行模块，ROS 收发归适配层。直连不允许 engine 直接持有领域发布器。
 - `action_result` 表示动作执行结果，不要求存在 ROS action 或 mission action 服务。
@@ -84,7 +87,7 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 | 门禁 | 检查 |
 |------|------|
 | G10 | `ros_packages/` 下不存在名为 `mission_executive` 的包，构建与启动配置不得引用该包；执行代码与启动配置不包含 `/mission/task` 客户端、服务端或兼容入口（§1、§4） |
-| G11 | 执行缝代码中不含任何工具名字符串分支（§4） |
+| G11 | `execution/` 平面与各家族 `<family>_waypoint.py` 中不含任何工具名字符串分支（§4） |
 | G12 | 经 pybind 暴露的每个能力端口都有对应的纯 C++ 单测（§3） |
 
 ## 7. 直连消息与取消边界

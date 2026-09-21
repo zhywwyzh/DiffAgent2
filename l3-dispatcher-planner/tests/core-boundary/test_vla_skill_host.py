@@ -3,7 +3,7 @@
 覆盖 P1 验收三要素：
 - 武装序列：snapshot_owner → 代次推进 → action_finish=False → WAIT_ACTION_FINISH；
 - 代次失效：旧代次 action result 被拒（stale_generation）；
-- action_finish 门：host.poll_result 消费 WaypointExecution 结果置完成标志。
+- action_finish 门：host.poll_result 消费 VlaWaypointExecution 结果置完成标志。
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ sys.path.insert(0, str(PACKAGE))
 
 from dispatcher.engine import DispatcherEngine  # noqa: E402
 from dispatcher.execution.skill_host import VlaSkillHost  # noqa: E402
-from dispatcher.execution.waypoint import WaypointExecution  # noqa: E402
+from dispatcher.tools.vla.vla_waypoint import VlaWaypointExecution  # noqa: E402
 from dispatcher.execution.ports import (  # noqa: E402
     FlightConfig,
     FlightState,
@@ -80,7 +80,7 @@ class Clock:
 
 
 class FakePorts:
-    """WaypointExecution 的 FlightPorts 假件：记录 goal/stop，进度可注入。"""
+    """VlaWaypointExecution 的 FlightPorts 假件：记录 goal/stop，进度可注入。"""
 
     def __init__(self):
         self.goals = []
@@ -154,7 +154,7 @@ def stack(tmp_path, monkeypatch):
     engine.events = []
     engine.runlog.emit = lambda level, event, **fields: engine.events.append((event, fields))
     ports = FakePorts()
-    execution = WaypointExecution(ports, FlightConfig(
+    execution = VlaWaypointExecution(ports, FlightConfig(
         min_height=0.0, max_height=1.8, state_timeout=1.0, action_timeout=60.0))
     host = VlaSkillHost(engine, execution, VlaHostConfig())
     return SimpleNamespace(engine=engine, ports=ports, execution=execution, host=host)
@@ -250,7 +250,7 @@ def test_send_task_goal_books_waypoint_and_rolls_back_on_failure(stack):
     assert gate.pending_action.waypoint == (1.0, 2.0, 1.2)
     assert gate.pending_action.nav_yaw == 0.5
     assert gate.pending_action.yaw_source == "image_bbox_center_ray"
-    # 高度超界（> max_height 1.8）→ WaypointExecution 拒绝并上抛，回滚执行态。
+    # 高度超界（> max_height 1.8）→ VlaWaypointExecution 拒绝并上抛，回滚执行态。
     # 共享执行独占：先让上一动作完成（all_consumed）再下发新目标。
     batch = ports.goals[-1][0]
     ports.progress_messages.append(Progress(batch, True))

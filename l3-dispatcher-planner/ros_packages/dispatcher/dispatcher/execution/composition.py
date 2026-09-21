@@ -1,6 +1,7 @@
 """组合飞行 / VLA 领域对象；ROS 端口由调用方注入。"""
 from dispatcher.execution.skill_host import DispatcherFlightHost, VlaSkillHost
-from dispatcher.execution.waypoint import WaypointExecution
+from dispatcher.tools.flight.flight_waypoint import FlightWaypointExecution
+from dispatcher.tools.vla.vla_waypoint import VlaWaypointExecution
 from dispatcher.tools.flight.session import FlightSession
 from dispatcher.tools.flight.takeoff_skill import TakeoffSkill
 from dispatcher.tools.flight.land_skill import LandSkill
@@ -12,7 +13,7 @@ from dispatcher.tools.vla.vla_skill import VlaSkill
 
 
 def install_flight(engine, ports, config):
-    execution = WaypointExecution(ports, config)
+    execution = FlightWaypointExecution(ports, config)
     host = DispatcherFlightHost(engine, execution, FlightSession(config))
     disposers = []
     try:
@@ -38,15 +39,16 @@ def install_vla(
 ):
     """组合 VLA 领域对象（与 install_flight 同构），注册 navigation.vla_nav。
 
-    - 动作出海复用 WaypointExecution（与飞行共享同一 FlightPorts 出站口，
-      独立实例：batch 随机起始互不冲突；飞行独占由 tool-plane 单活动调用
-      与 engine 动作账务（owner 门 / 代次）保证）；
+    - 动作出海用 VLA 家族自己的航点执行（`tools/vla/vla_waypoint.py`；与飞行
+      共用同一 FlightPorts 出站口，独立实例：batch 随机起始互不冲突；
+      飞行独占由 tool-plane 单活动调用与 engine 动作账务（owner 门 / 代次）
+      保证）；
     - waypoint_world 由站端解算随调用下行（「累积点云 + 位姿@帧时戳 +
       VLM bbox」在 station 完成），机上无几何/感知注入；
     - 技能层 slog 出站回调接 engine.runlog.emit；技能层阈值
       search_success_distance_thresh（距离过近判定）经装配层 ~vla/* 注入。
     """
-    execution = WaypointExecution(ports, execution_config)
+    execution = VlaWaypointExecution(ports, execution_config)
     host = VlaSkillHost(engine, execution, host_config)
     skill = VlaSkill(
         host,

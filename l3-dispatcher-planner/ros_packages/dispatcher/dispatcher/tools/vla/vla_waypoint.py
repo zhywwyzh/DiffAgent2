@@ -6,7 +6,7 @@ import time
 from dispatcher.execution.ports import ActionResult, FlightConfig, FlightPorts, Goal
 
 
-class WaypointExecution:
+class VlaWaypointExecution:
     def __init__(self, ports: FlightPorts, config: FlightConfig, *, clock=time.monotonic, first_batch=None):
         self.ports = ports
         self.config = config

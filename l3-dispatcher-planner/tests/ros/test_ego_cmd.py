@@ -51,7 +51,7 @@ def test_real_ego_generates_cmd_and_cancels_current_batch(tmp_path, station):
         from quadrotor_msgs.msg import PositionCommand
         from dispatcher.ros_adapter.planner_execution_ros import RosFlightPorts
         from dispatcher.execution.ports import Goal, FlightConfig
-        from dispatcher.execution.waypoint import WaypointExecution
+        from dispatcher.tools.flight.flight_waypoint import FlightWaypointExecution
 
         rospy.init_node('cmd_boundary_test', anonymous=True, disable_signals=True)
         odometry = rospy.Publisher('/test/odom', Odometry, queue_size=1)
@@ -83,7 +83,7 @@ def test_real_ego_generates_cmd_and_cancels_current_batch(tmp_path, station):
         ports = RosFlightPorts(odometry_topic='/test/odom')
         wait_for(lambda: ports.snapshot() is not None and ports._goal.get_num_connections() > 0)
         time.sleep(2)
-        execution = WaypointExecution(ports, FlightConfig(action_timeout=35))
+        execution = FlightWaypointExecution(ports, FlightConfig(action_timeout=35))
         batch = execution.start(Goal((0., 0., 1.), math.pi/2))
         result = []
         def finished():

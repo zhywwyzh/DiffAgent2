@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT / 'ros_packages/dispatcher'), str(ROOT / 'tests/core-boundary')]
 from test_core_boundary import engine
 from dispatcher.execution.composition import install_flight
-from dispatcher.execution.waypoint import WaypointExecution
+from dispatcher.tools.flight.flight_waypoint import FlightWaypointExecution
 from dispatcher.tools.flight.session import FlightSession
 from dispatcher.execution.ports import FlightConfig, FlightState, Goal, Progress
 from dispatcher.tools.flight.catalog import flight_specs
@@ -121,7 +121,7 @@ def test_timeout_and_old_progress_cannot_succeed():
     ports = Ports()
     ports.auto_finish = False
     now = [ports.current.received]
-    execution = WaypointExecution(ports, FlightConfig(action_timeout=.2), clock=lambda: now[0], first_batch=10)
+    execution = FlightWaypointExecution(ports, FlightConfig(action_timeout=.2), clock=lambda: now[0], first_batch=10)
     batch = execution.start(Goal((1., 0., 1.), 0.))
     ports.results = [Progress(batch-1, True)]
     assert execution.poll() is None
@@ -137,7 +137,7 @@ def test_timeout_and_old_progress_cannot_succeed():
 def test_skipped_waypoint_fails_and_cancels():
     ports = Ports()
     ports.auto_finish = False
-    execution = WaypointExecution(ports, FlightConfig())
+    execution = FlightWaypointExecution(ports, FlightConfig())
     batch = execution.start(Goal((1., 0., 1.), 0.))
     ports.results.append(Progress(batch, True, 1))
     assert not execution.poll().success
@@ -225,7 +225,7 @@ def test_cancel_and_new_call_ignore_late_result_while_fsm_runs(engine, monkeypat
 def test_freshness_includes_age_before_receipt_and_requires_world_frame():
     ports = Ports()
     ports.current = replace(ports.current, source_age=.8)
-    execution = WaypointExecution(ports, FlightConfig(), clock=lambda: ports.current.received + .3)
+    execution = FlightWaypointExecution(ports, FlightConfig(), clock=lambda: ports.current.received + .3)
     with pytest.raises(RuntimeError, match='stale'):
         execution.state()
     ports.current = replace(ports.current, frame='camera', source_age=0.)
