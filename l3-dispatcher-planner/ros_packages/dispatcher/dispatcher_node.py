@@ -112,8 +112,7 @@ def create_dispatcher_engine(config_path: str):
                 key_aliases=CONFIG_KEY_ALIASES, log=config_log,
             )
     node.prompt_queue.sync_task_buffers_from_prepare(node.prepare_content)
-    # perception（几何原语源）一并透出：VLA 装配（create_vla_runtime）经
-    # VlaSkillHost 组合注入；headless 时为 None。
+    # perception 实例一并透出（装配根持有，供需要直连实例的调用方；headless 时为 None）。
     return node, perception
 
 
@@ -141,7 +140,7 @@ def create_flight_runtime(engine):
     return host, dispose, ports.close, ports, config
 
 
-def create_vla_runtime(engine, perception, ports, execution_config):
+def create_vla_runtime(engine, ports, execution_config):
     """装配 VLA 技能（navigation.vla_nav），返回资源逆操作。
 
     - 技能层 slog 出站回调（emit）在 install_vla 内接 engine.runlog.emit；
@@ -150,16 +149,11 @@ def create_vla_runtime(engine, perception, ports, execution_config):
       形态与次数语义，通道接入时替换为真实发布器；装配时留痕一次。
       未接线时 VlaSkillHost.publish_mode_burst 会直接失败（不静默降级），
       空实现仅免除该失败，不引入其他行为漂移。
-    - 宿主只读配置经 ROS 私有参数 ~vla/* 覆盖（同 ~flight/* 机制）。
-    - VLA 几何/阈值配置同样经 ~vla/* 覆盖：技能层两阈值
-      search_success_distance_thresh(0.3)/far_push_distance_m(5.0) 与
-      VlaGeometryConfig 全字段（safe_dis_radius_m 0.4 / if_safe_dis True /
-      behind_dist 2.0 / d_side 0.7 / d_forward 0.0 / depth_source "cloud" /
-      is_stable False / stable_height 0.4 / geometry_agree_safe_dis_radius_m
-      0.8）。~vla/* 为 VLA 几何/阈值的唯一权威；perception 侧同名属性属
-      perception 自有（base_policy 段配置），VLA 几何不依赖。
+    - 宿主只读配置经 ROS 私有参数 ~vla/* 覆盖（同 ~flight/* 机制）；技能层
+      阈值 search_success_distance_thresh(0.3) 同源。
+    - waypoint_world 由站端解算随调用下行：机上无几何配置、无感知注入，
+      headless 亦可装配。
     """
-    from dispatcher.tools.vla.vla_geometry import VlaGeometryConfig
     from dispatcher.tools.vla.ports import VlaHostConfig
     from dispatcher.execution.composition import install_vla
 
@@ -177,19 +171,11 @@ def create_vla_runtime(engine, perception, ports, execution_config):
         for field in fields(VlaHostConfig)
         if field.name != "publish_planner_mode"
     }
-    geometry_values = {
-        field.name: params_ros.get_private_param("vla/" + field.name, field.default)
-        for field in fields(VlaGeometryConfig)
-    }
     _, dispose = install_vla(
         engine, ports, execution_config,
         VlaHostConfig(publish_planner_mode=planner_mode_sink_no_channel, **values),
-        perception,
-        geometry_config=VlaGeometryConfig(**geometry_values),
         search_success_distance_thresh=params_ros.get_private_param(
             "vla/search_success_distance_thresh", 0.3),
-        far_push_distance_m=params_ros.get_private_param(
-            "vla/far_push_distance_m", 5.0),
     )
     return dispose
 
@@ -210,21 +196,16 @@ def main():
     config_path = params_ros.get_private_param("config_path", "")
 
     print("Program starting...")
-    engine, perception = create_dispatcher_engine(config_path)
+    engine, _perception = create_dispatcher_engine(config_path)
 
     flight_host, dispose_flight, close_flight_ports, flight_ports, flight_config = (
         create_flight_runtime(engine)
     )
-    dispose_vla = None
-    if perception is not None:
-        # VLA 需要感知几何原语源；headless（无传感器）不装配——
-        # navigation.vla_nav 调用经 core 未注册路径 fail-closed
-        # （tool_not_registered 终态），不静默降级。
-        dispose_vla = create_vla_runtime(engine, perception, flight_ports, flight_config)
+    # VLA 为航点执行器：无感知/几何注入，headless 亦装配。
+    dispose_vla = create_vla_runtime(engine, flight_ports, flight_config)
     with ExitStack() as resources:
         resources.callback(close_flight_ports)
-        if dispose_vla is not None:
-            resources.callback(dispose_vla)
+        resources.callback(dispose_vla)
         resources.callback(dispose_flight)
         control_plane = ToolControlPlane(
             engine.tools, log=RosLog(), shutdown=RosShutdown(),

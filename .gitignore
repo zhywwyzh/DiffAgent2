@@ -42,5 +42,7 @@ gitlab-bots/.env
 .codex/
 
 # basic
-.trae/
+# .trae/ 整体忽略，但技能目录纳入版本控制（.codebuddy/sync-skills.sh 的源）
+.trae/*
+!.trae/skills/
 .vscode/

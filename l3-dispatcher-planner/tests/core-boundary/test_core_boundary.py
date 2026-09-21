@@ -478,7 +478,7 @@ def test_renamed_module_is_only_workflow_entry():
 def test_composition_preserves_configuration_on_perception_owner(tmp_path, monkeypatch):
     class Perception:
         def __init__(self):
-            self.geometry_agree_safe_dis_radius_m = 0.8
+            self.behind_dist = 0.8
             self.perception_only = 1
 
         def get_frame_snapshot(self):
@@ -507,14 +507,14 @@ def test_composition_preserves_configuration_on_perception_owner(tmp_path, monke
     module = importlib.import_module("dispatcher_node")
     monkeypatch.setattr(module, "load_yaml", lambda *args, **kwargs: {
         "ros": {"pointcloud": {"mode": "cloud"}},
-        "base_policy": {"geometry_agree_safe_dis_radius_m": 1.2, "perception_only": 2},
-        "uav_policy": {"geometry_agree_safe_dis_radius_m": 1.5, "min_action_wait": 0.7},
+        "base_policy": {"behind_dist": 1.2, "perception_only": 2},
+        "uav_policy": {"behind_dist": 1.5, "min_action_wait": 0.7},
     })
     try:
         node, _ = module.create_dispatcher_engine("")
         perception = node.get_frame_snapshot.__self__
         assert isinstance(perception, Perception)
-        assert perception.geometry_agree_safe_dis_radius_m == node.geometry_agree_safe_dis_radius_m == 1.5
+        assert perception.behind_dist == node.behind_dist == 1.5
         assert perception.perception_only == 2 and node._min_action_wait == 0.7
     finally:
         sys.modules.pop("dispatcher_node", None)

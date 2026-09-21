@@ -1,6 +1,6 @@
 # dispatcher 待迁依赖与保留项台账
 
-更新日期：2026-09-17。状态：R03/R05 的控制职责已上行修正到 dispatcher，修正版未重跑测试；R04 原点子能力保留，其余历史消费继续保留；R05 的 VLA 重规划与 R07 的调试目录已由 [dispatcher VLA 技能迁移方案](../iteration/design-dispatcher-vla-migration.md) 接管（R05 契约先行、P1–P3 分期实现，记录消费继续挂账；R07 裁决删孤儿字段后关门，删除动作在方案 P1）；R01/R02/R06 待迁；R08 已删除且不自动恢复。
+更新日期：2026-09-20。状态：R03/R05 的控制职责已上行修正到 dispatcher，修正版未重跑测试；R04 原点子能力保留，其余历史消费继续保留；R05 的 VLA 专属 REPLAN 已随后续 [机上收窄方案](../iteration/design-dispatcher-vla-waypoint-executor-migration.md) **整体退役**（station 解算 waypoint 后机上为终态腿，无 replan；技能自有 replan 状态与 `far_push` 一并删除，`PendingAction.replan_cmd`/`SkillVerdict.REPLAN` 保留为通用账务/裁决机制），记录消费继续挂账；R07 已关门；R01/R02/R06 待迁；R08 已删除且不自动恢复；R09 登记在案（[场景图迁移方案](../iteration/design-dispatcher-scenegraph-migration.md)）。
 
 本文件记录已批准的暂时保留及后续处理线索，不定义新契约。用户明确要求：保留项在未来接入或优化时重新判断，不能因为当前生产技能为空而直接删除。未来实现方案仍按 `iteration/_TEMPLATE.md` 落盘；如需改变端口或行为契约，先更新 `specs/`。
 
@@ -84,7 +84,7 @@
 |----|----|
 | 对应审核 | C01–C03 |
 | 新版保留位置 | `N/core/action_gate.py::PendingAction`、`ActionGate.pending_action`；`handle_post_action` 的 REPLAN 标记清理和 `clear_action_state` 的全量清理。 |
-| 当前状态 | DispatcherFlightHost.start_goal 已接入飞行动作武装、实例归属、代次和当前批次反馈；取消/停止控制已改为 dispatcher 的目标覆盖方式，本次未复验。**VLA 专属重规划已由 [dispatcher VLA 技能迁移方案](../iteration/design-dispatcher-vla-migration.md) 接管（P0 契约先行，P1–P3 分期实现）**：REPLAN 判据迁为技能自有 replan 状态（replan_cmd / replan_reason），在 `on_action_result` 内判定并返回 `SkillVerdict.REPLAN`，技能不读宿主 `ActionGate.pending_action`；契约见 [技能契约 §10](../../../specs/implemented/inner/l3-skill-contract.spec.md)。 |
+| 当前状态 | DispatcherFlightHost.start_goal 已接入飞行动作武装、实例归属、代次和当前批次反馈；取消/停止控制已改为 dispatcher 的目标覆盖方式，本次未复验。**VLA 专属重规划已退役（2026-09-20，[机上收窄方案](../iteration/design-dispatcher-vla-waypoint-executor-migration.md)）**：station 解算 `waypoint_world` 后机上为终态腿（单次消费、单次下发、无 replan/无重试），技能自有 replan 状态与 `far_push`/`depth_match_ok` 一并删除；`PendingAction.replan_cmd` 与 `SkillVerdict.REPLAN` 保留为通用账务/裁决机制（技能契约 §4）。契约见 [技能契约 §10](../../../specs/implemented/inner/l3-skill-contract.spec.md)；归档见 [2026-09-20 决策](../../../specs/implemented/architecture/2026-09-20-vla-waypoint-executor.md)。 |
 | 记录消费现状 | VLA 航点发布时的过程记录消费（`host.recording._record_process_event`，远推进腿不记）**暂不迁、继续挂账**：记录服务未建（R01/R06）；状态可见性先由 `publish_phase` 覆盖。 |
 | 字段级区分 | replan_cmd、prompt_raw、action_name、instruction_type 是明确的读点；replan_reason 见写入/清理；waypoint、look_forward、nav_yaw、yaw_source、is_far_push 在该上下文快照中未确认完整消费者，不能把 skill 中其他同名概念当成此对象读点。整类保留不等于每个字段永久保留。 |
 | 何时重新参考 | 实现 SkillHost.arm_action 通用化、飞行/场景技能动作发布，或调整动作元数据模型时仍须读本条。 |
@@ -137,6 +137,19 @@ R07 关门证据（2026-09-17，方案 P1）：
 | 必须验证 | 技能完成门/裁决与实例归属；感知结果与图像按现行端口契约出站；发现面 revision 与 spec 一致；站端读模型有真实消费者且非恒 404 的占位路由。 |
 | 何时可删除 | 本条目唯一存在价值是留证与触发条件登记：若产品明确永久放弃 GRASP 感知、且上述接入条件不再需要被任何未来任务触发，可删除本条目与 [grasp 退役登记方案](../iteration/20260915-20260917/design-dispatcher-grasp-retirement.md)；删除前须在「后续关闭条目的记录格式」表中留一行处理记录。 |
 
+<a id="r09"></a>
+## R09 — 对象导航下行与在线建图链（不迁，登记）
+
+| 项 | 内容 |
+|----|----|
+| 对应裁决 | [场景图迁移方案](../iteration/design-dispatcher-scenegraph-migration.md) §4.1 裁决 6/8/9 |
+| 当前状态 | **不迁，登记**。旧库对象导航执行体在 `mission_executive`（`src/handlers/mission_core_object_nav.cpp`、`mission_executive/handlers/object_nav.py`），受 `l3-execution-seam` §1 与门禁 G10 禁止迁入；其 object 级语义（到达判据=位置+终端偏航、任务级 deadline 与重规划上限、终态原因 `reached`/`unreachable`/`timeout`/`failed`）按 [技能契约 §11](../../../specs/implemented/inner/l3-skill-contract.spec.md) 重新实现到 `scene.navigate` 技能，**不搬运代码**。在线建图链（`expandSkeleton` 全套、`initSceneGraph`/`updateSceneGraph`、`cloud_fov_limit`）因旧库已失去地图接口依赖（`rayCast` 只剩 facet 碰撞、`searchPathInRawMap` 为 stub、`find_package(catkin)` 无 `map_interface` 组件）而不可用，不迁。 |
+| 新版位置与现状 | 目标契约已先行：[场景图能力契约](../../../specs/proposed/inner/l3-scenegraph.spec.md)（`proposed`）+ [技能契约 §11](../../../specs/implemented/inner/l3-skill-contract.spec.md) + [工具面 §1 目标集合](../../../specs/implemented/inner/l3-tool-plane.spec.md)。代码尚未迁入：`ros_packages/` 无 `scene_graph` 包，`dispatcher/tools/` 无 `scene_nav` 家族，`dispatcher/perception/` 为空。 |
+| 何时重新参考 | ① 实施 `scene.navigate` 的 object 级状态机时；② 需要恢复机上在线建图时；③ 讨论把 object 语义移回 planner 侧（方案 §4.4 备选 C）时；④ 需要新增 `Instruction` 类下行消息时。 |
+| 接入条件 | ① `l3-dispatcher/scenegraph` 与 `l3-dispatcher/skill-contract` §11 就位（已满足）；② `scene.navigate` 的完成语义 `workflow_result` 与结果字段已在工具面登记（已满足）；③ 在线建图若恢复，须先接回地图接口依赖并另立契约，**不得在 executor 侧复活建图入口**；④ 若走备选 C（object 语义归 planner），须 planner 契约先行，属 `l3-migration-protocol` §2-⑤ 运动规划范围，不在本条目内放行。 |
+| 必须验证 | 到达判据（位置 + 终端偏航）与失败原因在真实链路可判读；无图/无对象/无通路/无法挂载时 fail-closed 且不静默成功；取消与覆盖后旧动作结果失效；终态唯一。 |
+| 何时可删除 | 本条目唯一存在价值是留证与触发条件登记。`scene.navigate` 按方案 P2/P3 落地并验收后，把「当前状态」的 ① 部分改为「已接入」并保留在线建图部分；若产品明确永久放弃机上在线建图且其归属另有定论，删除 ② 部分。删除前须在「后续关闭条目的记录格式」表中留一行处理记录。 |
+
 ## 当前队列如何执行（回应 B10）
 
 | 阶段 | 调用与数据变化 | 保留的历史依赖 |
@@ -170,6 +183,8 @@ R07 关门证据（2026-09-17，方案 P1）：
 | 2026-09-16 | R04、R06 原点/历史边界 | 继续保留；仅原点子能力已出方案 | [基础飞行方案 §4.5](../iteration/20260915-20260917/design-dispatcher-basic-flight-migration.md#45-原点服务与-r04-范围) | 当前只读 l4 的 plan_tools.json 定义 return 空参返回起飞点；FlightSession 仅为设计，尚无实现/运行证据 | 起飞原点随基础飞行接入；previous、历史集合、游标和文本回退待真实消费者接入，不因本轮无公开入口裁掉；日志 session_tag 不等于飞行会话 |
 | 2026-09-17 | R05、R07 | R05 由 VLA 迁移方案接管（P0 契约先行）；R07 裁决删孤儿后关门（删除动作在方案 P1） | [dispatcher VLA 技能迁移方案](../iteration/design-dispatcher-vla-migration.md) §5/§7；[工具面契约 §1](../../../specs/implemented/inner/l3-tool-plane.spec.md)；[技能契约 §10](../../../specs/implemented/inner/l3-skill-contract.spec.md) | 本轮仅文档与 spec 更新，无代码与运行证据；工具面 revision 新值已按 §1 七工具元数据重算一致 | R05：P1–P3 实现后按方案 §8 回填验收（REPLAN 技能自有状态、不读宿主 pending_action），`_record_process_event` 记录消费待记录服务（R01/R06）继续挂账；R07：方案 P1 删字段并 grep 零命中后关门 |
 | 2026-09-17 | R07 | **已关门**（方案 P1 执行删除） | `l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/core/telemetry.py`：删 `thinking_debug_dir`/`last_thinking_debug_dir` 孤儿字段与目录创建逻辑，原位留中文注释指向本条目 | 删前 grep：代码树内仅 telemetry.py 自身定义命中（零消费者），specs/ 0 命中；删后 grep：`l3-dispatcher-planner/` 全树 `thinking_debug_dir` 0 命中；core-boundary 回归通过（当轮 29 passed，环境缺 zenoh 的 1 项为基线环境问题） | 无（关门）；未来多图调试需求按新设计重新立项，不恢复旧字段 |
+| 2026-09-20 | R09 | 登记（不迁） | [场景图迁移方案](../iteration/design-dispatcher-scenegraph-migration.md) §4.1 裁决 6/8/9；契约先行产物见 `l3-scenegraph`、`l3-skill-contract` §11、`l3-tool-plane` §1 目标集合 | 本轮仅契约与文档改动，无代码与运行证据；未运行测试或构建 | `scene.navigate` 落地时按条目「必须验证」回填；在线建图恢复须先接回地图依赖并另立契约 |
+| 2026-09-20 | R05（VLA 部分） | **VLA REPLAN 退役**（记录消费继续挂账） | [机上收窄方案](../iteration/design-dispatcher-vla-waypoint-executor-migration.md) P0–P3：`vla_skill` 重写为航点执行器（三裁决），机上几何/`geometry_source`/`get_fast_rgb` 删除，`base_policy` 几何族退役（3029→1302 行），`_FAIL_REASONS` 登记 `invalid_station_waypoint`；归档 [2026-09-20 决策](../../../specs/implemented/architecture/2026-09-20-vla-waypoint-executor.md) | `py_compile` 全包通过、删除项 grep 零残留、`revision` 按真实注册面重算回填 spec；经使用者许可运行 `pytest l3-dispatcher-planner/tests`（排除 4 个 zenoh 环境基线收集失败）→ **167 passed / 1 failed**，唯一失败 `test_import_closure_has_no_domain_or_ros` 为既有基线（`core/skill_router.py` 提交 `28db4d1` 的 import 与禁用前缀冲突，`core/` 未被本轮触碰） | `host.recording._record_process_event` 记录消费仍待 R01/R06 记录服务；站端 `waypoint_world` 产出归外部仓库（本库 `l4-agent` 非最新），具备条件后补真机/仿真整链验收 |
 
 未来处理后在此追加记录并同步 README 索引。若仍不能接入，不只写“以后处理”，应说明缺少哪个端口/服务、下一次由哪种任务触发；若决定删除，应记录消费者如何退役或被替代。
 

@@ -99,21 +99,21 @@ class DispatcherFlightHost:
 
 
 class VlaSkillHost:
-    """VLA 技能宿主：组合注入 engine（动作账务+代数）+ perception（几何原语源）+ 配置。
+    """VLA 技能宿主：组合注入 engine（动作账务+代数）+ 配置（航点执行器形态）。
 
     端口契约见 dispatcher/tools/vla/ports.py::VlaSkillHost（与
-    tools/skill_api.py::SkillHost 通用端口对齐，增加 geometry_source 访问）。
+    tools/skill_api.py::SkillHost 通用端口对齐，无几何原语源——
+    waypoint_world 由站端解算随调用下行）。
     动作武装复用 DispatcherFlightHost.start_goal 的武装序列
     （snapshot_owner → 代次 → action_finish=False → WAIT_ACTION_FINISH），
     动作出海复用 WaypointExecution；与飞行共用飞行独占
     （_meta.lx.concurrency = "flight-exclusive"）。不模拟 engine 属性、
-    不给 core 增加领域几何方法。
+    不给 core 增加领域方法。
     """
 
-    def __init__(self, engine, execution, perception, config: VlaHostConfig):
+    def __init__(self, engine, execution, config: VlaHostConfig):
         self.engine = engine
         self.execution = execution
-        self.perception = perception
         self.config = config
         # 技能内联塑形所需的只读配置（SkillHost 通用端口属性）
         self.min_height = config.min_height
@@ -121,17 +121,11 @@ class VlaSkillHost:
         self.planner_ego_mode_value = config.planner_ego_mode_value
 
     # ------------------------------------------------------------------
-    # 入站读取（帧 + 几何原语源）
+    # 入站读取（最新帧：仅距离过近判定消费，可为 None）
     # ------------------------------------------------------------------
 
     def latest_frame(self):
         return self.engine.get_frame_snapshot()
-
-    def get_fast_rgb(self):
-        return self.perception.get_fast_rgb()
-
-    def geometry_source(self):
-        return self.perception
 
     # ------------------------------------------------------------------
     # 出站动作：武装（记账）→ 下发（传输原语）
@@ -265,9 +259,10 @@ class VlaSkillHost:
     def fail_sequence(self, reason: str):
         """VLA fail 序列唯一写口；相位 error.code 携带语义原因。
 
-        invalid_grounded_bbox / target_not_visible / odom_stamp_unavailable
-        三态经 reason 传入并原样出现在 fail 相位（error={"code": reason, ...}）；
-        区别于飞行宿主的 execution_failed 通用码。
+        invalid_station_waypoint（waypoint_world 缺失/非恰 3 项/非有限，或
+        yaw 非有限）经 reason 传入并原样出现在 fail 相位
+        （error={"code": reason, ...}），并经工具面 fail 词表贯通到
+        rpc_outcome.reason；区别于飞行宿主的 execution_failed 通用码。
         """
         try:
             self.execution.cancel()

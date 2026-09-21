@@ -31,12 +31,15 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 的元数据见下。测试自有能力不注册到生产默认集合；后续能力同样须有完整
 实现与测试。
 
-**`navigation.vla_nav`**：station 单次接地的 grounded detection 载体，
-完成语义 `workflow_result`，`requires_perception=true`，并发语义同 §4
+**`navigation.vla_nav`**：station 解算航点的执行载体——站端以「累积点云（最新，
+世界系）+ 位姿按帧时戳插值 + VLM bbox」解算 `waypoint_world` 后下发，机上为
+航点执行器（无 bbox 消费、无几何解算）。完成语义 `action_result`，
+`requires_perception=false`（机上仅需 odometry，由共享执行校验），并发语义同 §4
 飞行独占。`title` 为 `Reach a visual target`；`description` 为
-`Reach a station-grounded visual target: consume the bbox downlinked by
-the station (rgb camera stamp bound) and execute the waypoint chain.`；
-`outputSchema` 为空 object（`type=object`、`properties={}`、
+`Reach a station-grounded visual target: consume the station-resolved
+waypoint (world frame, computed on the station from the grounded bbox +
+accumulated cloud + pose@image_stamp) and execute it as one terminal
+leg.`；`outputSchema` 为空 object（`type=object`、`properties={}`、
 `additionalProperties=false`）。`inputSchema` 顶层 `type=object`、
 `additionalProperties=false`，字段：
 
@@ -44,21 +47,45 @@ the station (rgb camera stamp bound) and execute the waypoint chain.`；
 |------|------|------|
 | `object` | 是 | `string`，`minLength=1` |
 | `prompt` | 是 | `string`，`minLength=1` |
-| `bbox_1000` | 是 | `array[number]`，恰 4 项；0..1000 值域与 `x1<x2`、`y1<y2` 的语义校验由技能 fail-closed，不进 schema |
-| `image_stamp` | 是 | `number`，`exclusiveMinimum=0`；station 下发 bbox 携带的 rgb 相机时戳 |
-| `side` | 否 | `enum`：`front`/`left`/`right`/`above` |
-| `distance_m` | 否 | `number`，`exclusiveMinimum=0` |
-| `visible` | 否 | `boolean`，缺省 `true` |
-| `finish` | 否 | `boolean`，缺省 `false` |
-| `provider` | 否 | `string`，`enum` 仅 `station`，缺省 `station` |
-| `image_width` | 否 | `integer`，`exclusiveMinimum=0`；bbox_1000→像素换算的显式声明，非正值按缺省约定处理 |
-| `image_height` | 否 | `integer`，`exclusiveMinimum=0`；同 `image_width` |
+| `waypoint_world` | 是 | `array[number]`，恰 3 项（x,y,z，world/ENU）；有限性由技能 fail-closed，不进 schema |
+| `yaw` | 否 | `number`；终末偏航，缺省 `look_forward` |
+| `look_forward` | 否 | `boolean`，缺省 `true` |
 
-> schema 与 DiffAgent2 旧版 `tools/registry.py` 同名 ToolSpec 逐字对齐，仅无
-> 任务编号（`l3-core-boundary` B2/B7/B8；migration-protocol G23）。像素换算
-> 的缺省约定为 1000 空间→640x480。
+> schema 与 DiffAgent2 旧版 `tools/registry.py` 同名 ToolSpec 对齐，仅无任务
+> 编号（`l3-core-boundary` B2/B7/B8；migration-protocol G23）。原 grounded 字段
+> （`bbox_1000`/`image_stamp`/`image_width`/`image_height`/`visible`/`finish`/
+> `provider`/`side`/`distance_m`）由站端消费，不再下行。
 
-**`revision` 记录值（现行）**：`sha256:cacb240ea0d6b94294831f23574d4bde9f7781528f617d69ed2583c4eb08f269`
+**`revision` 记录值（现行）**：`sha256:45c6030faffd0bf2254a6c96da8c0c7bf0f193a1e0ea829f64f7d8929b81e4f7`
+
+**目标集合（未注册，2026-09-20 登记）**：`scene.map_search`、`scene.navigate`、
+`scene_nav.graph.list`、`scene_nav.graph.select`、`scene_nav.graph.save`、
+`scene_nav.graph.objects`、`scene_nav.graph.object_pose`。这七项**尚未实现、
+未测试、未注册**，不进入现行发现面，现行 `revision` 不变；实现与测试同批交付后
+才并入现行集合并重算 `revision`（`l3-dispatcher/migration-protocol` §1、§2-⑦：
+文档登记不构成生产能力，不豁免「不留桩」）。
+
+| 工具名 | `inputSchema` 字段 | 完成语义 | 并发语义 |
+|--------|--------------------|----------|----------|
+| `scene.map_search` | `object`（必填，`string`，`minLength=1`） | `workflow_result` | `flight-exclusive` |
+| `scene.navigate` | `object_id`（必填，`integer`） | `workflow_result` | `flight-exclusive` |
+| `scene_nav.graph.list` | 无 | `workflow_result` | `flight-exclusive` |
+| `scene_nav.graph.select` | `graph`（必填，`string`，`minLength=1`） | `workflow_result` | `flight-exclusive` |
+| `scene_nav.graph.save` | `graph`（可选，`string`，`minLength=1`） | `workflow_result` | `flight-exclusive` |
+| `scene_nav.graph.objects` | `graph`（可选，`string`）、`label`（可选，`string`） | `workflow_result` | `flight-exclusive` |
+| `scene_nav.graph.object_pose` | `graph`（可选，`string`）、`object_id`（必填，`integer`）、`pos`（可选，`array[number]` 恰 3 项）、`yaw`（可选，`number`）、`delta_pos_local`（可选，同 `pos`）、`delta_rot_local_xyzw`（可选，`array[number]` 恰 4 项）、`apply`（可选，`boolean`） | `workflow_result` | `flight-exclusive` |
+
+- 上表 `inputSchema` 顶层均为 `type=object`、`additionalProperties=false`；
+  `scene_nav.graph.list` 的 `outputSchema` 为空 object，其余为非空 object
+  （结果字段由 `l3-dispatcher/skill-contract` 的家族条目与该能力叶契约定义）。
+- `scene.navigate` 的终态必须携带对象级结果（对象身份、到达与否、最终位置、
+  最终偏航、失败原因），不得只上报航点完成（`l3-dispatcher/scenegraph` §6）。
+- 编辑与保存类工具的写操作**经 builder 的 HTTP 面**执行，dispatcher 不直接写图
+  （`l3-dispatcher/scenegraph` §8）。
+- **有意变更登记**：旧库 wire 别名 `navigation.scene_graph_nav`（本地把 `object`
+  解析为 `object_id`）**不恢复**——按 §2 未注册名一律拒绝，且
+  `l3-dispatcher/migration-protocol` §4 禁止遗留垫片；旧调用方须改用
+  `scene.navigate` 并直接携带 `object_id`（对象语义在站端解析）。
 
 ## 2. 按名分发与准入
 
@@ -155,7 +182,7 @@ the station (rgb camera stamp bound) and execute the waypoint chain.`；
 
 | 门禁 | 检查 |
 |------|------|
-| G24 | 发现面断言：工具名集合 == §1 集合（六个基础飞行动作 + `navigation.vla_nav`），`revision` == §1 记录的现行值 |
+| G24 | 发现面断言：工具名集合 == §1 **现行集合**（六个基础飞行动作 + `navigation.vla_nav`），`revision` == §1 记录的现行值；§1 目标集合不计入本断言 |
 | G25 | 进程内 runtime ack 与事件键集判定（必备键子集 + 负例）：ack 必含 `call_id` 与租约身份三键；事件必含 `call_id`/`status`/`phase`/`event_id`/`seq`；status ⊆ §8 三值、phase ⊆ §8 词表；二者均不得携带任务编号标识 |
 | G26 | 代码产出的拒绝 reason 集合 ⊆ §3 两层词表；新增 reason 须先改本契约 |
 | G27 | 负例判定：未注册名 → `tool_not_registered`；异源占用 → `flight_busy`；非 owner→ `connection_not_owner` |

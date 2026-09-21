@@ -25,6 +25,9 @@ TRANSPORT_FIELDS = frozenset({"call_id", "context"})
 _FAIL_REASONS = {
     "connection_lost": "connection_not_owner",
     "cancelled": "wrong_state",
+    # vla_nav 航点执行器 fail-closed 原因（station waypoint 载荷缺失/非法）：
+    # 结构性失败原因经 engine phase=fail 的 error.code 原样直传 rpc_outcome.reason
+    "invalid_station_waypoint": "invalid_station_waypoint",
 }
 
 

@@ -82,7 +82,6 @@ class SkillHost(Protocol):
     planner_ego_mode_value: int   # 只读配置：ego 模式枚举值（mode_burst 入参）
 
     def latest_frame(self) -> Any: ...        # Frame | None，封装 _latest_prompt_frame
-    def get_fast_rgb(self) -> tuple: ...      # 快通道 RGB 二元组 (image, stamp)
     def arm_action(
         self,
         *,

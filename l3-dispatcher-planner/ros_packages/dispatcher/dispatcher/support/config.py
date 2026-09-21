@@ -212,9 +212,6 @@ UAV_POLICY_DEFAULTS = {
     "prepare_content": [],  # 预置任务列表
     "inference_timeout": 5.0,  # 感知/推理超时（秒）
     "_min_action_wait": 0.2,  # 动作最小等待时间（秒）
-    "geometry_agree_safe_dis_radius_m": 0.8,  # 几何结果一致或仅单源有效时的安全距离（米）
-    "geometry_mismatch_safe_dis_radius_m": 1.2,  # 几何结果不一致时的安全距离（米）
-    "stable_height": 0.4,  # 稳定飞行高度（米）
     "min_height": 0.0,  # 最低允许飞行高度（米）
     "max_height": 1.8,  # 最高允许飞行高度（米）
     "is_stable": False,  # 是否强制保持 stable_height

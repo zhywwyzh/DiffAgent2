@@ -107,13 +107,6 @@ class FakePorts:
         self.stops += 1
 
 
-class FakePerception:
-    """geometry_source 端口假件（几何原语本体在 tests/perception 覆盖）。"""
-
-    def get_fast_rgb(self):
-        return ("image", 1.0)
-
-
 def command(name="navigation.vla_nav", step="first"):
     return SkillCommand(ToolCall(
         call_id=step, name=name, arguments={}, flight_session_id="test", step_id=step,
@@ -163,7 +156,7 @@ def stack(tmp_path, monkeypatch):
     ports = FakePorts()
     execution = WaypointExecution(ports, FlightConfig(
         min_height=0.0, max_height=1.8, state_timeout=1.0, action_timeout=60.0))
-    host = VlaSkillHost(engine, execution, FakePerception(), VlaHostConfig())
+    host = VlaSkillHost(engine, execution, VlaHostConfig())
     return SimpleNamespace(engine=engine, ports=ports, execution=execution, host=host)
 
 
@@ -272,13 +265,13 @@ def test_fail_sequence_carries_reason_as_error_code(stack):
     """fail 唯一写口：error.code=reason，回 WAIT_FOR_MISSION。"""
     dispatch_and_arm(stack)
     stack.host.send_task_goal(2.2, 0.0, 1.0, None)
-    stack.host.fail_sequence("invalid_grounded_bbox")
+    stack.host.fail_sequence("invalid_station_waypoint")
     engine = stack.engine
     assert engine.ledger.failed
     assert engine.dispatcher_state == DISPATCHER_STATE.WAIT_FOR_MISSION
     last = engine.channels.phases[-1]
     assert last["phase"] == "fail"
-    assert last["error"]["code"] == "invalid_grounded_bbox"
+    assert last["error"]["code"] == "invalid_station_waypoint"
     assert engine.action_gate.pending_action.replan_cmd is None
     assert engine.action_in_progress is False
     # 取消经共享执行发布保持意图（动作 goal + 保持 goal 各一次）
@@ -327,16 +320,16 @@ def test_mode_burst_wiring(stack):
     assert seen == [1, 1, 1]
     stack.host.publish_mode_burst(7, repeat=2, interval=0.0)
     assert seen[-2:] == [7, 7]
-    unwired = VlaSkillHost(stack.engine, stack.execution, FakePerception(), VlaHostConfig())
+    unwired = VlaSkillHost(stack.engine, stack.execution, VlaHostConfig())
     with pytest.raises(RuntimeError):
         unwired.publish_mode_burst(1, repeat=1, interval=0.0)
 
 
-def test_frame_and_geometry_source_ports(stack, monkeypatch):
-    """帧/几何源访问：latest_frame 走 engine 快照口，geometry_source 返回注入感知。"""
+def test_latest_frame_port_reads_engine_snapshot(stack, monkeypatch):
+    """帧访问：latest_frame 走 engine 快照口；宿主无几何源/快通道图像端口。"""
     sentinel = object()
     monkeypatch.setattr(stack.engine, "get_frame_snapshot", lambda: sentinel)
     assert stack.host.latest_frame() is sentinel
-    assert stack.host.get_fast_rgb() == ("image", 1.0)
-    assert isinstance(stack.host.geometry_source(), FakePerception)
+    assert not hasattr(stack.host, "geometry_source")
+    assert not hasattr(stack.host, "get_fast_rgb")
     assert (stack.host.min_height, stack.host.max_height, stack.host.planner_ego_mode_value) == (0.0, 1.8, 1)

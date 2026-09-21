@@ -1,5 +1,4 @@
 """组合飞行 / VLA 领域对象；ROS 端口由调用方注入。"""
-from dispatcher.support.state import MISSION_TYPE
 from dispatcher.execution.skill_host import DispatcherFlightHost, VlaSkillHost
 from dispatcher.execution.waypoint import WaypointExecution
 from dispatcher.tools.flight.session import FlightSession
@@ -34,52 +33,30 @@ def install_flight(engine, ports, config):
 
 
 def install_vla(
-    engine, ports, execution_config, host_config, perception,
-    *, geometry_config=None, search_success_distance_thresh=0.3,
-    far_push_distance_m=5.0,
+    engine, ports, execution_config, host_config,
+    *, search_success_distance_thresh=0.3,
 ):
     """组合 VLA 领域对象（与 install_flight 同构），注册 navigation.vla_nav。
 
     - 动作出海复用 WaypointExecution（与飞行共享同一 FlightPorts 出站口，
       独立实例：batch 随机起始互不冲突；飞行独占由 tool-plane 单活动调用
       与 engine 动作账务（owner 门 / 代次）保证）；
-    - 几何原语源为 perception（base_policy 实例，经 VlaSkillHost 组合注入），
-      技能层 slog 出站回调接 engine.runlog.emit；
-    - VLA 几何/阈值配置唯一权威为调用方显式注入的 geometry_config 与两个
-      技能层阈值（装配层经 ~vla/* 私有参数读取）；perception
-      侧同名属性（behind_dist/is_stable/stable_height 等）属 perception
-      自有，VLA 几何不依赖——避免双存储假象；
-    - mission_type 接入（装配侧）：装配时置
-      host.mission_type=MISSION_TYPE.NAVIGATION，消费方为几何原语
-      _finalize_waypoint_candidate 的 NAVIGATION 分支（side/above/front 腿的
-      目标偏移组合）。mission_type 唯一写点是 base_policy 初始化
-      NOT_MISSION（无其他写者），装配时一次性置位；
-      disposer 恢复原值。if_safe_mode 仅写不读，不接入。
+    - waypoint_world 由站端解算随调用下行（「累积点云 + 位姿@帧时戳 +
+      VLM bbox」在 station 完成），机上无几何/感知注入；
+    - 技能层 slog 出站回调接 engine.runlog.emit；技能层阈值
+      search_success_distance_thresh（距离过近判定）经装配层 ~vla/* 注入。
     """
     execution = WaypointExecution(ports, execution_config)
-    host = VlaSkillHost(engine, execution, perception, host_config)
-    disposers = []
-    previous_mission_type = getattr(perception, "mission_type", MISSION_TYPE.NOT_MISSION)
-    try:
-        skill = VlaSkill(
-            host,
-            geometry_config=geometry_config,
-            emit=engine.runlog.emit,
-            search_success_distance_thresh=search_success_distance_thresh,
-            far_push_distance_m=far_push_distance_m,
-        )
-        perception.mission_type = MISSION_TYPE.NAVIGATION
-        disposers.append(engine.skills.register(skill.name, skill))
-    except Exception:
-        perception.mission_type = previous_mission_type
-        for dispose in reversed(disposers):
-            dispose()
-        raise
+    host = VlaSkillHost(engine, execution, host_config)
+    skill = VlaSkill(
+        host,
+        emit=engine.runlog.emit,
+        search_success_distance_thresh=search_success_distance_thresh,
+    )
+    dispose_skill = engine.skills.register(skill.name, skill)
 
     def dispose():
         execution.cancel()
-        for inverse in reversed(disposers):
-            inverse()
-        perception.mission_type = previous_mission_type
+        dispose_skill()
 
     return host, dispose

@@ -96,7 +96,6 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 | 端口 | 类别 | 用途 |
 |------|------|------|
 | 最新帧读取 | 入站 | 获取当前感知帧 |
-| 快速通道图像 | 入站 | 获取低延迟图像及其时间戳 |
 | 动作武装 | 出站 | 通用记账：归属快照、代次推进、切至等待完成态 |
 | 航点下发 | 出站 | 构造并下发航点目标 |
 | 规划器模式发布 | 出站 | 切换规划器模式 |
@@ -143,19 +142,94 @@ Protocol 类型声明。
 > 身份与裁决声明；参数 schema、完成语义与发现面归
 > `l3-dispatcher/tool-plane` §1，迁移依据归当轮方案。
 
-- **身份**：`name = "navigation.vla_nav"`、`requires_perception = True`
-  （分发前决策链就绪检查生效）、`synchronous = False`（入队经 DISPATCH
-  逐 tick 推进）。
-- **端口**：使用 §7 通用 SkillHost 端口（最新帧、快速通道图像、动作武装、
-  航点下发、模式发布、相位上报、任务结果暂存、失败终止、代次守卫、队列
-  机械操作），不新增飞行专属端口；航点塑形（高度限幅、mode 脉冲）由技能
-  内联完成。
-- **四裁决**：REPLAN 由技能自有 replan 状态（replan_cmd / replan_reason）
-  在 `on_action_result` 内判定并返回，**不得读取宿主 `ActionGate.pending_action`
-  等私有对象**（§5、G14）；ADVANCE / IDLE 沿用 §4 通用语义；NEW_ACTION 仅
-  用于技能已自行武装并发布新动作的腿（如贴地腿），core 不替其调度。
-- **fail-closed**：grounded 消费预检失败只有三个终态原因——
-  `invalid_grounded_bbox`、`target_not_visible`、`odom_stamp_unavailable`；
-  无旋转、无重试、不静默回落到最新位姿。
-- 一轮 DISPATCH 只消费一次 grounded detection；机上不做 VLM/bbox 推理
-  （推理归 station）。
+- **身份**：`name = "navigation.vla_nav"`、`requires_perception = False`
+  （机上无需感知帧；odometry 新鲜度/坐标系/有限性由共享执行校验）、
+  `synchronous = False`（入队经 DISPATCH 逐 tick 推进）。
+- **端口**：使用 §7 通用 SkillHost 端口（最新帧、动作武装、航点下发、模式
+  发布、相位上报、任务结果暂存、失败终止、代次守卫、队列机械操作），不新增
+  飞行专属端口；航点塑形（高度限幅、mode 脉冲）由技能内联完成。机上不做
+  VLM/bbox 推理，也不做几何解算——`waypoint_world` 由站端解算后随调用下行，
+  技能不含几何原语源端口。
+- **动作完成驱动**：`wait_action_tick` 逐主循环节拍驱动 `host.poll_result()`
+  （与 FlightMotion 同构）；`action_done_gate` 返回 None，完成判定走壳通用路径。
+- **三裁决**：`ADVANCE` / `IDLE` 沿用 §4 通用语义；`NEW_ACTION` 仅用于技能已
+  自行武装并发布新动作的腿（如贴地腿），core 不替其调度。**不设 REPLAN**——
+  一轮 DISPATCH 只消费一次 station waypoint：单次解算、单次下发、终态回报，
+  无旋转、无重试。
+- **fail-closed**：`waypoint_world` 缺失、非恰 3 项或非有限，或 `yaw` 非有限 →
+  唯一结构原因 `invalid_station_waypoint`（经工具面 fail 词表贯通到
+  `rpc_outcome.reason`）。
+- **机上保留项**：高度界 clamp、goal 唯一写入口、取消/保持
+  （`l3-dispatcher/execution-seam` §7）、独占与 owner 门、相位与 `rpc_outcome`。
+
+## 11. 场景导航技能语义（scene_nav 家族）
+
+> 身份与裁决声明；参数 schema、完成语义与发现面归
+> `l3-dispatcher/tool-plane` §1；图模型、只读边界与能力端口归
+> `l3-dispatcher/scenegraph`；迁移依据归当轮方案。
+
+- **身份**（一个技能一个 `name`，逐项注册；`name` 与调用侧工具名一致）：
+
+| `name` | `requires_perception` | `synchronous` | 领域流程 |
+|--------|----------------------|---------------|----------|
+| `scene.map_search` | `False` | `False` | 图投影与对象清单 |
+| `scene.navigate` | `False` | `False` | `object_id_nav` |
+| `scene_nav.graph.list` | `False` | `True` | 图查询 |
+| `scene_nav.graph.select` | `False` | `True` | 图查询 |
+| `scene_nav.graph.save` | `False` | `True` | 图编辑 |
+| `scene_nav.graph.objects` | `False` | `True` | 图查询 |
+| `scene_nav.graph.object_pose` | `False` | `True` | 图编辑 |
+
+- **同步技能**（`scene_nav.graph.*`）：`synchronous = True`，在调用线程内直接完成，
+  不进感知门、不入队（§2）；自建端点随 disposer 释放（§6）。
+- **`scene.navigate` 的 object 级子状态**（技能自有，§1「技能持有该能力专属的子状态」）：
+  目标对象身份、目标位置 [m] 与目标偏航 [rad]、到达判据（位置 + 终端偏航双条件）、
+  任务级超时与重规划上限、目标所属多面体。
+- **端口**：使用 §7 通用 SkillHost 端口；图数据经宿主注入的感知数据面端口只读获取
+  （`l3-dispatcher/package-layout` §3 的感知单向流动）；航点塑形（近点跳过、巡航高度
+  统一、限幅、偏航模式脉冲）由技能内联完成（§5），传输口不做技能专属塑形。
+- **四裁决**：`scene.navigate` 在 `on_action_result` 内按自有状态判定并返回
+  `ADVANCE`（续下一条命令）或 `IDLE`（收敛完成），**不读取宿主
+  `ActionGate.pending_action` 等私有对象**（§5、G14）；`scene.map_search` 与同步技能
+  在完成门内收敛后返回 `IDLE`。
+- **终态原因词表**（对象级，`scene.navigate`）：`reached`、`unreachable`、`timeout`、
+  `failed`；取消与覆盖的终态归 `l3-dispatcher/tool-plane` §5，技能不另造终态。
+- **结果**：`scene.navigate` 的终态结果至少含对象身份、到达与否、最终位置 [m]、
+  最终偏航 [rad]、原因；`scene.map_search` 的结果为对象清单（id / label / 位置 [m]）。
+  结果经任务结果暂存端口上报、由宿主在终态取走（§5）。
+- **fail-closed**：图未就绪、对象不存在、无通路、当前位置无法挂载，一律上报对应原因
+  并收敛为失败终态；不得静默成功，不得以「航点批次结束」冒充到达
+  （`l3-dispatcher/scenegraph` §6、§7）。
+- **配置参数**：前缀 `~scene_nav/*`（家族名，规则归 `l3-dispatcher/package-layout` §2），
+  唯一权威、键名不重复前缀、子组嵌套：
+
+| 参数键 | 类型 | 默认 | 消费技能 |
+|--------|------|------|----------|
+| `~scene_nav/graph_json_topic` | `string` | `/scene_graph/json_text` | `scene.map_search` |
+| `~scene_nav/planner_fsm_state_topic` | `string` | `/planner/fsm_state` | `scene.navigate` |
+| `~scene_nav/json_wait_timeout_s` | `double` | `3.0` | `scene.map_search` |
+| `~scene_nav/trigger_timeout_s` | `double` | `5.0` | `scene.navigate` |
+| `~scene_nav/waypoint_skip_xy_distance_m` | `double` | `0.3` | `scene.navigate` |
+| `~scene_nav/task_timeout_s` | `double` | `45.0` | `scene.navigate` |
+| `~scene_nav/task_terminal_timeout_s` | `double` | `15.0` | `scene.navigate` |
+| `~scene_nav/task_max_replans` | `int` | `1` | `scene.navigate` |
+| `~scene_nav/require_final_yaw` | `bool` | `true` | `scene.navigate` |
+| `~scene_nav/final_yaw_tolerance_deg` | `double` | `10.0` | `scene.navigate` |
+| `~scene_nav/final_approach_max_attempts` | `int` | `6` | `scene.navigate` |
+| `~scene_nav/replan/enable` | `bool` | `true` | `scene.navigate` |
+| `~scene_nav/replan/stuck_yaw_rate_threshold_rad_s` | `double` | `0.1` | `scene.navigate` |
+| `~scene_nav/replan/mode2_stuck_fallback_delay_s` | `double` | 装配层显式给出 | `scene.navigate` |
+
+- 上表为**有意变更**，三项归一：
+  1. **前缀**：旧库 `object_id_nav/*`、`object_id_nav_replan/*`、`scene_nav_*` 平铺键
+     归一为家族前缀 `~scene_nav/*`，子组改嵌套（`replan/*`）；
+  2. **宿主**：由 mission_executive 私有空间改为 dispatcher 私有空间；
+  3. **键名**：补单位后缀（`_m`/`_s`/`_deg`/`_rad_s`）、缩写写全
+     （`stuck_yaw_rate_thresh` → `stuck_yaw_rate_threshold_rad_s`）。
+  新库部署配置由 P2 首次写入该组，无既有依赖需要兼容。
+- **承载**：本表由 `tools/scene_nav/scene_nav_ports.py` 的 `SceneNavConfig`
+  （`@dataclass(frozen=True)`）单类承载，字段名即键名；装配层经 `fields()` 批量派生
+  `~scene_nav/<字段名>`，不得留裸关键字参数或第二份同名配置。
+- 激活图名（旧库经全局参数 `fsm/scene_graph_load_name`、`/scene_graph/active_name`
+  直读）**不作为参数**：经端口/共享状态提供（`l3-dispatcher/ros-adapter-boundary`
+  R3/R5），技能不得直读全局参数。

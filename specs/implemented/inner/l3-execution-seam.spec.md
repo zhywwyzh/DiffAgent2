@@ -39,6 +39,19 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 - C++ 内部同样遵守 `l3-dispatcher/ros-adapter-boundary`：领域核心不含
   `ros::*` 类型。
 
+### 3.1 能力端口登记
+
+> 经 pybind 暴露的能力端口逐项登记；端口集合的权威定义在各能力自己的叶契约。
+
+| 能力端口 | C++ 包 | 端口契约 | 状态 |
+|----------|--------|----------|------|
+| 场景图能力端口 | `ros_packages/scene_graph/`（`scene_graph_core` 无 ROS + ROS 外壳 + pybind） | `l3-dispatcher/scenegraph` §5 | 未接线，登记 |
+
+- 每个能力端口在接线时必须有对应的纯 C++ 单测（G12）；未接线期间不得声称
+  已具备该 C++ 能力。
+- 能力端口只暴露能力面（`l3-dispatcher/ros-adapter-boundary` X1），不逐个
+  暴露领域内部方法。
+
 ## 4. 对外契约
 
 - 不迁入 `/mission/task` 及其客户端、服务端或兼容入口；该旧中间层的退役依据见
