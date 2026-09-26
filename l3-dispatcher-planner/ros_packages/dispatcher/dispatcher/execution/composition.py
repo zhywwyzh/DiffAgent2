@@ -20,6 +20,11 @@ def install_flight(engine, ports, config):
         for kind in (TakeoffSkill, LandSkill, TranslateSkill, RotateSkill, ReturnSkill, EmergencyStopSkill):
             skill = kind(host)
             disposers.append(engine.skills.register(skill.name, skill))
+            if kind is RotateSkill:
+                # VLA 家族自有旋转腿（站端 visible=false 重扫）：复用 flight.rotate
+                # 的原地旋转机制，同一技能实例双名注册（对齐 DiffAgent2 旧版
+                # engine._skills）；发现面元数据归 tools/vla/catalog.py。
+                disposers.append(engine.skills.register('navigation.vla_rotate', skill))
     except Exception:
         for dispose in reversed(disposers):
             dispose()

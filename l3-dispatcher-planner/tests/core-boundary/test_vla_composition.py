@@ -427,7 +427,7 @@ def test_new_call_preemption_path_cancels_active_vla_action(tmp_path, monkeypatc
 
 
 def test_same_owner_preemption_applies_to_vla_on_production_surface():
-    """runtime 层（生产七工具发现面）：vla_nav 活动调用被同源新指令抢占——
+    """runtime 层（生产八工具发现面）：vla_nav 活动调用被同源新指令抢占——
     cancel(preempted_by_new_instruction) 先于新 call 命令入队（G27/G28 同款），
     飞行独占与同源抢占机制按工具面统一适用，navigation.vla_nav 无豁免。"""
     import queue

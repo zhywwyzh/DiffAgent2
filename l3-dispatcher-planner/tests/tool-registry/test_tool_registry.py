@@ -23,7 +23,7 @@ from registry_support import test_registry
 from types import SimpleNamespace
 from dispatcher.tool_plane.runtime import ToolRuntime  # noqa: E402
 
-EXPECTED_TOOLS = {'basic_flight.' + name for name in ('takeoff', 'land', 'translate', 'rotate', 'return', 'emergency_stop')} | {'navigation.vla_nav'}
+EXPECTED_TOOLS = {'basic_flight.' + name for name in ('takeoff', 'land', 'translate', 'rotate', 'return', 'emergency_stop')} | {'navigation.vla_nav', 'navigation.vla_rotate'}
 
 
 class FakeClock:

@@ -8,7 +8,7 @@
 revision 现行值）。断言分三层：
 - 元数据与 spec §1 记录逐项一致（含 _meta 键集、completion、并发语义）；
 - 生产发现面（ToolRegistry.default()，flight+vla 同一机制汇入）恰为
-  七工具且 revision == spec 记录值（G24）；
+  八工具且 revision == spec 记录值（G24）；
 - waypoint schema 的结构校验正/负例（必填缺省、waypoint_world 恰 3 项、
   additionalProperties=false）；有限性语义校验归技能 fail-closed
   （tests/core-boundary/test_vla_skill.py），不进 schema。
@@ -30,12 +30,12 @@ from dispatcher.tool_plane.registry import ToolRegistry  # noqa: E402
 from dispatcher.tools.vla.catalog import vla_specs  # noqa: E402
 
 # l3-tool-plane.spec.md §1 记录的现行 revision
-SPEC_REVISION = "sha256:45c6030faffd0bf2254a6c96da8c0c7bf0f193a1e0ea829f64f7d8929b81e4f7"
+SPEC_REVISION = "sha256:32b34a601073402fdef66c6f097bc4073f7fb1ad595beeea296305b05cde1228"
 
 SPEC_TOOL_NAMES = {
     "basic_flight.takeoff", "basic_flight.land", "basic_flight.translate",
     "basic_flight.rotate", "basic_flight.return", "basic_flight.emergency_stop",
-    "navigation.vla_nav",
+    "navigation.vla_nav", "navigation.vla_rotate",
 }
 
 
@@ -75,14 +75,13 @@ def reject_reason(registry: ToolRegistry, arguments: dict) -> str:
 # ---------------------------------------------------------------------------
 
 
-def test_single_tool_named_navigation_vla_nav() -> None:
+def test_vla_specs_are_vla_nav_then_vla_rotate() -> None:
     specs = tuple(vla_specs())
-    assert len(specs) == 1
-    spec = specs[0]
-    assert isinstance(spec, ToolSpec)
-    assert spec.name == "navigation.vla_nav"
-    assert spec.requires_perception is False
-    assert spec.completion == "action_result"
+    assert [spec.name for spec in specs] == ["navigation.vla_nav", "navigation.vla_rotate"]
+    for spec in specs:
+        assert isinstance(spec, ToolSpec)
+        assert spec.requires_perception is False
+        assert spec.completion == "action_result"
 
 
 def test_public_metadata_matches_tool_plane_record() -> None:
@@ -124,8 +123,59 @@ def test_input_schema_field_table_matches_tool_plane_record() -> None:
     assert properties["look_forward"] == {"type": "boolean"}
 
 
+def test_vla_rotate_metadata_and_schema_match_tool_plane_record() -> None:
+    """navigation.vla_rotate：VLA 搜索旋转腿（站端 visible=false 重扫）。
+
+    schema 与 DiffAgent2 旧版 tools/registry.py 一致：`yaw_delta_deg` 限
+    `(-360, 360]`（`exclusiveMinimum=-360`、`maximum=360`）。
+    """
+    rotate = vla_specs()[1]
+    public = rotate.public_dict()
+    assert public["title"] == "Rotate for VLA search"
+    assert public["outputSchema"] == {
+        "type": "object", "properties": {}, "additionalProperties": False,
+    }
+    assert public["_meta"] == {
+        "lx.completion": "action_result",
+        "lx.concurrency": "flight-exclusive",
+    }
+    schema = rotate.input_schema
+    assert schema["type"] == "object"
+    assert schema["additionalProperties"] is False
+    assert schema["required"] == ["yaw_delta_deg"]
+    assert set(schema["properties"]) == {"yaw_delta_deg"}
+    assert schema["properties"]["yaw_delta_deg"] == {
+        "type": "number", "exclusiveMinimum": -360, "maximum": 360,
+    }
+
+    registry = ToolRegistry((rotate,))
+
+    def rotate_call(delta):
+        return registry.normalize_call({
+            "call_id": "call_1",
+            "name": "navigation.vla_rotate",
+            "arguments": {"yaw_delta_deg": delta},
+            "context": {"flight_session_id": "flight_a", "step_id": "step_1"},
+        })
+
+    assert rotate_call(40.0).arguments["yaw_delta_deg"] == 40.0
+    assert rotate_call(360.0).arguments["yaw_delta_deg"] == 360.0
+    for bad in (-360.0, 361.0, "40"):
+        with pytest.raises(ToolProtocolError) as caught:
+            rotate_call(bad)
+        assert caught.value.data["reason"] == "argument_out_of_range"
+    with pytest.raises(ToolProtocolError) as caught:
+        registry.normalize_call({
+            "call_id": "call_1",
+            "name": "navigation.vla_rotate",
+            "arguments": {},
+            "context": {"flight_session_id": "flight_a", "step_id": "step_1"},
+        })
+    assert caught.value.data["reason"] == "missing_required_argument"
+
+
 def test_production_registry_surface_matches_spec_record() -> None:
-    """生产发现面即七工具（default() 汇入 flight+vla）；
+    """生产发现面即八工具（default() 汇入 flight+vla）；
     revision == l3-tool-plane.spec.md §1 记录的现行值（G24）。"""
     listing = ToolRegistry.default().list_tools()
     assert {tool["name"] for tool in listing["tools"]} == SPEC_TOOL_NAMES

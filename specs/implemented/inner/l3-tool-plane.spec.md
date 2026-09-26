@@ -26,10 +26,10 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 
 **当前生产工具集合**：`basic_flight.takeoff`、`basic_flight.land`、
 `basic_flight.translate`、`basic_flight.rotate`、`basic_flight.return`、
-`basic_flight.emergency_stop`、`navigation.vla_nav`。基础飞行动作参数与
-完成语义归 [基础飞行动作契约](flight-actions.spec.md)；`navigation.vla_nav`
-的元数据见下。测试自有能力不注册到生产默认集合；后续能力同样须有完整
-实现与测试。
+`basic_flight.emergency_stop`、`navigation.vla_nav`、`navigation.vla_rotate`。
+基础飞行动作参数与完成语义归 [基础飞行动作契约](flight-actions.spec.md)；
+`navigation.vla_nav` 与 `navigation.vla_rotate` 的元数据见下。测试自有能力
+不注册到生产默认集合；后续能力同样须有完整实现与测试。
 
 **`navigation.vla_nav`**：station 解算航点的执行载体——站端以「累积点云（最新，
 世界系）+ 位姿按帧时戳插值 + VLM bbox」解算 `waypoint_world` 后下发，机上为
@@ -55,8 +55,23 @@ leg.`；`outputSchema` 为空 object（`type=object`、`properties={}`、
 > 编号（`l3-core-boundary` B2/B7/B8；migration-protocol G23）。原 grounded 字段
 > （`bbox_1000`/`image_stamp`/`image_width`/`image_height`/`visible`/`finish`/
 > `provider`/`side`/`distance_m`）由站端消费，不再下行。
+>
+> 站端几何注记（2026-09-25 起）：left/right 接近不再走机上移植的密集窗链，改走
+> VLA-Diff 云链；`vla_nav` 意图参数收敛为 `{object, bearing}`，wire 仍带 `prompt`
+> （由站端从 `object` 合成）——**l3 schema 不变**。
 
-**`revision` 记录值（现行）**：`sha256:45c6030faffd0bf2254a6c96da8c0c7bf0f193a1e0ea829f64f7d8929b81e4f7`
+**`navigation.vla_rotate`**：VLA 搜索旋转腿——站端在目标 `visible=false` 时下发，
+按机体偏航增量原地旋转，重扫后重新接地（站端编排、`ground_` 前缀内部命令）。
+复用飞行家族的原地旋转机制（同一技能实例双名注册，与 DiffAgent2 旧版
+`engine.py` 一致）。完成语义 `action_result`，`requires_perception=false`，
+并发语义同 §4 飞行独占。`title` 为 `Rotate for VLA search`；`outputSchema`
+为空 object。`inputSchema` 顶层 `type=object`、`additionalProperties=false`，字段：
+
+| 字段 | 必填 | 规则 |
+|------|------|------|
+| `yaw_delta_deg` | 是 | `number`，`exclusiveMinimum=-360`、`maximum=360`（与旧库 `tools/registry.py` 一致） |
+
+**`revision` 记录值（现行）**：`sha256:32b34a601073402fdef66c6f097bc4073f7fb1ad595beeea296305b05cde1228`
 
 **目标集合（未注册，2026-09-20 登记）**：`scene.map_search`、`scene.navigate`、
 `scene_nav.graph.list`、`scene_nav.graph.select`、`scene_nav.graph.save`、
@@ -182,7 +197,7 @@ leg.`；`outputSchema` 为空 object（`type=object`、`properties={}`、
 
 | 门禁 | 检查 |
 |------|------|
-| G24 | 发现面断言：工具名集合 == §1 **现行集合**（六个基础飞行动作 + `navigation.vla_nav`），`revision` == §1 记录的现行值；§1 目标集合不计入本断言 |
+| G24 | 发现面断言：工具名集合 == §1 **现行集合**（六个基础飞行动作 + `navigation.vla_nav` + `navigation.vla_rotate`），`revision` == §1 记录的现行值；§1 目标集合不计入本断言 |
 | G25 | 进程内 runtime ack 与事件键集判定（必备键子集 + 负例）：ack 必含 `call_id` 与租约身份三键；事件必含 `call_id`/`status`/`phase`/`event_id`/`seq`；status ⊆ §8 三值、phase ⊆ §8 词表；二者均不得携带任务编号标识 |
 | G26 | 代码产出的拒绝 reason 集合 ⊆ §3 两层词表；新增 reason 须先改本契约 |
 | G27 | 负例判定：未注册名 → `tool_not_registered`；异源占用 → `flight_busy`；非 owner→ `connection_not_owner` |

@@ -78,12 +78,12 @@ def test_connection_rpc_remains_available_with_no_tools():
 
 
 def test_production_discovery_revision_matches_spec():
-    """G24：生产发现面 == 七工具（六 basic_flight.* + navigation.vla_nav），
-    revision 与 l3-tool-plane.spec.md §1 记录的现行值一致。"""
+    """G24：生产发现面 == 八工具（六 basic_flight.* + navigation.vla_nav
+    + navigation.vla_rotate），revision 与 l3-tool-plane.spec.md §1 记录的现行值一致。"""
     listing = ToolRegistry.default().list_tools()
     revision = listing["revision"]
     spec = (REPO.parent / "specs/implemented/inner/l3-tool-plane.spec.md").read_text()
-    assert len(listing["tools"]) == 7
+    assert len(listing["tools"]) == 8
     assert revision in spec
 
 

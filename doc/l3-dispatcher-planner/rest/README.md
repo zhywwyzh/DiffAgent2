@@ -9,15 +9,15 @@
 | 停止记录、任务覆盖、重置、记录服务 | [R01](dispatcher-deferred-dependencies.md#r01)、[R02](dispatcher-deferred-dependencies.md#r02)、[R06](dispatcher-deferred-dependencies.md#r06) | 保留接口/状态，记录能力未接入 |
 | 飞行技能、急停悬停、执行缝、planner/飞控连接 | [R03](dispatcher-deferred-dependencies.md#r03)、[R05](dispatcher-deferred-dependencies.md#r05) | 取消覆盖已上行修正；修正版未重跑验证 |
 | 返回上一位置、返回原点、轨迹/过程历史 | [R04](dispatcher-deferred-dependencies.md#r04)、[R06](dispatcher-deferred-dependencies.md#r06) | origin 已接入；逐步历史/文本消费者待迁 |
-| VLA 动作发布、重规划、动作结果接入 | [R05](dispatcher-deferred-dependencies.md#r05) | VLA 专属 REPLAN 已随机上收窄退役（终态腿）；记录消费仍挂账 |
+| VLA 动作发布、重规划、动作结果接入 | [R05](dispatcher-deferred-dependencies.md#r05) | VLA 专属 REPLAN 已随机上收窄退役（终态腿）；记录消费仍挂账；`navigation.vla_rotate` 已补注册（2026-09-26） |
 | VLA 多图思考、搜索调试输出 | [R07](dispatcher-deferred-dependencies.md#r07) | 旧消费者已随 VLM 迁云删除；孤儿字段由方案 P1 删除后关门 |
 | 队列精简、core 字段删除、宿主端口调整 | 全部条目及台账的“当前队列如何执行” | 不能仅凭新版无读点判定可删 |
 | 去除 task-id、迁入原工具名、panorama 来源策略或来源日志 | [工具名与业务语义迁移遗留项](../../rest/task-id-to-tool-name-deferred.md) | 按名分发已接入，旧来源判据尚须逐项迁移；去编号不等于删除业务语义 |
-| 场景图能力迁移、对象导航下行、机上在线建图 | [R09](dispatcher-deferred-dependencies.md#r09) | 契约已先行（`l3-scenegraph` 等）；代码未迁；对象导航下行与在线建图不迁并登记 |
+| 场景图能力迁移、对象导航下行、机上在线建图 | [R09](dispatcher-deferred-dependencies.md#r09) | 契约已先行（`l3-scenegraph` 等）；代码未迁；对象导航下行与在线建图不迁并登记；对象导航终态语义已按旧库 09-24 裁决同步进契约（2026-09-26） |
 
 每项已说明旧版生产方/消费者、新版位置、当前缺口、何时接入、建议改造位置、验收及可删除条件。未来处理时，在同一改动中更新该项为“已接入／已迁移归属／已删除／继续保留”，写明代码与测试证据、后续触发条件；同步本索引。不要把临时保留变成永久无人认领，也不要在接入时原样复制旧版私有属性访问或任务编号。
 
-本轮实施和审核记录见[接口收紧方案](../iteration/20260915-20260917/design-dispatcher-interface-tightening.md)。六个 basic_flight 已实现并注册；`navigation.vla_nav` 已随 [dispatcher VLA 技能迁移方案](../iteration/design-dispatcher-vla-migration.md) 进入契约（[工具面契约 §1](../../../specs/implemented/inner/l3-tool-plane.spec.md) 记录七项目标集合与 revision），代码按 P1–P3 分期接入；其他技能的能力状态仍须按各自实现证据判断。
+本轮实施和审核记录见[接口收紧方案](../iteration/20260915-20260917/design-dispatcher-interface-tightening.md)。六个 basic_flight 已实现并注册；`navigation.vla_nav` 已随 [dispatcher VLA 技能迁移方案](../iteration/design-dispatcher-vla-migration.md) 进入契约（[工具面契约 §1](../../../specs/implemented/inner/l3-tool-plane.spec.md) 记录现行工具集合与 revision，`navigation.vla_rotate` 补注册后为 8 项），代码按 P1–P3 分期接入；其他技能的能力状态仍须按各自实现证据判断。
 
 ## 基础飞行接入结果
 
