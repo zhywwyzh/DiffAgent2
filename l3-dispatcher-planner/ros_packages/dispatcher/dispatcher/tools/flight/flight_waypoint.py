@@ -15,6 +15,10 @@ class FlightWaypointExecution:
         self._active = None
         self._hold_pending = False
         self._started = 0.0
+        self._goal = None
+        self._planner_done = False
+        self._previous_state = None
+        self._settle_since = None
         self._lock = threading.RLock()
 
     def state(self):
@@ -28,19 +32,36 @@ class FlightWaypointExecution:
             raise RuntimeError('odometry_frame_mismatch')
         if not all(math.isfinite(v) for v in (*state.position, state.yaw, state.speed)):
             raise RuntimeError('odometry_invalid')
+        if not all(math.isfinite(v) for v in (state.source_stamp, state.received, state.source_age)):
+            raise RuntimeError('odometry_invalid')
+        if state.velocity is not None and (
+            len(state.velocity) != 3 or not all(math.isfinite(v) for v in state.velocity)
+        ):
+            raise RuntimeError('odometry_invalid')
+        if state.yaw_rate_rad_s is not None and not math.isfinite(state.yaw_rate_rad_s):
+            raise RuntimeError('odometry_invalid')
         return state
 
     def start(self, goal: Goal):
         with self._lock:
             if self._active is not None or self._hold_pending:
                 raise RuntimeError('execution_not_cancelled')
-            self.state()
+            state = self.state()
             if not all(math.isfinite(v) for v in (*goal.position, goal.yaw)):
                 raise ValueError('non_finite_goal')
-            if not self.config.min_height <= goal.position[2] <= self.config.max_height:
+            lower = self.config.min_height
+            if goal.ground_approach:
+                if self.config.ground_z is None:
+                    raise ValueError('ground_height_unconfigured')
+                lower = self.config.ground_z
+            if not lower <= goal.position[2] <= self.config.max_height:
                 raise ValueError('goal_height_out_of_range')
             self._active = self._next_batch()
             self._started = self.clock()
+            self._goal = goal
+            self._planner_done = False
+            self._previous_state = state
+            self._settle_since = None
             try:
                 self.ports.send_goal(self._batch, goal)
             except Exception:
@@ -56,7 +77,7 @@ class FlightWaypointExecution:
             if self._active is None:
                 return None
             try:
-                self.state()
+                state = self.state()
             except RuntimeError as exc:
                 self.cancel()
                 return ActionResult(False, str(exc))
@@ -67,12 +88,43 @@ class FlightWaypointExecution:
                     self.cancel()
                     return ActionResult(False, 'waypoint_skipped')
                 if progress.all_consumed:
-                    self._active = None
-                    return ActionResult(True)
+                    self._planner_done = True
             if self.clock() - self._started >= self.config.action_timeout:
+                reason = 'goal_settle_timeout' if self._planner_done else 'planner_timeout'
                 self.cancel()
-                return ActionResult(False, 'planner_timeout')
+                return ActionResult(False, reason)
+            previous = self._previous_state
+            dt = state.source_stamp - previous.source_stamp
+            if dt < 0 or dt > self.config.state_timeout:
+                self.cancel()
+                return ActionResult(False, 'odometry_discontinuous')
+            if dt == 0:
+                return None
+            self._previous_state = state
+            if not self._planner_done or not self._is_settled(state, previous, dt):
+                self._settle_since = None
+                return None
+            if self._settle_since is None:
+                self._settle_since = state.source_stamp
+            if state.source_stamp - self._settle_since >= self.config.settle_hold_s:
+                self._active = None
+                return ActionResult(True)
             return None
+
+    def _is_settled(self, state, previous, dt):
+        # 缺少动态观测不能填零冒充停稳。
+        if state.velocity is None or previous.velocity is None or state.yaw_rate_rad_s is None:
+            return False
+        acceleration = math.dist(state.velocity, previous.velocity) / dt
+        yaw_error = math.atan2(math.sin(self._goal.yaw - state.yaw),
+                               math.cos(self._goal.yaw - state.yaw))
+        return (
+            math.dist(state.position, self._goal.position) <= self.config.settle_position_m
+            and state.speed <= self.config.settle_speed_m_s
+            and acceleration <= self.config.settle_acceleration_m_s2
+            and abs(state.yaw_rate_rad_s) <= self.config.settle_yaw_rate_rad_s
+            and (self._goal.look_forward or abs(yaw_error) <= math.radians(self.config.settle_yaw_deg))
+        )
 
     def _next_batch(self):
         if self._batch >= 2**32 - 1:

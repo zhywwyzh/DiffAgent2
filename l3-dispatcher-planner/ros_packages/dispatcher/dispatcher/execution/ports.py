@@ -15,17 +15,28 @@ class FlightConfig:
     max_rotation_deg: float = 3600.0
     ground_tolerance: float = 0.15
     airborne_height: float = 0.3
+    settle_position_m: float = 0.30
+    settle_speed_m_s: float = 0.15
+    settle_acceleration_m_s2: float = 0.30
+    settle_yaw_rate_rad_s: float = 0.20
+    settle_hold_s: float = 0.20
+    settle_yaw_deg: float = 10.0
 
 
     def __post_init__(self):
         if not isinstance(self.world_frame, str) or not self.world_frame:
             raise ValueError("invalid_world_frame")
         values = (self.min_height, self.max_height, self.state_timeout, self.action_timeout,
-                  self.max_rotation_deg, self.ground_tolerance, self.airborne_height)
+                  self.max_rotation_deg, self.ground_tolerance, self.airborne_height,
+                  self.settle_position_m, self.settle_speed_m_s,
+                  self.settle_acceleration_m_s2, self.settle_yaw_rate_rad_s,
+                  self.settle_hold_s, self.settle_yaw_deg)
         if not all(math.isfinite(v) for v in values) or self.min_height > self.max_height:
             raise ValueError('invalid_flight_config')
         if any(v <= 0 for v in values[2:]):
             raise ValueError('flight_limits_must_be_positive')
+        if self.settle_yaw_deg >= 90:
+            raise ValueError('settle_yaw_must_be_less_than_segment')
         if self.ground_z is not None and not math.isfinite(self.ground_z):
             raise ValueError('invalid_ground_height')
 
@@ -39,6 +50,8 @@ class FlightState:
     source_stamp: float
     frame: str
     source_age: float = 0.0
+    velocity: tuple[float, float, float] | None = None
+    yaw_rate_rad_s: float | None = None
 
 
 @dataclass(frozen=True)
@@ -46,6 +59,8 @@ class Goal:
     position: tuple[float, float, float]
     yaw: float
     look_forward: bool = False
+    ground_approach: bool = False
+    yaw_low_speed: bool = False
 
 
 @dataclass(frozen=True)

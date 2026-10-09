@@ -40,7 +40,6 @@ def install_flight(engine, ports, config):
 
 def install_vla(
     engine, ports, execution_config, host_config,
-    *, search_success_distance_thresh=0.3,
 ):
     """组合 VLA 领域对象（与 install_flight 同构），注册 navigation.vla_nav。
 
@@ -50,15 +49,13 @@ def install_vla(
       保证）；
     - waypoint_world 由站端解算随调用下行（「累积点云 + 位姿@帧时戳 +
       VLM bbox」在 station 完成），机上无几何/感知注入；
-    - 技能层 slog 出站回调接 engine.runlog.emit；技能层阈值
-      search_success_distance_thresh（距离过近判定）经装配层 ~vla/* 注入。
+    - 技能层 slog 出站回调接 engine.runlog.emit；高度与完成门由执行配置统一提供。
     """
     execution = VlaWaypointExecution(ports, execution_config)
     host = VlaSkillHost(engine, execution, host_config)
     skill = VlaSkill(
         host,
         emit=engine.runlog.emit,
-        search_success_distance_thresh=search_success_distance_thresh,
     )
     dispose_skill = engine.skills.register(skill.name, skill)
 

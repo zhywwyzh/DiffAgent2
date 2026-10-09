@@ -1,6 +1,6 @@
 # dispatcher 待迁依赖与保留项台账
 
-更新日期：2026-09-20。状态：R03/R05 的控制职责已上行修正到 dispatcher，修正版未重跑测试；R04 原点子能力保留，其余历史消费继续保留；R05 的 VLA 专属 REPLAN 已随后续 [机上收窄方案](../iteration/design-dispatcher-vla-waypoint-executor-migration.md) **整体退役**（station 解算 waypoint 后机上为终态腿，无 replan；技能自有 replan 状态与 `far_push` 一并删除，`PendingAction.replan_cmd`/`SkillVerdict.REPLAN` 保留为通用账务/裁决机制），记录消费继续挂账；R07 已关门；R01/R02/R06 待迁；R08 已删除且不自动恢复；R09 登记在案（[场景图迁移方案](../iteration/design-dispatcher-scenegraph-migration.md)）。
+更新日期：2026-10-09。最新交付见文末“直连任务结果收敛”；本轮未验收。此前状态：R03/R05 的控制职责已上行修正到 dispatcher，修正版未重跑测试；R04 原点子能力保留，其余历史消费继续保留；R05 的 VLA 专属 REPLAN 已随后续 [机上收窄方案](../iteration/design-dispatcher-vla-waypoint-executor-migration.md) **整体退役**（station 解算 waypoint 后机上为终态腿，无 replan；技能自有 replan 状态与 `far_push` 一并删除，`PendingAction.replan_cmd`/`SkillVerdict.REPLAN` 保留为通用账务/裁决机制），记录消费继续挂账；R07 已关门；R01/R02/R06 待迁；R08 已删除且不自动恢复；R09 登记在案（[场景图迁移方案](../iteration/design-dispatcher-scenegraph-migration.md)）。
 
 本文件记录已批准的暂时保留及后续处理线索，不定义新契约。用户明确要求：保留项在未来接入或优化时重新判断，不能因为当前生产技能为空而直接删除。未来实现方案仍按 `iteration/_TEMPLATE.md` 落盘；如需改变端口或行为契约，先更新 `specs/`。
 
@@ -84,14 +84,14 @@
 |----|----|
 | 对应审核 | C01–C03 |
 | 新版保留位置 | `N/core/action_gate.py::PendingAction`、`ActionGate.pending_action`；`handle_post_action` 的 REPLAN 标记清理和 `clear_action_state` 的全量清理。 |
-| 当前状态 | DispatcherFlightHost.start_goal 已接入飞行动作武装、实例归属、代次和当前批次反馈；取消/停止控制已改为 dispatcher 的目标覆盖方式，本次未复验。**VLA 专属重规划已退役（2026-09-20，[机上收窄方案](../iteration/design-dispatcher-vla-waypoint-executor-migration.md)）**：station 解算 `waypoint_world` 后机上为终态腿（单次消费、单次下发、无 replan/无重试），技能自有 replan 状态与 `far_push`/`depth_match_ok` 一并删除；`PendingAction.replan_cmd` 与 `SkillVerdict.REPLAN` 保留为通用账务/裁决机制（技能契约 §4）。契约见 [技能契约 §10](../../../specs/implemented/inner/l3-skill-contract.spec.md)；归档见 [2026-09-20 决策](../../../specs/implemented/architecture/2026-09-20-vla-waypoint-executor.md)。 |
+| 当前状态 | DispatcherFlightHost.start_goal 已接入飞行动作武装、实例归属、代次和当前批次反馈；取消/停止控制已改为 dispatcher 的目标覆盖方式，本次未复验。**VLA 专属重规划已退役（2026-09-20，[机上收窄方案](../iteration/design-dispatcher-vla-waypoint-executor-migration.md)）**：station 解算 `waypoint_world` 后机上为一次调用（单次消费、无 replan/无重试）；2026-10-09 起内部依次执行位置、可选终末偏航与贴地腿，最后一腿才收敛终态，技能自有 replan 状态与 `far_push`/`depth_match_ok` 一并删除；`PendingAction.replan_cmd` 与 `SkillVerdict.REPLAN` 保留为通用账务/裁决机制（技能契约 §4）。契约见 [技能契约 §10](../../../specs/implemented/inner/l3-skill-contract.spec.md)；归档见 [2026-09-20 决策](../../../specs/implemented/architecture/2026-09-20-vla-waypoint-executor.md)。 |
 | 执行实现归属（2026-09-21） | 航点下发执行（批次/反馈/超时/取消保持）已按使用者下沉到 `N/tools/flight/flight_waypoint.py`（`FlightWaypointExecution`）与 `N/tools/vla/vla_waypoint.py`（`VlaWaypointExecution`）各一份（逐字等价），`N/execution/waypoint.py` 已删除；`execution/` 平面收缩为共享动作端口（ports）+ 家族宿主（skill_host）+ 装配（composition），行为零变化。方案见[航点下发执行按家族归属方案](../iteration/design-dispatcher-waypoint-execution-family-ownership.md)；归档见 [2026-09-21 决策](../../../specs/implemented/architecture/2026-09-21-waypoint-execution-family-ownership.md)。 |
 | 记录消费现状 | VLA 航点发布时的过程记录消费（`host.recording._record_process_event`，远推进腿不记）**暂不迁、继续挂账**：记录服务未建（R01/R06）；状态可见性先由 `publish_phase` 覆盖。 |
 | 字段级区分 | replan_cmd、prompt_raw、action_name、instruction_type 是明确的读点；replan_reason 见写入/清理；waypoint、look_forward、nav_yaw、yaw_source、is_far_push 在该上下文快照中未确认完整消费者，不能把 skill 中其他同名概念当成此对象读点。整类保留不等于每个字段永久保留。 |
 | 何时重新参考 | 实现 SkillHost.arm_action 通用化、飞行/场景技能动作发布，或调整动作元数据模型时仍须读本条。 |
 | 已接入（2026-09-17） | `navigation.vla_nav` 已按 [VLA 迁移方案](../iteration/design-dispatcher-vla-migration.md) P1–P3 落地：REPLAN 判据为技能自有 `_replan_cmd/_replan_reason`（`N/tools/vla/vla_skill.py::on_action_result` 四裁决），与 arm_action 记账同源写入，取消/覆盖/全局停止路径清理；重新武装后旧代次结果被完成门拒绝（tests/core-boundary/test_vla_skill.py 代次门与引擎节拍端到端用例）。剩余挂账：记录消费（下行）。 |
 | 接入顺序 | 通用动作账务与技能内部语义的区分已裁决：VLA 的 REPLAN 判据走**技能自有 replan 状态**（迁移方案 §4），不读宿主 `ActionGate.pending_action`，不造显式读取端口或旧入口转接器；契约依据为 [技能契约 §10](../../../specs/implemented/inner/l3-skill-contract.spec.md)。动作武装、实例归属、代次、结果与清理继续经端口接入；记录消费待记录服务（R01/R06）后另行接入。 |
-| 必须验证 | 临时动作完成只进入 REPLAN 且不提前 done；重新武装后旧结果被代次拒绝；停止/覆盖后标记清理；动作归属不随名字重新注册漂移；对外调用终态唯一。 |
+| 必须验证 | VLA 任一失败腿不得继续，位置/偏航/贴地腿全部成功才 done；批次结束后原目标及动态停稳门有效；重新武装后旧结果被代次拒绝；停止/覆盖后标记清理；动作归属不随名字重新注册漂移；对外调用终态唯一。 |
 | 何时可删除 | 技能自有会话/通用动作记录已覆盖所有真实读点，并验证重规划、记录与发送文本后，逐字段裁剪或整体替换。保留清理生命周期，不能只搬数据而丢掉停止时的逆操作。 |
 
 <a id="r06"></a>
@@ -235,3 +235,22 @@ R01/R02/R06 继续保留待接入。日志规范已补齐 observability 父契�
 本次证据仅为文档 header、父子清单、引用与一致性检查，不代表记录服务交付。
 接入条件、历史状态与场景日志消费者核对见
 [规范整理与日志迁移核对记录](spec-history-and-log-migration.md)。
+
+## 2026-10-09 直连任务结果收敛
+
+依据[方案](../iteration/design-flight-vla-result-convergence.md)和
+[决策](../../../specs/implemented/architecture/2026-10-09-flight-vla-result-convergence.md)，
+R03/R05 的执行链已作如下代码修正，状态为**代码已接入、运行未验收**：
+
+| 条目 | 实现证据 | 剩余触发条件 |
+|------|----------|--------------|
+| R05：失败与任务终态 | `N/tools/vla/vla_skill.py::on_action_result` 先检查 success，最后一腿才 ADVANCE；取消复位技能子状态 | 经明确许可后补失败、超时、取消、多腿及重复结果验收 |
+| R05：批次后停稳 | `N/tools/flight/flight_waypoint.py`、`N/tools/vla/vla_waypoint.py` 的 poll 保存目标、关联批次并检查递增 odometry 和持续停稳 | 实际反馈时序、原目标不可达、速度差分噪声、重复快照与停稳超时需受控运行证据 |
+| R05：新鲜状态与高度 | `N/execution/skill_host.py::VlaSkillHost.state`、`N/execution/ports.py::FlightConfig`；删除近点成功路径和重复高度配置 | 迁移部署参数；贴地须配置 ground_z；旧 vla 高度/近点参数明确拒绝 |
+| R05：累计旋转 | `N/tools/flight/rotate_skill.py` 解缠实际偏航、逐段核对累计角 | 多圈、跨 ±π、反向运动及观测缺口需运行验收 |
+| R03：取消/保持 | 沿用既有目标覆盖和取消待处理机制；VLA 每一腿失败均走 fail_sequence，未恢复 mission 层 | 运动中取消、失联后保持重试及 cmd 收敛仍需运行证据；不关闭 R03 |
+
+新增动态信息由 `N/ros_adapter/planner_execution_ros.py` 写入快照，领域执行器
+进行停稳判定。未新增测试、未运行验收或构建，旧测试构造的状态及 VLA 参数
+需在获许可后的测试轮次同步，不沿用历史通过数字。R01/R02/R06 记录服务继续
+挂账；core 依赖、通用 schema 原因码与既有参数全量命名整理不属于本轮。

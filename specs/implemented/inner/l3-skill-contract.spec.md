@@ -145,20 +145,26 @@ Protocol 类型声明。
 - **身份**：`name = "navigation.vla_nav"`、`requires_perception = False`
   （机上无需感知帧；odometry 新鲜度/坐标系/有限性由共享执行校验）、
   `synchronous = False`（入队经 DISPATCH 逐 tick 推进）。
-- **端口**：使用 §7 通用 SkillHost 端口（最新帧、动作武装、航点下发、模式
-  发布、相位上报、任务结果暂存、失败终止、代次守卫、队列机械操作），不新增
-  飞行专属端口；航点塑形（高度限幅、mode 脉冲）由技能内联完成。机上不做
+- **端口**：使用 §7 通用 SkillHost 生命周期端口，加 VLA 能力端口 `state()`
+  （新鲜 FlightState）、只读 `execution_config` 和 `final_approach_height_m`；
+  航点下发支持内部 `ground_approach` 与 `yaw_low_speed` 标志；航点塑形（高度限幅、mode 脉冲）由技能内联完成。机上不做
   VLM/bbox 推理，也不做几何解算——`waypoint_world` 由站端解算后随调用下行，
   技能不含几何原语源端口。
 - **动作完成驱动**：`wait_action_tick` 逐主循环节拍驱动 `host.poll_result()`
   （与 FlightMotion 同构）；`action_done_gate` 返回 None，完成判定走壳通用路径。
 - **三裁决**：`ADVANCE` / `IDLE` 沿用 §4 通用语义；`NEW_ACTION` 仅用于技能已
   自行武装并发布新动作的腿（如贴地腿），core 不替其调度。**不设 REPLAN**——
-  一轮 DISPATCH 只消费一次 station waypoint：单次解算、单次下发、终态回报，
-  无旋转、无重试。
+  一轮 DISPATCH 只消费一次 station waypoint，无机上搜索旋转或几何重试。
+  有终末 yaw 时由技能编排位置腿 → 原地低速转向腿；原 landing 语义追加
+  贴地腿。每腿真实成功才进入下一腿，最后一腿成功才 ADVANCE，任一失败
+  立即 fail，不得以批次结束或缺失结果冒充成功。
 - **fail-closed**：`waypoint_world` 缺失、非恰 3 项或非有限，或 `yaw` 非有限 →
   唯一结构原因 `invalid_station_waypoint`（经工具面 fail 词表贯通到
   `rpc_outcome.reason`）。
+- **近点与贴地**：删除缓存帧近点直接成功及其阈值；所有位置腿经新鲜 odometry、
+  真实批次和停稳门。贴地位置取新鲜状态，目标高度为 ground_z 加
+  `~vla/final_approach_height_m`（默认 0.1 m，必须正且有限）；地面未配置失败。
+  贴地前不推进队列、不发布调用终态；不额外发送起降指令。
 - **机上保留项**：高度界 clamp、goal 唯一写入口、取消/保持
   （`l3-dispatcher/execution-seam` §7）、独占与 owner 门、相位与 `rpc_outcome`。
 

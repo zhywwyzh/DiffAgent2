@@ -1,20 +1,14 @@
-"""VLA 技能宿主端口：通用 SkillHost 端口（航点执行器形态）。
+"""VLA 能力端口：通用动作生命周期、新鲜执行状态和只读家族配置。
 
-l3-skill-contract.spec.md §7/§10：VLA 技能使用通用 SkillHost 端口
-（最新帧、动作武装、航点下发、模式发布、相位上报、任务结果暂存、
-失败终止、代次守卫、队列机械操作），不新增飞行专属端口；航点塑形
-（高度限幅、mode 脉冲）由技能内联完成。机上不做 VLM/bbox 推理，也不做
-几何解算：waypoint_world 由站端解算后随调用下行，本协议不含几何原语源。
-
-实现见 dispatcher/execution/skill_host.py::VlaSkillHost（与
-DispatcherFlightHost 同文件的执行宿主，动作出海用 VLA 家族航点执行
-VlaWaypointExecution）。
+端口归 l3-skill-contract §10；实现归 execution/skill_host.py。
+高度与停稳配置由 execution_config 唯一提供；技能负责位置、偏航及贴地腿顺序。
 """
-
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Any, Callable, Protocol
+from dispatcher.execution.ports import FlightConfig, FlightState
 
 
 @dataclass(frozen=True)
@@ -27,22 +21,29 @@ class VlaHostConfig:
     不静默降级。
     """
 
-    min_height: float = 0.0  # 最低允许飞行高度（clamp 下界，米）
-    max_height: float = 1.8  # 最高允许飞行高度（clamp 上界，米）
+    final_approach_height_m: float = 0.1  # 贴地腿相对地面高度
     planner_ego_mode_value: int = 1  # ego 模式枚举值（mode_burst 入参）
     planner_mode_repeat: int = 3  # 模式脉冲重复次数
     planner_mode_interval: float = 0.03  # 模式脉冲间隔（秒）
     publish_planner_mode: Callable[[int], None] | None = None
 
 
+    def __post_init__(self):
+        if not math.isfinite(self.final_approach_height_m) or self.final_approach_height_m <= 0:
+            raise ValueError("invalid_final_approach_height")
+
+
 class VlaSkillHost(Protocol):
-    """VLA 技能宿主端口；成员签名与 tools/skill_api.py::SkillHost 通用端口对齐。"""
+    """VLA 家族端口，在通用生命周期上增加新鲜状态和贴地意图。"""
 
     min_height: float  # 只读配置：最低允许飞行高度（clamp 下界）
     max_height: float  # 只读配置：最高允许飞行高度（clamp 上界）
     planner_ego_mode_value: int  # 只读配置：ego 模式枚举值（mode_burst 入参）
 
-    def latest_frame(self) -> Any: ...                       # 最新感知帧（Frame | None）；仅距离过近判定消费，可为 None
+    execution_config: FlightConfig  # 共享 FlightConfig，高度和停稳参数唯一来源
+    final_approach_height_m: float
+
+    def state(self) -> FlightState: ...  # 已校验新鲜度、坐标系和有限性的 FlightState
 
     def arm_action(                                          # 通用动作记账：归属快照、代次推进、切至等待完成态（不发 goal）
         self,
@@ -54,7 +55,8 @@ class VlaSkillHost(Protocol):
     ) -> bool: ...
 
     def send_task_goal(                                      # 航点下发（传输原语，塑形由技能内联完成后传入）
-        self, x: float, y: float, z: float, yaw: Any, yaw_source: str = "unspecified"
+        self, x: float, y: float, z: float, yaw: Any, yaw_source: str = "unspecified",
+        *, ground_approach: bool = False, yaw_low_speed: bool = False
     ) -> None: ...
 
     def publish_mode_burst(                                  # 按设定频率连续发布规划器模式，提升切模可靠性

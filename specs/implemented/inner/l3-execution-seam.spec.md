@@ -107,3 +107,34 @@ Parent: specs/implemented/l3-dispatcher.spec.md
   不下放到 EGO 专属订阅、回调或急停状态修改中。
 - 输出边界为 /setpoint_cmd，cmd 下游不在本轮范围。后端切换不应要求为此次迁移
   新增控制协议；各后端原有能力差异不能用单一后端的测试结果掩盖。
+
+## 8. 直连动作完成门
+
+- `all_consumed` 仅表示对应 planner 批次结束。家族执行器须保存实际下发目标，
+  在该批次结束后确认原目标位置、速度、加速度和偏航角速度连续停稳；显式
+  偏航目标还须满足角度误差。planner 内部修正目标不改变本层完成目标。
+- `FlightState` 经 ROS 快照提供世界系速度向量 `velocity` 和偏航角速度
+  `yaw_rate_rad_s`；沿用现有 planner 的 odometry 数值约定，读取 linear xyz
+  与 angular z，不另行旋转速度向量。
+  家族执行器按递增源时戳差分速度求加速度；缺观测、坐标不符、
+  时戳倒退或过期不得成功。重复快照不推进停稳窗口；观测间隔超出
+  `state_timeout` 时失败，超时包含批次结束后的等待。
+- 停稳配置由 `FlightConfig` 唯一持有，经 `~flight/*` 装载，飞行与 VLA 共用：
+
+| 参数 | 默认 | 单位 |
+|------|------|------|
+| `settle_position_m` | 0.30 | m |
+| `settle_speed_m_s` | 0.15 | m/s |
+| `settle_acceleration_m_s2` | 0.30 | m/s² |
+| `settle_yaw_rate_rad_s` | 0.20 | rad/s |
+| `settle_hold_s` | 0.20 | s |
+| `settle_yaw_deg` | 10.0 | ° |
+
+- 上述阈值须正且有限，`settle_yaw_deg` 必须小于 90°，避免分段旋转被容差吞没。
+- 普通高度界统一为 `~flight/min_height` 与 `~flight/max_height`，沿用飞行
+  默认 0.3 m 与 3.0 m；删除 VLA 重复高度界，显式设置旧键时启动失败并提示迁移。
+- `Goal.ground_approach` 为内部贴地意图，默认 false，不下行新增 ROS 字段。
+  为 true 时须有显式 `ground_z`，允许高度下界为该地面高度，仍受 max_height
+  约束；普通目标不得借此绕过高度界。贴地不等价于飞控降落。
+- `Goal.yaw_low_speed` 仅选择既有 LocalGoalSet 低速偏航模式，默认 false；
+  VLA 终末转向与旋转技能使用 true，不新增 planner 接口。

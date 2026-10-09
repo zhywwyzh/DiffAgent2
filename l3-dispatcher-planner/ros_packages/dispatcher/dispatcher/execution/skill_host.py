@@ -116,16 +116,18 @@ class VlaSkillHost:
         self.execution = execution
         self.config = config
         # 技能内联塑形所需的只读配置（SkillHost 通用端口属性）
-        self.min_height = config.min_height
-        self.max_height = config.max_height
+        self.execution_config = execution.config
+        self.min_height = execution.config.min_height
+        self.max_height = execution.config.max_height
+        self.final_approach_height_m = config.final_approach_height_m
         self.planner_ego_mode_value = config.planner_ego_mode_value
 
     # ------------------------------------------------------------------
-    # 入站读取（最新帧：仅距离过近判定消费，可为 None）
+    # 入站读取（执行状态：新鲜 odometry，包含动态观测）
     # ------------------------------------------------------------------
 
-    def latest_frame(self):
-        return self.engine.get_frame_snapshot()
+    def state(self):
+        return self.execution.state()
 
     # ------------------------------------------------------------------
     # 出站动作：武装（记账）→ 下发（传输原语）
@@ -187,7 +189,8 @@ class VlaSkillHost:
         engine.ledger.set_state(DISPATCHER_STATE.WAIT_ACTION_FINISH, reason='action:armed')
         return True
 
-    def send_task_goal(self, x, y, z, yaw, yaw_source: str = "unspecified"):
+    def send_task_goal(self, x, y, z, yaw, yaw_source: str = "unspecified",
+                       *, ground_approach=False, yaw_low_speed=False):
         """航点下发（传输原语）：经 VlaWaypointExecution 出海；塑形由技能内联完成。
 
         yaw=None 表示 look_forward（沿路径朝前）——Goal 契约要求 yaw 为有限
@@ -201,6 +204,8 @@ class VlaSkillHost:
             (float(x), float(y), float(z)),
             0.0 if yaw is None else float(yaw),
             look_forward=yaw is None,
+            ground_approach=ground_approach,
+            yaw_low_speed=yaw_low_speed,
         )
         engine.waypoint = goal.position
         gate.pending_action.waypoint = goal.position

@@ -111,3 +111,11 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 只清理来源任务编号，保留 LocalGoalSet 的 yaw_low_speed、goal_to_follower。取消和
 停止意图的构造属于 dispatcher 的共享执行职责，复用旧 stopMotion 的目标覆盖方式；
 不新增 planner/cancel，不修改后端停止算法。验证记录见[边界修正决策](../architecture/2026-09-17-dispatcher-planner-boundary-correction.md)。
+
+## 8. 实测完成与累计旋转
+
+平移、返航、旋转的每个目标均采用执行缝 §8 的批次后停稳门。旋转技能对
+新鲜且源时戳递增的 odometry 偏航作连续解缠，核对每个分段结束时的实际
+有符号累计角与预期累计角（容差 `settle_yaw_deg`）；缺观测、时戳倒退、
+观测间隔超出 `state_timeout` 或累计角不符即失败，不继续下一段。旋转目标
+使用既有低速偏航模式。

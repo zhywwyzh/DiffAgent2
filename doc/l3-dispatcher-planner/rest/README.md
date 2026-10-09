@@ -9,7 +9,7 @@
 | 停止记录、任务覆盖、重置、记录服务 | [R01](dispatcher-deferred-dependencies.md#r01)、[R02](dispatcher-deferred-dependencies.md#r02)、[R06](dispatcher-deferred-dependencies.md#r06) | 保留接口/状态，记录能力未接入 |
 | 飞行技能、急停悬停、执行缝、planner/飞控连接 | [R03](dispatcher-deferred-dependencies.md#r03)、[R05](dispatcher-deferred-dependencies.md#r05) | 取消覆盖已上行修正；修正版未重跑验证 |
 | 返回上一位置、返回原点、轨迹/过程历史 | [R04](dispatcher-deferred-dependencies.md#r04)、[R06](dispatcher-deferred-dependencies.md#r06) | origin 已接入；逐步历史/文本消费者待迁 |
-| VLA 动作发布、重规划、动作结果接入 | [R05](dispatcher-deferred-dependencies.md#r05) | VLA 专属 REPLAN 已随机上收窄退役（终态腿）；记录消费仍挂账；`navigation.vla_rotate` 已补注册（2026-09-26） |
+| VLA 动作发布、重规划、动作结果接入 | [R05](dispatcher-deferred-dependencies.md#r05) | 2026-10-09 已修正失败收尾与多腿单终态、补批次后停稳，代码已接入但未验收； VLA 专属 REPLAN 已随机上收窄退役（终态腿）；记录消费仍挂账；`navigation.vla_rotate` 已补注册（2026-09-26） |
 | VLA 多图思考、搜索调试输出 | [R07](dispatcher-deferred-dependencies.md#r07) | 旧消费者已随 VLM 迁云删除；孤儿字段由方案 P1 删除后关门 |
 | 队列精简、core 字段删除、宿主端口调整 | 全部条目及台账的“当前队列如何执行” | 不能仅凭新版无读点判定可删 |
 | 去除 task-id、迁入原工具名、panorama 来源策略或来源日志 | [工具名与业务语义迁移遗留项](../../rest/task-id-to-tool-name-deferred.md) | 按名分发已接入，旧来源判据尚须逐项迁移；去编号不等于删除业务语义 |
@@ -45,3 +45,14 @@ grep 零命中，见台账 R07 证据）。上述保留项不随本次飞行功�
 [规范整理与日志迁移核对记录](spec-history-and-log-migration.md)保存旧版迁移状态线索，
 并列出记录服务、场景工具事件及站端流水线的接入与验收条件。
 R01/R02/R06 仍未关闭；本次只完成文档归属与一致性检查，没有新增运行验收证据。
+
+## 直连任务结果收敛（2026-10-09）
+
+[方案](../iteration/design-flight-vla-result-convergence.md)已完成代码交付：
+VLA 失败不再推进成功；位置、终末偏航及贴地腿全部完成才结束调用；
+两家族批次完成后追加原目标动态停稳门，旋转增加实际累计偏航核对。
+高度及停稳参数由 FlightConfig 统一持有；旧 VLA 高度/近点参数需迁移，
+贴地须显式配置地面高度。实现归属及剩余条件见台账文末。
+
+本轮未运行测试、构建或验收，不能据此宣称与 DiffAgent2 旧版运行结果等价；
+R03 和 R05 的运行证据仍待使用者明确许可后补充。

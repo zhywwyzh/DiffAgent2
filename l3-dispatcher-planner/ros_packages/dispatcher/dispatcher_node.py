@@ -149,8 +149,7 @@ def create_vla_runtime(engine, ports, execution_config):
       形态与次数语义，通道接入时替换为真实发布器；装配时留痕一次。
       未接线时 VlaSkillHost.publish_mode_burst 会直接失败（不静默降级），
       空实现仅免除该失败，不引入其他行为漂移。
-    - 宿主只读配置经 ROS 私有参数 ~vla/* 覆盖（同 ~flight/* 机制）；技能层
-      阈值 search_success_distance_thresh(0.3) 同源。
+    - VLA 专属配置经 ~vla/* 装载；高度与完成门共用 ~flight/*。
     - waypoint_world 由站端解算随调用下行：机上无几何配置、无感知注入，
       headless 亦可装配。
     """
@@ -166,6 +165,10 @@ def create_vla_runtime(engine, ports, execution_config):
         "vla_planner_mode_channel_absent",
         note="ego stack has no planner mode trigger channel; mode burst is a no-op",
     )
+    for retired in ("vla/min_height", "vla/max_height", "vla/search_success_distance_thresh"):
+        marker = object()
+        if params_ros.get_private_param(retired, marker) is not marker:
+            raise ValueError(f"retired parameter {retired}: use flight height/settle configuration")
     values = {
         field.name: params_ros.get_private_param("vla/" + field.name, field.default)
         for field in fields(VlaHostConfig)
@@ -174,8 +177,6 @@ def create_vla_runtime(engine, ports, execution_config):
     _, dispose = install_vla(
         engine, ports, execution_config,
         VlaHostConfig(publish_planner_mode=planner_mode_sink_no_channel, **values),
-        search_success_distance_thresh=params_ros.get_private_param(
-            "vla/search_success_distance_thresh", 0.3),
     )
     return dispose
 
@@ -201,12 +202,12 @@ def main():
     flight_host, dispose_flight, close_flight_ports, flight_ports, flight_config = (
         create_flight_runtime(engine)
     )
-    # VLA 为航点执行器：无感知/几何注入，headless 亦装配。
-    dispose_vla = create_vla_runtime(engine, flight_ports, flight_config)
     with ExitStack() as resources:
         resources.callback(close_flight_ports)
-        resources.callback(dispose_vla)
         resources.callback(dispose_flight)
+        # 参数拒绝或 VLA 装配失败时也释放已创建的飞行资源。
+        dispose_vla = create_vla_runtime(engine, flight_ports, flight_config)
+        resources.callback(dispose_vla)
         control_plane = ToolControlPlane(
             engine.tools, log=RosLog(), shutdown=RosShutdown(),
             feedback_factory=lambda middleware: FeedbackPlane(middleware, on_reset=flight_host.reset_session),

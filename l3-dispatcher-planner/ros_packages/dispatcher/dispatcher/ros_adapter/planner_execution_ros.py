@@ -48,7 +48,9 @@ class RosFlightPorts:
         state = FlightState((position.x, position.y, position.z), yaw,
                             math.sqrt(velocity.x**2 + velocity.y**2 + velocity.z**2),
                             time.monotonic(), stamp, message.header.frame_id,
-                            rospy.Time.now().to_sec() - stamp)
+                            rospy.Time.now().to_sec() - stamp,
+                            (velocity.x, velocity.y, velocity.z),
+                            message.twist.twist.angular.z)
         with self._lock:
             self._state = state
 
@@ -77,7 +79,9 @@ class RosFlightPorts:
         message.waypoints = list(goal.position)
         message.yaw = goal.yaw
         message.look_forward = goal.look_forward
-        message.yaw_mode = LocalGoalSet.YAW_MODE_NORMAL
+        message.yaw_low_speed = goal.yaw_low_speed
+        message.yaw_mode = (LocalGoalSet.YAW_MODE_LOW_SPEED if goal.yaw_low_speed
+                            else LocalGoalSet.YAW_MODE_NORMAL)
         message.yaw_path_mode = LocalGoalSet.YAW_PATH_SHORTEST
         self._send(self._goal, message)
 
