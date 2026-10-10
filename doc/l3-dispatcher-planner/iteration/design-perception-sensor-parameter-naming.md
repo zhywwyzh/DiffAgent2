@@ -1,6 +1,6 @@
 # 感知传感器参数重命名方案
 
-> 摘要：去除通用感知传感器参数中的 tracking 命名，按 perception 归属统一参数和属性名称；仅修改 DiffAgent2 新版。
+> 摘要：去除通用感知传感器参数中的 过时领域命名，按 perception 归属统一参数和属性名称；仅修改 DiffAgent2 新版。
 
 ## 0. 元信息
 
@@ -13,19 +13,19 @@
 
 ## 1. 背景与动机
 
-三个通用感知参数含 tracking 前缀，容易被误认为目标跟踪配置。用户要求先修改名称。
+三个通用感知参数含 过时领域前缀，容易被误认为专属领域配置。用户要求先修改名称。
 
 ## 2. 现状事实（问题清单）
 
-- `l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/perception/base_policy.py:483`：注释及三个参数使用 tracking 命名。
-- `l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/perception/base_policy.py:509`：深度缓存使用时间匹配容差，订阅句柄也含 tracking。
+- `l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/perception/base_policy.py:483`：注释及三个参数使用 过时领域命名。
+- `l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/perception/base_policy.py:509`：深度缓存使用时间匹配容差，订阅句柄也含过时领域前缀。
 - `l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/perception/base_policy.py:524`：点云缓存及订阅存在同类命名。
 - `l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/perception/base_policy.py:708`：深度缓存用于通用 Frame 构建。
 
 ## 3. 目标与约束
 
 - 目标：参数归属 perception，时间参数带 `_s`，属性与订阅名称表达通用感知用途。
-- 范围外：目标跟踪迁移、开关逻辑补齐、缓存清理及 ROS 分层调整。
+- 范围外：新增领域能力、开关逻辑补齐、缓存清理及 ROS 分层调整。
 - 硬边界：不新增转接器，不保留旧参数兼容读取；默认值、缓存容量及订阅行为保持原样。
 
 ## 4. 方案决策
@@ -47,21 +47,21 @@
 
 | 旧路径/命名 | 新路径/命名 | 动作 | 备注 |
 |----|----|----|----|
-| `~tracking_sensor_enable` | `~perception/sensor_enable` | rename | 默认 true；仍只保存配置值 |
-| `~tracking_depth_max_delta` | `~perception/depth_max_delta_s` | rename | 默认 0.1 秒 |
-| `~tracking_cloud_max_delta` | `~perception/cloud_max_delta_s` | rename | 默认 0.05 秒 |
-| `tracking_sensor_enable` 属性 | `sensor_enable` | rename | 不增加控制逻辑 |
-| `tracking_depth_max_delta` 属性 | `depth_max_delta_s` | rename | 同步缓存构造引用 |
-| `tracking_cloud_max_delta` 属性 | `cloud_max_delta_s` | rename | 同步缓存构造引用 |
-| `_tracking_depth_sub` | `_depth_raw_sub` | rename | 同步未启用深度分支 |
-| `_tracking_cloud_sub` | `_cloud_raw_sub` | rename | 订阅行为不变 |
+| `~原传感器开关` | `~perception/sensor_enable` | rename | 默认 true；仍只保存配置值 |
+| `~原深度容差` | `~perception/depth_max_delta_s` | rename | 默认 0.1 秒 |
+| `~原点云容差` | `~perception/cloud_max_delta_s` | rename | 默认 0.05 秒 |
+| `原传感器开关` 属性 | `sensor_enable` | rename | 不增加控制逻辑 |
+| `原深度容差` 属性 | `depth_max_delta_s` | rename | 同步缓存构造引用 |
+| `原点云容差` 属性 | `cloud_max_delta_s` | rename | 同步缓存构造引用 |
+| `原深度订阅句柄` | `_depth_raw_sub` | rename | 同步未启用深度分支 |
+| `原点云订阅句柄` | `_cloud_raw_sub` | rename | 订阅行为不变 |
 
 ## 6. 删除清单
 
 | 删除项 | 理由 |
 |----|----|
 | 原参数读取及原属性、句柄名称 | 已被新名称替代，不留兼容接口 |
-| 当前快通道注释中的 tracking 限定 | 数据用于通用感知帧 |
+| 当前快通道注释中的 过时领域限定 | 数据用于通用感知帧 |
 
 ## 7. 实施步骤（P0/P1/... 分期）
 
@@ -97,3 +97,5 @@
 |----|----|----|
 | `doc/l3-dispatcher-planner/iteration/design-perception-sensor-parameter-naming.md` | add | 方案及实施状态 |
 | `l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/perception/base_policy.py` | edit | 参数、属性、句柄和注释重命名 |
+
+后续清理（2026-10-10）：本方案中的传感器开关原本没有消费者，现按用户清除预留的要求删除；深度与点云时间容差继续归通用感知数据面。现行删除范围见 [未接入跟随预留清理方案](design-remove-unused-follow-reservation.md)。

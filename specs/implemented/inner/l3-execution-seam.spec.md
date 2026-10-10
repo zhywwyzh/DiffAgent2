@@ -18,7 +18,8 @@ mission_executive 与 /mission/task 不恢复。
 ## 2. 端口与收发
 
 - 默认 action 为 /planner/execute_waypoints，使用 quadrotor_msgs/ExecuteWaypoints。
-- Goal 包含 header 与 WaypointTarget；目标包含 1–3 点窗口、yaw、look_forward、goal_to_follower、YawPolicy 与 ground_approach。
+- Goal 包含 header 与 WaypointTarget；目标包含 1–3 点窗口、yaw、look_forward、YawPolicy 与 ground_approach。
+- 未接入的目标跟随预留已按用户明确要求删除，消息与领域目标不保留占位或兼容字段；生产方和消费方须同步重新生成消息并构建。
 - Feedback 包含执行相位、消费进度和停稳观测；反馈不得驱动任务成功。
 - Result 包含 reason、stop_confirmed、state_valid 与最终位姿；成败以 action 状态为准。
 - GoalID 仅关联传输动作，不作任务身份；内部轨迹版本不得用于工具分发。
@@ -91,7 +92,7 @@ EGO、SUPER、DIFF 使用同一 action 类型，后端不支持的目标组合�
 规划器算法保持原归属；通用停稳、取消生命周期由 planner_execution 唯一持有。
 EGO 支持普通、低速及原地全景连续偏航；连续偏航从本动作起点归一化实际角出发解缠。
 SUPER 仅准入普通最短路径偏航，速度朝向模式不准入显式偏航目标；低速和连续偏航显式拒绝。
-DIFF 仅准入沿路径朝向，不接受显式偏航控制。三个后端均拒绝尚未接入的 goal_to_follower。
+DIFF 仅准入沿路径朝向，不接受显式偏航控制。
 
 输出边界为 /setpoint_cmd；取消完成依据领域观测和后端保持接管，不等价于已验收实机跟踪。
 

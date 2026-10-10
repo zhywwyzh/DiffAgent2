@@ -11,7 +11,7 @@ struct Target {
   std::vector<Vec3> waypoints;
   std::string frame;
   double yaw{0};
-  bool look_forward{true}, goal_to_follower{false}, ground_approach{false};
+  bool look_forward{true}, ground_approach{false};
   unsigned yaw_mode{0}, yaw_path{0};
 };
 struct State {

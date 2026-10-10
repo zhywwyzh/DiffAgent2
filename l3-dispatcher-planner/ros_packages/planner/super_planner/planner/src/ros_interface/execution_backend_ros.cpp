@@ -6,7 +6,6 @@ void FsmRos1::initExecution() {
     if (cfg_.traj_start_trigger_en && waiting_traj_start_trigger_) return "wait_traj_start_trigger";
     if (!cfg_.timer_en) return "native_action_requires_timers";
     if (!t.look_forward && cfg_.yaw_mode == super_planner::fsm::Config::YAW_TO_VEL) return "explicit_yaw_unsupported_in_velocity_mode";
-    if (t.goal_to_follower) return "follower_unsupported";
     if (t.yaw_mode!=0 || t.yaw_path!=0) return "yaw_policy_unsupported";
     return "";
   };

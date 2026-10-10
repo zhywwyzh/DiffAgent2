@@ -59,7 +59,7 @@ namespace traj_opt {
         double max_vel{0}, max_acc{0}, max_jerk{0}, max_omg{0}, max_acc_thr{0}, min_acc_thr{0}, max_vel_z{-1};
         /* Yaw-rate feasibility bound [rad/s]: the optimizer penalizes trajectory
          * points whose heading rate (d/dt atan2(vy,vx)) exceeds this, so the
-         * online yaw follower can track the velocity heading. <=0 disables. */
+         * online yaw controller can follow the velocity heading. <=0 disables. */
         double max_yaw_rate{-1};
         // Penalty cost.
         double penna_scale{-1}, penna_vel{0}, penna_acc{0}, penna_jerk{0}, penna_omg{0}, penna_thr{0};

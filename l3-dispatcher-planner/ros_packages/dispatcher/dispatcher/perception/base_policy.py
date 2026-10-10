@@ -481,9 +481,6 @@ class BasePolicyNode(object):
         )
 
         # -- 分通道独立订阅（感知快通道，不参与 Frame 同步）--
-        self.sensor_enable = bool(
-            rospy.get_param("~perception/sensor_enable", True)
-        )
         self.depth_max_delta_s = float(
             rospy.get_param("~perception/depth_max_delta_s", 0.1)
         )

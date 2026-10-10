@@ -101,11 +101,11 @@ ros_packages/
 | 部分 | 拟定内容 | 语义 |
 |----|----|----|
 | Goal | `header`、`target` | 世界坐标系下的原始航点窗口与终末偏航策略；窗口保留现有 1–3 点范围 |
-| 目标内容 | `waypoints`、`yaw`、`look_forward`、`goal_to_follower`、`yaw_policy`、`ground_approach` | 保留原运动意图；低速偏航归入唯一模式声明，不再与独立布尔量重复表达 |
+| 目标内容 | `waypoints`、`yaw`、`look_forward`、`yaw_policy`、`ground_approach` | 保留原运动意图；低速偏航归入唯一模式声明，不再与独立布尔量重复表达 |
 | Feedback | `phase`、`active_index`、`consumed_count`、位置及偏航误差、速度、停稳持续时间 | 展示进度；不构成成功或推进依据 |
 | Result | `reason`、`stop_confirmed`、最终有效状态及其有效性标记 | 成败以 action 终态为准；无效观测不得用零值伪装有效 |
 
-动作 Goal 不额外携带 `batch_id`、工具名、上游调用身份或第二套成功布尔值。原始目标与 planner 修正后的轨迹目标分别保存，成功核对原始目标。`goal_to_follower`、全景偏航及路径方向策略须按真实消费者完成映射；后端不支持的组合在准入时明确拒绝。
+动作 Goal 不额外携带 `batch_id`、工具名、上游调用身份或第二套成功布尔值。原始目标与 planner 修正后的轨迹目标分别保存，成功核对原始目标。全景偏航及路径方向策略须按真实消费者完成映射；后端不支持的组合在准入时明确拒绝。
 
 选择底层 `ActionClient` / `ActionServer` 和显式 goal handle，以控制单活动目标及拒绝策略。不得依赖“发送新 goal 自动取消旧 goal”：官方 `SimpleActionClient.send_goal()` 的行为是停止跟踪旧目标，并不会发送取消请求。[客户端实现](https://github.com/ros/actionlib/blob/noetic-devel/actionlib/src/actionlib/simple_action_client.py)
 

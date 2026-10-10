@@ -196,10 +196,10 @@ namespace super_planner {
         /**
          * Target yaw for the YAWING phase: the look-ahead chord heading at the
          * committed trajectory's start, using the same definition as the online
-         * yaw tracker and the mid-flight mismatch trigger (shared
+         * yaw controller and the mid-flight mismatch trigger (shared
          * getLookaheadChordYaw). Converging here means FOLLOW_TRAJ resumes with
          * zero yaw step and the mismatch trigger cannot re-fire right after
-         * pre-yaw. No time_forward parameter: the tracker's own look-ahead is
+         * pre-yaw. No time_forward parameter: the controller's own look-ahead is
          * used, keeping all three heading definitions identical.
          *
          * @return Target yaw [rad], or NAN if near-vertical
@@ -226,7 +226,7 @@ namespace super_planner {
                                  Trajectory &out_traj);
 
         /**
-         * Heading the online yaw tracker commands at eval_t: the chord from the
+         * Heading the online yaw controller commands at eval_t: the chord from the
          * trajectory position to the look-ahead point (same retry semantics as
          * getOneCommandFromTraj). Caller must hold the committed-traj lock.
          *
@@ -237,7 +237,7 @@ namespace super_planner {
 
         /**
          * Yaw of the committed trajectory at the current evaluation time, using
-         * the same look-ahead chord definition as the online yaw tracker (the
+         * the same look-ahead chord definition as the online yaw controller (the
          * mid-flight mismatch trigger must compare against what the drone is
          * actually commanded to do, not the instantaneous tangent).
          *

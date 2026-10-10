@@ -231,15 +231,15 @@ cmd 下游的电机、PX4 跟踪或实机速度收敛。原点的状态输入仍
 
 ### 4.4.2 职责上行修正（取代先前的 EGO 专属取消设计）
 
-用户明确：仅删除 source_task_id 与 SOURCE_TASK_*；yaw_low_speed 和 goal_to_follower
-保留。取消 mission_executive 是把其控制职责上行迁入 dispatcher，不是给 planner
+用户明确：仅删除 source_task_id 与 SOURCE_TASK_*；yaw_low_speed 和当时的附加目标字段
+保留（附加目标字段已按当前清理决定移除）。取消 mission_executive 是把其控制职责上行迁入 dispatcher，不是给 planner
 增加新控制协议。此前删除另外两个字段以及增加 EGO cancelCallback 的决定撤回。
 
 修正先于代码执行落盘，范围如下：
 
 | 单元 | 修正动作 | 理由 |
 |---|---|---|
-| LocalGoalSet.msg | 恢复 yaw_low_speed、goal_to_follower 原字段位置；不恢复来源编号 | 不把 task-id 清理扩大成其他接口裁剪 |
+| LocalGoalSet.msg | 当时恢复 yaw_low_speed 及附加目标字段原位置（附加字段现已移除）；不恢复来源编号 | 不把 task-id 清理扩大成其他接口裁剪 |
 | EGO/SUPER | 恢复 yaw_low_speed 的原读取；仅保留来源编号相关差异 | 后端行为保持原有边界 |
 | EGO 取消/停止 | 撤销 cancel 订阅/回调、额外清窗口和偏航重置 | 取消覆盖与生命周期由 dispatcher 承担 |
 | vis_utils | 保持旧目录布局：include/vis_utils/camera_fov.h 和 src/camera_fov.cpp，CMake 引用原 src 路径 | 不移动既有文件、不改 planner include、不加转接头 |
@@ -449,7 +449,7 @@ S4 并发细化：RPC 消费线程与 FSM 线程共用生命周期锁，串行�
 单次 FSM 处理；等待释放锁。否则旧动作 poll 与新调用覆盖可交叉写入同一 ActionGate。
 该通用同步机制不新增领域分支，先登记 core 的等待辅助方法白名单再实现。
 
-消息闭包复核纠正：此前按无读点/旧回退理由删除 goal_to_follower、yaw_low_speed
+消息闭包复核纠正：此前按无读点/旧回退理由删除附加目标字段及 yaw_low_speed
 超出了本轮范围；现已恢复字段和原读取，仅删除来源任务编号。PositionCommand 不变。
 
 ## 11. 完成记录（2026-09-17）
@@ -490,3 +490,5 @@ R05 飞行动作账务已接入，VLA 专属重规划/记录消费未交付。�
 camera_fov 目录纠正：按用户要求，将实现文件从新增的 ros_adapter/ 移回旧布局的
 src/camera_fov.cpp，同步 CMake；保留实现内容和公开头文件。此项仅恢复路径，
 不改变逻辑，不运行测试或构建。
+
+当前状态补充（2026-10-10）：本方案记录的附加目标字段保留仅为历史，现已按用户明确要求从消息和全部消费方移除。

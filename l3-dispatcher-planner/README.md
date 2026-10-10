@@ -72,7 +72,7 @@ l4 消费者测试只读加载工作区的 l4-agent 并核验源文件摘要，�
 
 ## 控制职责边界
 
-planner 仅同步去除来源任务编号；保留 yaw_low_speed、goal_to_follower 及原有行为。
+planner 仅同步去除来源任务编号；当时保留 yaw_low_speed 及附加目标字段；后者已按当前清理决定移除。
 普通取消由 dispatcher 以新批次发送当前位置/当前 yaw 的保持目标，不依赖新增的
 planner/cancel 入口。显式急停保留既有全局信号，并由 dispatcher 编排保持目标。
 位姿失效或发送失败时不假报停止、不放行新动作；本修正尚未做运行验证。

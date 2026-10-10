@@ -77,7 +77,7 @@ task-id 删除本身不表示用户批准所有来源使用 panorama。当前来
 5. 实现后记录原判据到新技能/策略的落点和行为证据。若要改变或放弃某个旧判据，
    单独明确裁决，不能借去编号默认放行。
 
-`yaw_low_speed`、`goal_to_follower` 是独立消息字段，本项不把它们列入 task-id 删除范围。
+`yaw_low_speed` 是独立消息字段，本项不把它列入 task-id 删除范围。其他未接入目标预留已按当前清理决定移除。
 取消 mission_executive 的控制职责继续上行到 dispatcher，不借此给 planner 添加专属
 任务控制接口；相关纠正见
 [职责边界修正记录](../../specs/implemented/architecture/2026-09-17-dispatcher-planner-boundary-correction.md)。

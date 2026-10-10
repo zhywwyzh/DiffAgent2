@@ -51,7 +51,7 @@ void WaypointActionServer::goal(Handle h) {
   }
   const auto& msg=*h.getGoal(); Target target;
   target.frame=msg.header.frame_id; target.yaw=msg.target.yaw;
-  target.look_forward=msg.target.look_forward; target.goal_to_follower=msg.target.goal_to_follower;
+  target.look_forward=msg.target.look_forward;
   target.ground_approach=msg.target.ground_approach;
   target.yaw_mode=msg.target.yaw_policy.mode; target.yaw_path=msg.target.yaw_policy.path;
   for (const auto& p:msg.target.waypoints) target.waypoints.push_back({p.x,p.y,p.z});

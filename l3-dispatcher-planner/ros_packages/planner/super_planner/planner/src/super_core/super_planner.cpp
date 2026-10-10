@@ -542,7 +542,7 @@ namespace super_planner {
             cmd_traj_info_.unlock();
             return NAN;
         }
-        /* Same heading definition as the online yaw tracker and the mid-flight
+        /* Same heading definition as the online yaw controller and the mid-flight
          * mismatch trigger (look-ahead chord at t=0, shared
          * getLookaheadChordYaw): the drone converges to exactly what FOLLOW_TRAJ
          * commands on resume. Three-point near-start sampling is retired: on
@@ -555,7 +555,7 @@ namespace super_planner {
         return yaw;
     }
 
-    /* The heading the online yaw tracker commands at eval_t: the chord from the
+    /* The heading the online yaw controller commands at eval_t: the chord from the
      * current trajectory position to the look-ahead point, with the same
      * slow-start retry semantics as getOneCommandFromTraj. Caller must hold
      * the committed-traj lock. */
@@ -567,7 +567,7 @@ namespace super_planner {
         Vec3f dir = cmd_traj_info_.getPos(tf) - p0;
         /* Slow rest-to-rest starts (v ~0.05-0.35 m/s for short goals) move less
          * than 0.1 m in one yaw_time_forward: step the look-ahead in 0.5 s steps
-         * (up to the trajectory end) so the chord stays defined for the tracker,
+         * (up to the trajectory end) so the chord stays defined for the controller,
          * the pre-yaw target and the mismatch trigger alike. */
         for (int retry = 0; retry < 3 && dir.head(2).norm() < 0.1; retry++) {
             tf = std::min(tf + 0.5, total_dur);
@@ -584,7 +584,7 @@ namespace super_planner {
             return NAN;
         }
         const double eval_t = ros_ptr_->getSimTime() - cmd_traj_info_.getStartWallTime();
-        /* Same heading definition as the online yaw tracker (look-ahead chord):
+        /* Same heading definition as the online yaw controller (look-ahead chord):
          * the mismatch trigger must compare against what the drone is actually
          * commanded to do, not the instantaneous tangent (which diverges from the
          * look-ahead chord by >30 deg in curves and spuriously triggers YAWING). */

@@ -4,7 +4,6 @@ void DiffReplanFSM::initExecution(ros::NodeHandle& nh) {
   planner_execution::Backend backend;
   backend.validate=[this](const planner_execution::Target& t) -> std::string {
     if (!have_odom_) return "odometry_unavailable";
-    if (t.goal_to_follower) return "follower_unsupported";
     if (!t.look_forward || t.yaw_mode!=0 || t.yaw_path!=0) return "yaw_control_unsupported";
     return "";
   };

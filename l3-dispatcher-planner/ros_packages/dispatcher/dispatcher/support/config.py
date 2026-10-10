@@ -82,8 +82,8 @@ def flatten_leaf_params(cfg: Dict[str, Any], *, _path: str = "", log=None) -> Di
     """递归展开结构化配置，使用叶子字段名作为最终参数名。
 
     该函数用于把 YAML 中的功能分组配置转换为现有 ROS 私有参数格式。
-    例如 tracking.kalman.tracking_kalman_enabled 会展开为
-    ~tracking_kalman_enabled，避免业务代码到处改 rospy.get_param 名称。
+    例如 telemetry.logging.log_enabled 会展开为
+    ~log_enabled，避免业务代码到处改 rospy.get_param 名称。
     """
     log = _resolve_log(log)
     if not isinstance(cfg, dict):
@@ -217,6 +217,6 @@ UAV_POLICY_DEFAULTS = {
     "is_stable": False,  # 是否强制保持 stable_height
     "behind_dist": 2.0,  # “后方”目标点偏移距离（米）
     "planner_ego_mode_value": 1,  # ego 模式枚举值
-    "if_handle_yaw": True,  # 是否允许底层 ego planner 处理 yaw；tracking 会临时关闭
+    "if_handle_yaw": True,  # 是否允许底层 ego planner 处理 yaw
 
 }
