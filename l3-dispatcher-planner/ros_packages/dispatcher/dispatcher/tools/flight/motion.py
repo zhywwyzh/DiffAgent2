@@ -35,9 +35,11 @@ class FlightMotion(SkillBase):
         return SkillVerdict.IDLE
 
     def on_cancel(self):
-        self._host.cancel_execution(self)
-        self._goals = iter(())
-        self._result = None
+        try:
+            self._host.cancel_execution(self)
+        finally:
+            self._goals = iter(())
+            self._result = None
 
     def on_global_stop(self):
         self.on_cancel()

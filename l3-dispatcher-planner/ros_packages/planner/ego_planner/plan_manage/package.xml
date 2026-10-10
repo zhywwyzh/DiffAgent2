@@ -47,4 +47,5 @@
 
   <export>
   </export>
+  <depend>planner_execution</depend>
 </package>

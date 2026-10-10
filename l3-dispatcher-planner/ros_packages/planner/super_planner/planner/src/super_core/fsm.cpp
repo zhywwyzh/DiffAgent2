@@ -111,7 +111,7 @@ namespace fsm {
         }
         if (reset_requested_) {
             reset_requested_ = false;
-            handleReset();
+            clear_navigation();
         }
         static double fsm_start_time = ros_ptr_->getSimTime();
         double cur_t = (ros_ptr_->getSimTime() - fsm_start_time);
@@ -263,10 +263,14 @@ namespace fsm {
                     if (yaw_only_task_) {
                         /* In-place turn done: consume the goal at rest. */
                         yaw_only_task_ = false;
-                        onGoalConsumedAtRest();
-                        ChangeState("MainFsmCallback:yaw-only:done", WAIT_TARGET);
-                        gi_.new_goal = false;
-                        finish_plan = true;
+                        if (consumeArrivedWaypoint()) {
+                            onGoalConsumedAtRest();
+                            ChangeState("MainFsmCallback:yaw-only:done", WAIT_TARGET);
+                            gi_.new_goal = false;
+                            finish_plan = true;
+                        } else {
+                            ChangeState("MainFsmCallback:yaw-only:next", GENERATE_TRAJ);
+                        }
                         break;
                     }
                     planner_ptr_->resetTrajStartWallTime(ros_ptr_->getSimTime());
@@ -300,7 +304,7 @@ namespace fsm {
         }
     }
 
-    void Fsm::handleReset() {
+    void Fsm::clear_navigation() {
         /* Planner Reset Contract (specs/mission-planner-protocol): clear the
          * active goal / waypoint window, drop the committed trajectory so no
          * PositionCommand keeps flowing, re-sync the yaw integrator from
@@ -317,7 +321,7 @@ namespace fsm {
         yaw_only_task_ = false;
         pre_yaw_target_ = NAN;
         planner_ptr_->resetOnlineYaw();
-        ChangeState("handleReset", WAIT_TARGET);
+        ChangeState("clear_navigation", WAIT_TARGET);
         SLOG_EVENT(slog::Level::warn, "planner_reset", {
                 slog::F("state", MACHINE_STATE_STR[machine_state_]),
         });
@@ -537,12 +541,12 @@ namespace fsm {
                 }
                 gi_.new_goal = true;
                 pushWaypointLookaheadToPlanner();
-                publishWaypointProgress(false);
+                reportWaypointProgress(false);
                 return false;
             }
             /* Window exhausted: report batch completion; the caller reports
              * exec_finished with the final waypoint as the active goal. */
-            publishWaypointProgress(true);
+            reportWaypointProgress(true);
             SLOG_EVENT(slog::Level::info, "wp_batch_done", {
                     slog::F("batch_id", gi_.batch_id),
             });
@@ -600,7 +604,7 @@ namespace fsm {
              * (traj_finish + closeToGoal); only clear the lookahead here. */
             planner_ptr_->setWaypointLookahead({});
         }
-        publishWaypointProgress(false);
+        reportWaypointProgress(false);
     }
 
     void Fsm::ChangeState(const string &call_func, const MACHINE_STATE &new_state) {

@@ -10,8 +10,11 @@ class FlightConfig:
     world_frame: str = "world"
     min_height: float = 0.3
     max_height: float = 3.0
-    state_timeout: float = 1.0
-    action_timeout: float = 60.0
+    state_timeout_s: float = 1.0
+    action_timeout_s: float = 60.0
+    stop_timeout_s: float = 5.0
+    connect_timeout_s: float = 5.0
+    admission_timeout_s: float = 5.0
     max_rotation_deg: float = 3600.0
     ground_tolerance: float = 0.15
     airborne_height: float = 0.3
@@ -26,7 +29,8 @@ class FlightConfig:
     def __post_init__(self):
         if not isinstance(self.world_frame, str) or not self.world_frame:
             raise ValueError("invalid_world_frame")
-        values = (self.min_height, self.max_height, self.state_timeout, self.action_timeout,
+        values = (self.min_height, self.max_height, self.state_timeout_s, self.action_timeout_s, self.stop_timeout_s,
+                  self.connect_timeout_s, self.admission_timeout_s,
                   self.max_rotation_deg, self.ground_tolerance, self.airborne_height,
                   self.settle_position_m, self.settle_speed_m_s,
                   self.settle_acceleration_m_s2, self.settle_yaw_rate_rad_s,
@@ -64,22 +68,49 @@ class Goal:
 
 
 @dataclass(frozen=True)
-class Progress:
-    batch: int
-    all_consumed: bool
-    skipped_mask: int = 0
+class ActionKey:
+    generation: int
+    owner: object
 
 
 @dataclass(frozen=True)
 class ActionResult:
     success: bool
     reason: str = ''
+    stop_confirmed: bool = False
 
 
-class FlightPorts(Protocol):
-    def snapshot(self) -> FlightState | None: ...
-    def progress(self) -> tuple[Progress, ...]: ...
-    def send_goal(self, batch: int, goal: Goal) -> None: ...
-    def takeoff(self) -> None: ...
-    def land(self) -> None: ...
-    def stop(self) -> None: ...
+@dataclass(frozen=True)
+class ActionEvent:
+    token: str
+    status: str
+    result: ActionResult | None = None
+
+
+@dataclass(frozen=True)
+class ExecutionState:
+    boot_id: int
+    recovery_generation: int
+    ready: bool
+    stop_confirmed: bool
+    phase: str
+    received: float
+
+
+class PlannerActionPort(Protocol):
+    def connected(self) -> bool: ...
+    def send(self, token: str, goal: Goal): ...
+    def cancel(self, handle) -> None: ...
+    def events(self) -> tuple[ActionEvent, ...]: ...
+    def readiness(self) -> ExecutionState | None: ...
+
+
+@dataclass(frozen=True)
+class StopRecord:
+    started: float
+    boot_id: int | None
+    recovery_generation: int
+    token: str | None
+    handle: object | None
+    request_sent: bool = False
+    last_attempt: float = 0.0

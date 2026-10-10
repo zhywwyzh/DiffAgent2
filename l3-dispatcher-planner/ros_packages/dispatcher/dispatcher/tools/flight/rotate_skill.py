@@ -41,7 +41,7 @@ class RotateSkill(FlightMotion):
         if previous is None:
             raise RuntimeError('rotation_observation_missing')
         dt = state.source_stamp - previous.source_stamp
-        if dt < 0 or dt > self._host.config.state_timeout:
+        if dt < 0 or dt > self._host.config.state_timeout_s:
             raise RuntimeError('rotation_observation_gap')
         if dt == 0:
             return

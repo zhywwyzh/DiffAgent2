@@ -20,10 +20,10 @@
 #include <optimizer/poly_traj_optimizer.h>
 #include <plan_env/grid_map.h>
 #include <geometry_msgs/PoseStamped.h>
-#include <quadrotor_msgs/LocalGoalSet.h>
+#include <quadrotor_msgs/YawPolicy.h>
 #include <quadrotor_msgs/PlannerResult.h>
 #include <quadrotor_msgs/EgoStateTrigger.h>
-#include <quadrotor_msgs/WaypointProgress.h>
+#include <planner_execution/action_server_ros.h>
 #include <std_srvs/Trigger.h>
 #include <plan_manage/planner_manager.h>
 #include <traj_utils/PolyTraj.h>
@@ -57,6 +57,13 @@ public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
 private:
+  std::recursive_mutex execution_mutex_;
+  std::unique_ptr<planner_execution::WaypointActionServer> execution_action_;
+  bool execution_holding_{false};
+  void initExecution(ros::NodeHandle& nh);
+  bool startExecution(const planner_execution::Target& target);
+  bool stopExecution();
+
   /* ---------- flag ---------- */
   enum FSM_EXEC_STATE {
     INIT,
@@ -163,13 +170,13 @@ private:
   /* ROS utils */
   ros::NodeHandle node_;
   ros::Timer exec_timer_, safety_timer_;
-  ros::Subscriber waypoint_sub_, waypoint_sub_yaw_preset_sub_, odom_sub_, if_handle_yaw_sub_, trigger_sub_,
+  ros::Subscriber odom_sub_, if_handle_yaw_sub_, trigger_sub_,
       broadcast_ploytraj_sub_, mandatory_stop_sub_;
   ros::ServiceServer reset_srv_; /* Planner Reset Contract: /planner/reset */
   ros::Publisher broadcast_ploytraj_pub_, ground_height_pub_, state_pub_, exec_finish_trigger_pub_,
       ego_state_trigger_pub_;
   ros::Publisher planner_result_pub_;
-  ros::Publisher wp_progress_pub_;
+  
   /* Canonical trajectory topics (ground-station-channels.spec.md §2.5):
    * /drone_<id>/planner/search_path + /drone_<id>/planner/optimized_traj,
    * remapped to absolute names at launch. Published at every successful
@@ -238,8 +245,6 @@ private:
 
   /* global trajectory */
   void waypointCallback(const geometry_msgs::PoseStampedPtr& msg);
-  void aimCallback(const quadrotor_msgs::LocalGoalSetPtr& msg);
-  void aimCallbackYawPreset(const quadrotor_msgs::LocalGoalSetPtr& msg);
   void execAim();
   void readGivenWpsAndPlan();
   /**
@@ -253,8 +258,8 @@ private:
    * @return True if planning succeeded
    */
   bool planNextWaypoint(const Eigen::Vector3d next_wp, const double next_yaw = 0.0, const bool look_forward = true,
-                        uint8_t yaw_mode = quadrotor_msgs::LocalGoalSet::YAW_MODE_NORMAL,
-                        uint8_t yaw_path_mode = quadrotor_msgs::LocalGoalSet::YAW_PATH_SHORTEST,
+                        uint8_t yaw_mode = quadrotor_msgs::YawPolicy::NORMAL,
+                        uint8_t yaw_path_mode = quadrotor_msgs::YawPolicy::SHORTEST,
                         bool enable_pre_yaw = true);
   bool mondifyInCollisionFinalGoal();
   /**
@@ -274,32 +279,6 @@ private:
   bool setGoalWindow(uint32_t batch_id, const std::vector<Eigen::Vector3d>& raw_wps, double yaw, bool look_forward,
                      uint8_t yaw_mode, uint8_t yaw_path_mode);
   /**
-   * Seamlessly extend the active waypoint queue with a new window.
-   *
-   * When the mission slides the window just-in-time, the new window's first
-   * waypoint is the planner's current active waypoint. Instead of replacing
-   * the window (which replans the whole trajectory from scratch and yanks the
-   * drone toward a fresh goal mid-flight), merge the new points into the
-   * existing queue, rebase the batch identity, and keep the committed
-   * trajectory untouched.
-   *
-   * @param[in] batch_id  New monotonic batch identifier
-   * @param[in] raw_wps   New window waypoints (mission-side coordinates)
-   * @return True if the window was merged; false means the new window is not
-   *         geometrically continuous and the caller falls back to setGoalWindow
-   */
-  bool mergeGoalWindow(uint32_t batch_id, const std::vector<Eigen::Vector3d>& raw_wps);
-  /**
-   * Replan the window-threaded trajectory toward the current window end.
-   *
-   * Called after setGoalWindow / mergeGoalWindow when the committed
-   * trajectory terminal lags the window end; the new trajectory threads the
-   * whole window (via points) and only the window-final waypoint decelerates.
-   *
-   * @return True if a plan was issued
-   */
-  bool threadWindowTrajectory();
-  /**
    * Publish the current window points + threaded initial path for RViz.
    */
   void publishWindowVisualization();
@@ -310,11 +289,11 @@ private:
    */
   void consumeWaypoint(bool all_consumed);
   /**
-   * Publish WaypointProgress to the upper layer (MissionFSM).
+   * Report native execution progress to the action lifecycle.
    *
    * @param[in] all_consumed  True if the batch is complete
    */
-  void publishWaypointProgress(bool all_consumed) const;
+  void reportWaypointProgress(bool all_consumed) const;
   /**
    * Check if the robot has passed through the current active waypoint
    * by crossing its perpendicular plane with lateral tolerance.

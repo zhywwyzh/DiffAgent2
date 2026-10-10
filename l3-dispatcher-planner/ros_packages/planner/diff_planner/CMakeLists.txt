@@ -17,6 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   visualization_msgs
   quadrotor_msgs
+  planner_execution
   traj_utils
   message_generation
   message_filters
@@ -26,7 +27,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES diff_planner
-  CATKIN_DEPENDS roscpp std_msgs traj_utils
+  CATKIN_DEPENDS planner_execution roscpp std_msgs traj_utils
 )
 
 include_directories(

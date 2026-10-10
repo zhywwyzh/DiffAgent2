@@ -70,3 +70,9 @@ class SkillRouter:
         result = self._task_result_stash
         self._task_result_stash = None
         return result
+
+    def release_call(self):
+        """仅释放当前调用引用，保留技能注册与常驻端点。"""
+        self._current_plan_skill = None
+        self._action_owner_skill = None
+        self._task_result_stash = None

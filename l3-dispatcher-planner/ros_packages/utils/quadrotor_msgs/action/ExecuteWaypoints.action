@@ -1,0 +1,15 @@
+std_msgs/Header header
+quadrotor_msgs/WaypointTarget target
+---
+string reason
+bool stop_confirmed
+bool state_valid
+geometry_msgs/PoseStamped final_pose
+---
+string phase
+uint8 active_index
+uint8 consumed_count
+float64 position_error_m
+float64 yaw_error_rad
+float64 speed_m_s
+float64 settled_s

@@ -5,10 +5,15 @@
 #include <std_msgs/Empty.h>
 #include <visualization_msgs/Marker.h>
 #include <ros/ros.h>
+#include <planner_execution/command_output_ros.h>
+#include <memory>
 
 using namespace Eigen;
 
-ros::Publisher pos_cmd_pub;
+std::unique_ptr<planner_execution::CommandOutput> command_output;
+traj_utils::PolyTrajPtr pending_trajectory;
+uint64_t execution_boot_id=0, execution_generation=0;
+
 
 quadrotor_msgs::PositionCommand cmd;
 // double pos_gain[3] = {0, 0, 0};
@@ -47,6 +52,13 @@ void yawCallback(const quadrotor_msgs::PositionCommandPtr msg)
 
 void polyTrajCallback(traj_utils::PolyTrajPtr msg)
 {
+  // 至多保留一个最新轨迹；状态与轨迹跨 topic 不假定先后到达。
+  if (command_output->obsolete(msg->execution_boot_id,msg->execution_generation)) return;
+  if (!command_output->matches(msg->execution_boot_id,msg->execution_generation)) {
+    pending_trajectory=msg; return;
+  }
+  pending_trajectory.reset();
+  execution_boot_id=msg->execution_boot_id; execution_generation=msg->execution_generation;
   if (msg->order != 5)
   {
     ROS_ERROR("[traj_server] Only support trajectory order equals 5 now!");
@@ -177,13 +189,21 @@ void publish_cmd(Vector3d p, Vector3d v, Vector3d a, Vector3d j, double y, doubl
   cmd.jerk.z = j(2);
   cmd.yaw = y;
   cmd.yaw_dot = yd;
-  pos_cmd_pub.publish(cmd);
+  command_output->publish(cmd,execution_generation,execution_boot_id);
 
   last_pos_ = p;
 }
 
 void cmdCallback(const ros::TimerEvent &e)
 {
+  if (pending_trajectory && command_output->obsolete(pending_trajectory->execution_boot_id,pending_trajectory->execution_generation))
+    pending_trajectory.reset();
+  if (receive_traj_ && command_output->obsolete(execution_boot_id,execution_generation)) {
+    receive_traj_=false; traj_.reset(); receive_yaw_=false;
+  }
+  if (pending_trajectory && command_output->matches(pending_trajectory->execution_boot_id,pending_trajectory->execution_generation))
+    polyTrajCallback(pending_trajectory);
+  if (!command_output->matches(execution_boot_id,execution_generation)) return;
   /* no publishing before receive traj_ and have heartbeat */
   if (heartbeat_time_.toSec() <= 1e-5)
   {
@@ -340,7 +360,7 @@ int main(int argc, char **argv)
   ros::Subscriber yaw_sub = nh.subscribe("/planning/yaw", 10, yawCallback);
   ros::Subscriber heartbeat_sub = nh.subscribe("heartbeat", 10, heartbeatCallback);
   
-  pos_cmd_pub = nh.advertise<quadrotor_msgs::PositionCommand>("/position_cmd", 50);
+  command_output=std::make_unique<planner_execution::CommandOutput>(nh,true);
 
   ros::Timer cmd_timer = nh.createTimer(ros::Duration(0.01), cmdCallback);
 

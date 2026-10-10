@@ -117,30 +117,44 @@ def create_dispatcher_engine(config_path: str):
 
 
 def create_flight_runtime(engine):
-    """装配直连端口与六技能，返回资源逆操作；不含领域判定。"""
+    """装配共用 action 会话；资源按逆序释放。"""
     from dispatcher.execution.ports import FlightConfig
-    from dispatcher.ros_adapter.planner_execution_ros import RosFlightPorts
+    from dispatcher.execution.action_session import ActionSession
+    from dispatcher.ros_adapter.planner_action_ros import RosPlannerActionClient
+    from dispatcher.ros_adapter.flight_state_ros import RosFlightState
+    from dispatcher.ros_adapter.flight_commands_ros import RosFlightCommands
     from dispatcher.execution.composition import install_flight
 
-    config = FlightConfig(**{
-        field.name: params_ros.get_private_param("flight/" + field.name, field.default)
-        for field in fields(FlightConfig)
-    })
-    ports = RosFlightPorts(
-        drone_id=params_ros.get_private_param("drone_id", 0),
-        odometry_topic=params_ros.get_private_param("odometry_topic", "/ekf_quat/ekf_odom"),
-    )
+    local = {"max_rotation_deg", "ground_tolerance", "airborne_height"}
+    values = {}
+    for field in fields(FlightConfig):
+        if field.name in local:
+            values[field.name] = params_ros.get_private_param("flight/" + field.name, field.default)
+        else:
+            old_name = field.name.removesuffix("_s") if field.name in {"state_timeout_s", "action_timeout_s"} else field.name
+            marker = object()
+            if params_ros.get_private_param("flight/" + old_name, marker) is not marker:
+                raise ValueError(f"retired parameter flight/{old_name}: use /planner_execution/{field.name}")
+            values[field.name] = params_ros.get_shared_execution_param(field.name, field.default)
+    config = FlightConfig(**values)
+    resources = ExitStack()
     try:
-        host, dispose = install_flight(engine, ports, config)
+        states = RosFlightState(params_ros.get_shared_execution_param("odometry_topic"))
+        resources.callback(states.close)
+        commands = RosFlightCommands()
+        resources.callback(commands.close)
+        actions = RosPlannerActionClient(config.world_frame)
+        resources.callback(actions.close)
+        execution = ActionSession(actions, states, commands, config, emit=engine.runlog.emit, can_send=engine.tools.call_is_current)
+        resources.callback(execution.close)
+        host, dispose = install_flight(engine, execution)
     except Exception:
-        ports.close()
+        resources.close()
         raise
-    # ports/config 一并返回：VLA 与飞行共享同一出站口（flight-exclusive），
-    # 执行配置（state_timeout/action_timeout/高度界）同源。
-    return host, dispose, ports.close, ports, config
+    return host, dispose, resources.close, execution
 
 
-def create_vla_runtime(engine, ports, execution_config):
+def create_vla_runtime(engine, execution):
     """装配 VLA 技能（navigation.vla_nav），返回资源逆操作。
 
     - 技能层 slog 出站回调（emit）在 install_vla 内接 engine.runlog.emit；
@@ -149,7 +163,7 @@ def create_vla_runtime(engine, ports, execution_config):
       形态与次数语义，通道接入时替换为真实发布器；装配时留痕一次。
       未接线时 VlaSkillHost.publish_mode_burst 会直接失败（不静默降级），
       空实现仅免除该失败，不引入其他行为漂移。
-    - VLA 专属配置经 ~vla/* 装载；高度与完成门共用 ~flight/*。
+    - VLA 专属配置经 ~vla/* 装载；高度与完成门共用 /planner_execution/*。
     - waypoint_world 由站端解算随调用下行：机上无几何配置、无感知注入，
       headless 亦可装配。
     """
@@ -168,14 +182,14 @@ def create_vla_runtime(engine, ports, execution_config):
     for retired in ("vla/min_height", "vla/max_height", "vla/search_success_distance_thresh"):
         marker = object()
         if params_ros.get_private_param(retired, marker) is not marker:
-            raise ValueError(f"retired parameter {retired}: use flight height/settle configuration")
+            raise ValueError(f"retired parameter {retired}: use /planner_execution height/settle configuration")
     values = {
         field.name: params_ros.get_private_param("vla/" + field.name, field.default)
         for field in fields(VlaHostConfig)
         if field.name != "publish_planner_mode"
     }
     _, dispose = install_vla(
-        engine, ports, execution_config,
+        engine, execution,
         VlaHostConfig(publish_planner_mode=planner_mode_sink_no_channel, **values),
     )
     return dispose
@@ -199,17 +213,17 @@ def main():
     print("Program starting...")
     engine, _perception = create_dispatcher_engine(config_path)
 
-    flight_host, dispose_flight, close_flight_ports, flight_ports, flight_config = (
+    flight_host, dispose_flight, close_flight_ports, execution = (
         create_flight_runtime(engine)
     )
     with ExitStack() as resources:
         resources.callback(close_flight_ports)
         resources.callback(dispose_flight)
         # 参数拒绝或 VLA 装配失败时也释放已创建的飞行资源。
-        dispose_vla = create_vla_runtime(engine, flight_ports, flight_config)
+        dispose_vla = create_vla_runtime(engine, execution)
         resources.callback(dispose_vla)
         control_plane = ToolControlPlane(
-            engine.tools, log=RosLog(), shutdown=RosShutdown(),
+            engine.tools, interrupt=execution.request_stop, interrupt_tools={"basic_flight.emergency_stop"}, log=RosLog(), shutdown=RosShutdown(),
             feedback_factory=lambda middleware: FeedbackPlane(middleware, on_reset=flight_host.reset_session),
         )
         resources.callback(control_plane.close)

@@ -5,136 +5,104 @@ Status: implemented
 Contract-ID: l3-dispatcher/execution-seam
 Parent: specs/implemented/l3-dispatcher.spec.md
 
-> 定义 dispatcher 共享动作端口、家族宿主与装配的边界，及其与工具、planner 的
-> 接口；航点下发的执行实现归使用它的工具家族。
+> 定义 dispatcher 的动作会话与 planner 原生 ROS1 action。迁移实施中，未验收。
 
-## 1. 职责归属
+## 1. 职责
 
-工具专属的流程、子状态推进、目标构造与完成裁决归 dispatcher 的工具及工具状态机。
-航点下发的动作发送、批次关联、反馈、超时与取消机制归使用它的工具家族
-（`tools/<family>/<family>_waypoint.py`），经共享动作端口与 ROS 适配层直接使用 planner。
-家族执行实现不持有第二套任务队列或工具流程 FSM。
+技能拥有目标构造、多段顺序与专属完成判据；core 保持六态与四裁决。
+dispatcher 的 execution/ 持有共享 ActionSession、端口、宿主与装配。
+planner_execution 是链接到 planner 进程的领域库和 ROS 外壳，无独立节点、任务队列或工具语义。
+各后端直接调用领域库并提供规划、停止能力，不通过旧目标 topic 桥接。
+mission_executive 与 /mission/task 不恢复。
 
-`mission_executive` 不得在本仓库迁入、构建或启动，也不得恢复旧 mission FSM；退役依据见[直连决策](../architecture/2026-09-16-dispatcher-direct-planner.md)。
+## 2. 端口与收发
 
-| 能力 | 归属 |
-|---|---|
-| 单一工具的执行流程、子状态、完成判据 | 对应工具及工具状态机 |
-| 航点下发的动作发送、批次记账、反馈和取消 | 使用它的工具家族（`tools/<family>/<family>_waypoint.py`） |
-| 跨家族共享的动作端口、家族宿主与装配 | `dispatcher/execution/`（ports / skill_host / composition） |
-| 上游尚未实现的能力 | 只在迁移台账登记，不创建代码占位或注册生产能力 |
+- 默认 action 为 /planner/execute_waypoints，使用 quadrotor_msgs/ExecuteWaypoints。
+- Goal 包含 header 与 WaypointTarget；目标包含 1–3 点窗口、yaw、look_forward、goal_to_follower、YawPolicy 与 ground_approach。
+- Feedback 包含执行相位、消费进度和停稳观测；反馈不得驱动任务成功。
+- Result 包含 reason、stop_confirmed、state_valid 与最终位姿；成败以 action 状态为准。
+- GoalID 仅关联传输动作，不作任务身份；内部轨迹版本不得用于工具分发。
+- LocalGoalSet、WaypointProgress 及其生产收发接口退役，不保留兼容桥。
+- ROS ActionClient、ActionServer、订阅与发布只在 ROS 适配文件；领域库不依赖 ROS 类型。
+- `/planner/execution_state` 为执行资源状态快照，携带启动标识、恢复代次、ready、stop_confirmed 和相位；不承载动作结果。
+  每 0.05 s 发布，客户端按接收年龄判断新鲜度。启动标识变化使旧动作失效；显式停止后的恢复代次增长并且重新就绪，才解除本地闭锁。
+  该代次仅用于安全恢复关联，不作任务编号。
+- `/planner/command_state` 使用 `quadrotor_msgs/CommandState`，携带后端启动标识、输出代次与 holding；DIFF 独立跟踪进程在保持输出发布后回报，服务端校验同启动、同代次及接收新鲜度。不能把 planner 单方面请求停止作为保持接管证据。
+- 命令输出由 `CommandOutput` 在短临界区仲裁；独立 odometry 和 0.01 s 保持节律不争用规划锁。EGO/SUPER 在进程内直接交付命令，DIFF 轨迹通过启动标识及输出代次关联。
+  独立保持路径是原生输出实现，不桥接退役的目标/进度协议。
+- odometry、轨迹、cmd 保持数据流；起飞、降落及全局急停保留独立命令口。
 
-## 2. 节律
+## 3. 完成门
 
-- 航点执行实现的 tick 频率由能力需求确定，**10 Hz 与 20 Hz 均为合法选择**；频率
-  不构成对实现语言的约束。
-- 改变频率不要求改写实现语言；频率与实现在同一次迁移中可分别演进。
+原始目标独立保存，planner 内部修正不改变成功目标。全部航点消费仅进入停稳阶段。
+位置、速度、差分加速度、偏航角速度和显式终末偏航误差同时合格，并在递增源时戳上持续停稳，才报告 SUCCEEDED。
+重复快照不推进窗口；缺观测、过期、坐标不符、时间倒退或跳点不能成功。
+姿态和速度沿用 odometry 世界系约定，不另行旋转。
+旋转实际有符号累计角仍归技能；VLA 每腿成功才进入下一腿，全部成功才结束工具调用。
 
-## 3. 实现形态
+## 4. 取消与故障
 
-> 按计算密度分层，而非按包边界一刀切。
+- 合法任务取消立即失效待发目标与任务归属，并独立尝试全局急停和指定 goal handle 取消；服务端立即关闭旧运动输出并接管保持。
+- 停止确认要求原轨迹失效、保持控制已接管及连续动态停稳，不要求回到原任务目标。
+- 活动目标停止确认后 PREEMPTED；未执行目标撤回为 RECALLED；未准入为 REJECTED。
+- 执行失败为 ABORTED；停止未确认必须 stop_confirmed=false 并闭锁新目标。
+- 同源覆盖可进入已有任务队列，但旧动作释放前不得发送新运动目标。服务端无待执行队列，忙时拒绝。
+- 故障恢复经显式停止/重置重新确认安全状态；连接重建本身不证明安全。
+- 全局急停独立于 action；活动任务失败或取消，不能成功。
+- 客户端断连不自动重发。服务端有限执行期限最终触发停止；不宣称 actionlib 自带即时断连安全停。
+- dispatcher 立即释放被取消任务的 owner、目标与结果引用；仅保留不含任务对象的 StopRecord 跟踪设备停止及传输回执。停止中/故障禁止新运动，不能重新激活旧任务。
+- 停止入口不争用长规划锁；输出发布使用短临界区和执行代次仲裁。停止后旧规划结果不得重新获得输出权。建图、定位、原点与通信端点保持常驻。
+- 原生执行状态增加 execution_generation、motion_enabled；DIFF PolyTraj 增加 execution_boot_id、execution_generation，用于跨进程轨迹输出归属，不作任务身份。
 
-- **低密度**（状态推进、完成判定、编排、参数装载）→ Python。
-- **高密度**（几何、拓扑搜索、走廊与轨迹优化）→ C++，经 pybind 暴露为共享
-  执行平面的一个能力端口。
-- **混合衔接**：Python 与 C++ 之间以"端口调用 + 内存共享状态"衔接；禁止为
-  每次小计算做跨语言往返调用。
-- C++ 内部同样遵守 `l3-dispatcher/ros-adapter-boundary`：领域核心不含
-  `ros::*` 类型。
+## 5. 配置
 
-### 3.1 能力端口登记
-
-> 经 pybind 暴露的能力端口逐项登记；端口集合的权威定义在各能力自己的叶契约。
-
-| 能力端口 | C++ 包 | 端口契约 | 状态 |
-|----------|--------|----------|------|
-| 场景图能力端口 | `ros_packages/scene_graph/`（`scene_graph_core` 无 ROS + ROS 外壳 + pybind） | `l3-dispatcher/scenegraph` §5 | 未接线，登记 |
-
-- 每个能力端口在接线时必须有对应的纯 C++ 单测（G12）；未接线期间不得声称
-  已具备该 C++ 能力。
-- 能力端口只暴露能力面（`l3-dispatcher/ros-adapter-boundary` X1），不逐个
-  暴露领域内部方法。
-
-## 4. 对外契约
-
-- 不迁入 `/mission/task` 及其客户端、服务端或兼容入口；该旧中间层的退役依据见
-  [直连决策](../architecture/2026-09-16-dispatcher-direct-planner.md)。
-- dispatcher 经通用动作端口与 ROS 适配层直接使用 planner 的实际输入和反馈接口。
-  通用动作端口（`Goal`、`FlightPorts`、`FlightState`、`Progress`、`ActionResult`、
-  `FlightConfig`）定义于 `dispatcher/dispatcher/execution/ports.py`，飞行与 VLA
-  共用；子包平面划分归 `l3-dispatcher/package-layout`。
-  planner 的 topic、消息字段、坐标系及单位保持其现行契约；任何必要变更先登记和评审，
-  不通过重建旧接口或双写兼容路径解决。
-- 共享动作端口与各家族执行实现均不感知工具语义：它们接收"航点意图 / 目标
-  对象 / 动作指令"，不识别具体工具名。
-- 家族执行实现向 dispatcher 回传唯一的完成信号。完成判定若需工具专属条件，由
-  技能的完成门裁决，执行实现只上报执行结果。
-- 动作结果必须来自真实反馈及明确判据；取消、覆盖和停止必须使旧动作失效并作用到
-  planner。不得以"直连"为由只保留发布而丢掉结果、失败、超时与取消语义。
-- core 仍只运行六态任务 FSM 并按名分发；飞行目标构造与专属完成门归技能，通用
-  执行记账归共享执行模块，ROS 收发归适配层。直连不允许 engine 直接持有领域发布器。
-- `action_result` 表示动作执行结果，不要求存在 ROS action 或 mission action 服务。
-
-## 5. 能力准入
-
-- 每个能力须明确输入、反馈、停止、取消与资源释放边界。
-- 工具实现、共享执行端口和测试完整后才注册生产能力。
-- 待迁能力只在文档台账登记；通用测试使用测试自有能力，不创建生产空实现。
-- 迁移流程归 `l3-migration-protocol.spec.md`，每轮实施步骤归 `doc/` 下的方案。
-
-## 6. 门禁
-
-| 门禁 | 检查 |
-|------|------|
-| G10 | `ros_packages/` 下不存在名为 `mission_executive` 的包，构建与启动配置不得引用该包；执行代码与启动配置不包含 `/mission/task` 客户端、服务端或兼容入口（§1、§4） |
-| G11 | `execution/` 平面与各家族 `<family>_waypoint.py` 中不含任何工具名字符串分支（§4） |
-| G12 | 经 pybind 暴露的每个能力端口都有对应的纯 C++ 单测（§3） |
-
-## 7. 直连消息与取消边界
-
-- LocalGoalSet 仅删除来源任务编号及其枚举常量；保留 yaw_low_speed、goal_to_follower
-  和其他原有字段。planner 的原读取逻辑保留，不以迁移之名裁剪其他能力。
-- batch_id 只关联下游动作及其反馈，不映射工具身份。当前动作的结果裁决、取消和
-  覆盖职责属于 dispatcher；不要求 planner 新增批次取消接口。
-- dispatcher 的取消与停止控制：基于新鲜位姿构造当前位置、当前偏航角、
-  look_forward=false 的单点保持意图，以新批次通过既有目标口覆盖旧动作。
-  保持批次不是被取消调用的成功结果；旧批次结果必须在 dispatcher 中失效。
-- 缺少有效位姿或目标发送失败时，dispatcher 保留取消待处理状态并拒绝新动作，
-  不假报停止。正常取消不发全局急停信号；显式急停复用既有全局信号并上行编排保持意图。
-- 默认目标/反馈为 /planner/local_goal、/planner/waypoint_progress，映射到各后端
-  既有接口；不引入 /planner/cancel。后端选择和原有 remap 职责仍在启动配置。
-- planner 除去任务编号所必需的字段读取调整外保持原有控制行为；共享控制职责
-  不下放到 EGO 专属订阅、回调或急停状态修改中。
-- 输出边界为 /setpoint_cmd，cmd 下游不在本轮范围。后端切换不应要求为此次迁移
-  新增控制协议；各后端原有能力差异不能用单一后端的测试结果掩盖。
-
-## 8. 直连动作完成门
-
-- `all_consumed` 仅表示对应 planner 批次结束。家族执行器须保存实际下发目标，
-  在该批次结束后确认原目标位置、速度、加速度和偏航角速度连续停稳；显式
-  偏航目标还须满足角度误差。planner 内部修正目标不改变本层完成目标。
-- `FlightState` 经 ROS 快照提供世界系速度向量 `velocity` 和偏航角速度
-  `yaw_rate_rad_s`；沿用现有 planner 的 odometry 数值约定，读取 linear xyz
-  与 angular z，不另行旋转速度向量。
-  家族执行器按递增源时戳差分速度求加速度；缺观测、坐标不符、
-  时戳倒退或过期不得成功。重复快照不推进停稳窗口；观测间隔超出
-  `state_timeout` 时失败，超时包含批次结束后的等待。
-- 停稳配置由 `FlightConfig` 唯一持有，经 `~flight/*` 装载，飞行与 VLA 共用：
+共享参数由 /planner_execution 统一持有；服务端与 dispatcher 从同一参数树读取，旧 flight 中对应键显式拒绝。
 
 | 参数 | 默认 | 单位 |
-|------|------|------|
-| `settle_position_m` | 0.30 | m |
-| `settle_speed_m_s` | 0.15 | m/s |
-| `settle_acceleration_m_s2` | 0.30 | m/s² |
-| `settle_yaw_rate_rad_s` | 0.20 | rad/s |
-| `settle_hold_s` | 0.20 | s |
-| `settle_yaw_deg` | 10.0 | ° |
+|----|----|----|
+| world_frame | world | 坐标系 |
+| min_height / max_height | 0.3 / 3.0 | m |
+| ground_z | 无，贴地须显式配置 | m |
+| state_timeout_s | 1.0 | s |
+| action_timeout_s | 60.0 | s |
+| stop_timeout_s | 5.0 | s |
+| connect_timeout_s / admission_timeout_s | 5.0 / 5.0 | s |
+| settle_position_m | 0.30 | m |
+| settle_speed_m_s | 0.15 | m/s |
+| settle_acceleration_m_s2 | 0.30 | m/s² |
+| settle_yaw_rate_rad_s | 0.20 | rad/s |
+| settle_hold_s | 0.20 | s |
+| settle_yaw_deg | 10.0 | ° |
 
-- 上述阈值须正且有限，`settle_yaw_deg` 必须小于 90°，避免分段旋转被容差吞没。
-- 普通高度界统一为 `~flight/min_height` 与 `~flight/max_height`，沿用飞行
-  默认 0.3 m 与 3.0 m；删除 VLA 重复高度界，显式设置旧键时启动失败并提示迁移。
-- `Goal.ground_approach` 为内部贴地意图，默认 false，不下行新增 ROS 字段。
-  为 true 时须有显式 `ground_z`，允许高度下界为该地面高度，仍受 max_height
-  约束；普通目标不得借此绕过高度界。贴地不等价于飞控降落。
-- `Goal.yaw_low_speed` 仅选择既有 LocalGoalSet 低速偏航模式，默认 false；
-  VLA 终末转向与旋转技能使用 true，不新增 planner 接口。
+时间及停稳阈值须正且有限，偏航容差须小于 90°；高度界有限且有序。
+ground_approach 才允许下界为 ground_z；不能绕过最大高度。
+纯技能参数仍归家族，不在服务端识别具体工具名。
+
+## 6. 客户端与生命周期
+
+回调写不可变事件，绑定发送时捕获的动作代次及句柄。宿主在 engine 节拍消费，不在回调中改任务 FSM。
+owner、任务代次与唯一终态保留；迟到事件不能用当前代次重新标记。
+ActionSession 由飞行与 VLA 共用。任务取消立即释放任务资源；进程关闭才有限等待停止后逆序注销端点，停止未确认不得宣称设备安全。
+等待不得持有 engine 生命周期锁。六态 core 的等待仍须输出原因与输入年龄。
+
+## 7. 后端边界
+
+EGO、SUPER、DIFF 使用同一 action 类型，后端不支持的目标组合必须在执行前拒绝。
+规划器算法保持原归属；通用停稳、取消生命周期由 planner_execution 唯一持有。
+EGO 支持普通、低速及原地全景连续偏航；连续偏航从本动作起点归一化实际角出发解缠。
+SUPER 仅准入普通最短路径偏航，速度朝向模式不准入显式偏航目标；低速和连续偏航显式拒绝。
+DIFF 仅准入沿路径朝向，不接受显式偏航控制。三个后端均拒绝尚未接入的 goal_to_follower。
+
+输出边界为 /setpoint_cmd；取消完成依据领域观测和后端保持接管，不等价于已验收实机跟踪。
+
+## 8. 门禁与验收
+
+按 AGENTS.md 的统一声明，未获明确许可不执行测试或验证性验收。
+后续许可后覆盖三后端、停稳、取消竞态、断连、重启、旧结果和多腿单终态。
+| 标识 | 后续判据 |
+|----|----|
+| G10 | 不恢复 mission_executive 与 /mission/task，不保留旧消息桥接 |
+| G11 | 共享执行与服务端不按工具名分支 |
+| G12 | 领域执行的完成、取消及跨进程生命周期有对应证据 |
+
+实现记录与剩余条件归 doc/l3-dispatcher-planner/iteration/design-planner-native-action.md；强制取消调整归 design-task-cancel-emergency-hover.md（代码交付，未验收）。

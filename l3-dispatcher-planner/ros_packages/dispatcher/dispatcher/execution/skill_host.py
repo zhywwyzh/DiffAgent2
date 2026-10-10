@@ -11,6 +11,7 @@ class DispatcherFlightHost:
         self.execution = execution
         self.session = session
         self.config = execution.config
+        self._action_key = None
 
     def state(self):
         try:
@@ -41,37 +42,45 @@ class DispatcherFlightHost:
         gate.pending_action.nav_yaw = goal.yaw
         engine.ledger.set_state(DISPATCHER_STATE.WAIT_ACTION_FINISH, reason='action:armed')
         try:
-            self.execution.start(goal)
+            self._action_key = self.execution.start(
+                goal, generation=gate._action_generation, owner=engine.skills.owner_skill())
             engine.last_published_waypoint = goal.position
         except Exception:
             engine.action_in_progress = False
             raise
 
     def poll_result(self):
-        self.state()
-        result = self.execution.poll()
+        key = self._action_key
+        if key is None:
+            return None
+        result = self.execution.poll(generation=key.generation, owner=key.owner)
+        gate = self.engine.action_gate
+        if key.generation != gate._action_generation or self.engine.skills.owner_skill() is not key.owner:
+            return None
         if result is not None:
-            gate = self.engine.action_gate
             gate._last_action_result = result
-            gate._action_finish_generation = gate._action_generation
+            gate._action_finish_generation = key.generation
             self.engine.action_finish = True
         return result
 
     def cancel_execution(self, owner=None):
         if owner is None or self.engine.skills.owner_skill() is owner:
-            self.execution.cancel()
+            self.execution.cancel(owner)
+            self._action_key = None
 
     def request_takeoff(self):
+        self.execution.require_idle()
         self.session.prepare_takeoff(self.state())
         try:
-            self.execution.ports.takeoff()
+            self.execution.commands.takeoff()
         except Exception:
             self.session.reject_takeoff()
             raise
 
     def request_land(self):
+        self.execution.require_idle()
         self.state()
-        self.execution.ports.land()
+        self.execution.commands.land()
 
     def request_safety_stop(self):
         self.execution.stop()
@@ -95,6 +104,7 @@ class DispatcherFlightHost:
     def reset_session(self):
         with self.engine.operation_lock:
             self.engine._enter_global_stop('stack_reset', shutdown_program=False, publish_hold=False)
+            self.execution.stop()
             self.session.reset()
 
 
@@ -106,7 +116,7 @@ class VlaSkillHost:
     waypoint_world 由站端解算随调用下行）。
     动作武装复用 DispatcherFlightHost.start_goal 的武装序列
     （snapshot_owner → 代次 → action_finish=False → WAIT_ACTION_FINISH），
-    动作出海用 VLA 家族航点执行（tools/vla/vla_waypoint.py）；与飞行共用飞行独占
+    动作经共享 ActionSession 下发；与飞行共用飞行独占
     （_meta.lx.concurrency = "flight-exclusive"）。不模拟 engine 属性、
     不给 core 增加领域方法。
     """
@@ -115,6 +125,7 @@ class VlaSkillHost:
         self.engine = engine
         self.execution = execution
         self.config = config
+        self._action_key = None
         # 技能内联塑形所需的只读配置（SkillHost 通用端口属性）
         self.execution_config = execution.config
         self.min_height = execution.config.min_height
@@ -191,10 +202,10 @@ class VlaSkillHost:
 
     def send_task_goal(self, x, y, z, yaw, yaw_source: str = "unspecified",
                        *, ground_approach=False, yaw_low_speed=False):
-        """航点下发（传输原语）：经 VlaWaypointExecution 出海；塑形由技能内联完成。
+        """航点下发（传输原语）：经 ActionSession 出海；塑形由技能内联完成。
 
         yaw=None 表示 look_forward（沿路径朝前）——Goal 契约要求 yaw 为有限
-        数值（LocalGoalSet.yaw 消息字段），look_forward=True 时以 0.0 占位、
+        数值（WaypointTarget.yaw 消息字段），look_forward=True 时以 0.0 占位、
         由下游按路径朝向接管；给定 yaw 则按 terminal yaw 下发。发送失败时
         按 start_goal 同款回滚动作执行态并上抛。
         """
@@ -212,7 +223,8 @@ class VlaSkillHost:
         gate.pending_action.nav_yaw = None if yaw is None else float(yaw)
         gate.pending_action.yaw_source = str(yaw_source or "unspecified")
         try:
-            self.execution.start(goal)
+            self._action_key = self.execution.start(
+                goal, generation=gate._action_generation, owner=engine.skills.owner_skill())
             engine.last_published_waypoint = goal.position
         except Exception:
             engine.action_in_progress = False
@@ -239,17 +251,23 @@ class VlaSkillHost:
                 time.sleep(max(0.0, float(interval)))
 
     def poll_result(self):
-        result = self.execution.poll()
+        key = self._action_key
+        if key is None:
+            return None
+        result = self.execution.poll(generation=key.generation, owner=key.owner)
+        gate = self.engine.action_gate
+        if key.generation != gate._action_generation or self.engine.skills.owner_skill() is not key.owner:
+            return None
         if result is not None:
-            gate = self.engine.action_gate
             gate._last_action_result = result
-            gate._action_finish_generation = gate._action_generation
+            gate._action_finish_generation = key.generation
             self.engine.action_finish = True
         return result
 
     def cancel_execution(self, owner=None):
         if owner is None or self.engine.skills.owner_skill() is owner:
-            self.execution.cancel()
+            self.execution.cancel(owner)
+            self._action_key = None
 
     # ------------------------------------------------------------------
     # 生命周期：相位 / 结果 / 失败 / 代次 / 队列机械操作

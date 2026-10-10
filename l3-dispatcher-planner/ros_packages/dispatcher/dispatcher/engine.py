@@ -39,6 +39,7 @@ class DispatcherEngine:
     ):
         """装配核心协作对象；输入读取与四类出站通道均由外部注入。"""
         self.operation_lock = threading.RLock()
+        self.lifecycle_tick = lambda: None
         self.channels = channels
         self.clock = clock
         self.get_frame_snapshot = get_frame_snapshot
@@ -120,7 +121,7 @@ class DispatcherEngine:
         - emit_soft_stop_log: 软急停时是否打印日志。
         - record_stop_event: 保留的停止记录开关，记录服务尚未接入，当前不生效。
         - publish_hold: 急停悬停开关；当前仅发布急停信号，额外悬停目标
-          下发尚未接入。覆盖和取消传 False，避免引入运动副作用。
+          下发尚未接入。覆盖和取消的优先入口已请求停止，此处 False 避免重复发送。
         保留项与接入时机见 doc/l3-dispatcher-planner/rest/dispatcher-deferred-dependencies.md。
         """
         with self.operation_lock:
@@ -136,14 +137,21 @@ class DispatcherEngine:
                         f"Emergency stop: cancel current mission and wait for new command ({reason or 'requested'})"
                     )
             owner = self.skills.owner_skill()
+            if publish_hold:
+                try:
+                    self.channels.publish_emergency_stop()
+                except Exception as exc:
+                    self.runlog.err("Emergency stop send failed: %s", exc)
             if owner is not None:
-                owner.on_global_stop()
+                try:
+                    owner.on_global_stop()
+                except Exception as exc:
+                    self.runlog.err("Task cleanup failed: %s", exc)
+            self.skills.release_call()
             self.prompt_queue.clear_all()
             self.action_gate.clear_action_state()
             self.ledger.command_status = COMMAND_STATUS.ADVANCE_READY
             self.if_plan = False
-            if publish_hold:
-                self.channels.publish_emergency_stop()
             if shutdown_program:
                 self.ledger.command_type = COMMAND_TYPE.STOP
                 self.ledger.set_state(DISPATCHER_STATE.STOP, reason=f"global_stop:{reason}")
@@ -194,6 +202,7 @@ class DispatcherEngine:
 
         while not self.clock.is_shutdown():
             with self.operation_lock:
+                self.lifecycle_tick()
                 if self.ledger.command_type == COMMAND_TYPE.STOP and self.dispatcher_state != DISPATCHER_STATE.STOP:
                     self._enter_global_stop("stop")
 

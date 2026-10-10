@@ -39,8 +39,12 @@ class ToolControlPlane:
         log=None,
         shutdown=None,
         feedback_factory=None,
+        interrupt=None,
+        interrupt_tools=(),
     ) -> None:
         self._host = host
+        self._interrupt = interrupt
+        self._interrupts = queue.SimpleQueue()
         self._commands = queue.Queue(maxsize=queue_size)
         # 端口注入（S4a P1/P3）：日志/关停/反馈面由组合根注入；
         # 未注入时本地回退（关停恒 False、日志走 stdlib logging）。
@@ -51,7 +55,9 @@ class ToolControlPlane:
             log=log,
             shutdown=shutdown,
             feedback_factory=feedback_factory,
-            safety_stop=lambda reason: host.enter_global_stop(reason, shutdown_program=False),
+            safety_stop=self._issue_safety_stop,
+            interrupt=self._request_interrupt,
+            interrupt_tools=interrupt_tools,
         )
         self._intake = ToolIntake(self.middleware.registry, host)
         self._threads: list[threading.Thread] = []
@@ -63,6 +69,7 @@ class ToolControlPlane:
             return
         self._stop.clear()
         self._threads = [
+            threading.Thread(target=self._consume_interrupts, name="tool-interrupt-consumer", daemon=True),
             threading.Thread(
                 target=self._consume,
                 name="tool-command-consumer",
@@ -85,6 +92,45 @@ class ToolControlPlane:
         self._threads.clear()
         self.middleware.close()
 
+    def _issue_safety_stop(self, reason):
+        if self._interrupt is None or self._interrupt(reason) is False:
+            raise RuntimeError('safety stop was not forwarded')
+
+    def _request_interrupt(self, command):
+        # 本方法由已鉴权准入层调用，不等待 engine 锁或普通消费者。
+        try:
+            if self._interrupt is None:
+                raise RuntimeError('task interruption port is required')
+            if self._interrupt(command.reason or 'task_cancelled') is False:
+                self._log.err('[tool_runtime] stop could not be forwarded; device remains blocked')
+        finally:
+            if command.kind == 'cancel':
+                # 只移除被取消调用；不触碰新调用或其他运行资源。
+                with self._commands.mutex:
+                    remaining = [item for item in self._commands.queue if item.call.call_id != command.call.call_id]
+                    removed = len(self._commands.queue)-len(remaining)
+                    self._commands.queue.clear()
+                    self._commands.queue.extend(remaining)
+                    self._commands.unfinished_tasks = max(0,self._commands.unfinished_tasks-removed)
+                    self._commands.not_full.notify_all()
+            self._interrupts.put(command)
+
+    def _consume_interrupts(self):
+        while not self._stop.is_set() and not self._shutdown.is_shutdown():
+            try:
+                command = self._interrupts.get(timeout=0.2)
+            except queue.Empty:
+                continue
+            try:
+                if command.kind == 'cancel':
+                    self._host.cancel_tool_call(command.call, command.reason)
+                elif self.middleware.runtime.can_execute(command.call.call_id):
+                    self._intake.start(command.call)
+            except Exception as exc:
+                self._log.err('[tool_runtime] interrupt cleanup failed: %s', exc)
+                self.middleware.runtime.emit(command.call.call_id, status='fail', phase='fail',
+                                             message=str(exc), error={"code": "execution_error", "message": str(exc)})
+
     def _consume(self) -> None:
         while not self._stop.is_set() and not self._shutdown.is_shutdown():
             try:
@@ -96,8 +142,6 @@ class ToolControlPlane:
                     if not self.middleware.runtime.can_execute(command.call.call_id):
                         continue
                     self._intake.start(command.call)
-                elif command.kind == "cancel":
-                    self._host.cancel_tool_call(command.call, command.reason)
                 else:
                     raise ValueError(f"unknown tool command: {command.kind}")
             except Exception as exc:  # noqa: BLE001 - keep the worker alive

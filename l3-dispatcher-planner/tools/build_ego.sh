@@ -10,5 +10,6 @@ for package in quadrotor_msgs traj_utils vis_utils; do
   ln -sfn "$repo_root/ros_packages/utils/$package" "$build_root/src/$package"
 done
 ln -sfn "$repo_root/ros_packages/planner/ego_planner/plan_manage" "$build_root/src/ego_planner"
+ln -sfn "$repo_root/ros_packages/planner/planner_execution" "$build_root/src/planner_execution"
 ln -sfn "$repo_root/ros_packages/dispatcher" "$build_root/src/dispatcher"
 exec catkin_make -C "$build_root" -j2 -DPYTHON_EXECUTABLE=/usr/bin/python3 -DCMAKE_BUILD_TYPE=Release "$@"

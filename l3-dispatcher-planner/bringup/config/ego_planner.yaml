@@ -4,7 +4,7 @@
 # EGOPlannerManager / PolyTrajOptimizer as "<section>/<name>"
 # (same convention as SUPER's bringup/config/super_planner.yaml).
 fsm:
-  # Target source: 1 manual, 2 explore (subscribe local_goal), 3 preset.
+  # Target source: 1 manual, 2 explore (native waypoint action), 3 preset.
   flight_type: 2
   # Consumption radius for intermediate window waypoints [m].
   wp_reach_radius: 0.5

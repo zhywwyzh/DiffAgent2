@@ -19,9 +19,9 @@
 #include <plan_env/grid_map.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <plan_manage/planner_manager.h>
-#include <quadrotor_msgs/LocalGoalSet.h>
+#include <quadrotor_msgs/YawPolicy.h>
 #include <quadrotor_msgs/PlannerResult.h>
-#include <quadrotor_msgs/WaypointProgress.h>
+#include <planner_execution/action_server_ros.h>
 #include <std_msgs/Bool.h>
 #include <traj_utils/planning_visualization.h>
 #include <traj_utils/PolyTraj.h>
@@ -34,13 +34,17 @@ namespace diff_planner {
 class DiffReplanFSM {
 public:
   DiffReplanFSM() {}
-  ~DiffReplanFSM() {}
+  ~DiffReplanFSM() { execution_action_.reset(); }
 
   void init(ros::NodeHandle& nh);
 
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
 private:
+  std::recursive_mutex execution_mutex_;
+  std::unique_ptr<planner_execution::WaypointActionServer> execution_action_;
+  bool execution_holding_{false};
+
   /* ---------- flag ---------- */
   enum FSM_EXEC_STATE { INIT, WAIT_TARGET, GEN_NEW_TRAJ, REPLAN_TRAJ, EXEC_TRAJ, EMERGENCY_STOP, SEQUENTIAL_START };
   enum TARGET_TYPE { MANUAL_TARGET = 1, PRESET_TARGET = 2, REFENCE_PATH = 3 };
@@ -83,7 +87,7 @@ private:
   Eigen::Vector3d odom_pos_, odom_vel_, odom_acc_;     // odometry state
   std::vector<Eigen::Vector3d> wps_;
 
-  /* Waypoint window (LocalGoalSet batch protocol, mirrors SUPER semantics).
+  /* Waypoint window (native action window, mirrors SUPER semantics).
    * The global traj is planned through every window waypoint, so intermediate
    * waypoints are flown through at the min-jerk speed profile and only the
    * window end is decelerated to rest. */
@@ -93,17 +97,16 @@ private:
   int wp_window_size_{0};
   uint32_t wp_batch_id_{0};
   bool has_window_{false};
-  bool wp_flow_active_{false}; // current goal came from LocalGoalSet (mission batch flow)
+  bool wp_flow_active_{false}; // current goal belongs to native action execution
   int16_t wp_plan_count_{0};   // plan attempts for the current batch
   double wp_reach_radius_, wp_passby_lateral_, goal_reach_radius_;
 
   /* ROS utils */
   ros::NodeHandle node_;
   ros::Timer exec_timer_, safety_timer_;
-  ros::Subscriber waypoint_sub_, odom_sub_, trigger_sub_, broadcast_ploytraj_sub_, mandatory_stop_sub_;
+  ros::Subscriber odom_sub_, trigger_sub_, broadcast_ploytraj_sub_, mandatory_stop_sub_;
   ros::ServiceServer reset_srv_; /* Planner Reset Contract: /planner/reset */
-  ros::Publisher poly_traj_pub_, broadcast_ploytraj_pub_, heartbeat_pub_, ground_height_pub_, fsm_state_pub_,
-      wp_progress_pub_;
+  ros::Publisher poly_traj_pub_, broadcast_ploytraj_pub_, heartbeat_pub_, ground_height_pub_, fsm_state_pub_;
   ros::Publisher plan_result_pub_, exec_finish_pub_;
   /* Canonical trajectory topics (ground-station-channels.spec.md §2.5):
    * /drone_<id>/planner/search_path + /drone_<id>/planner/optimized_traj,
@@ -127,16 +130,18 @@ private:
   bool planFromLocalTraj(const int trial_times = 1);
 
   /* global trajectory */
-  void waypointCallback(const quadrotor_msgs::LocalGoalSetConstPtr& msg);
+  bool startExecution(const planner_execution::Target& target);
+  bool stopExecution();
+  void initExecution(ros::NodeHandle& nh);
   void readGivenWpsAndPlan();
   bool planNextWaypoint(const Eigen::Vector3d next_wp, bool flag_2replan);
   bool planNextWaypointWindow(const std::vector<Eigen::Vector3d>& window, bool flag_2replan);
   bool mondifyInCollisionFinalGoal();
   void finishProcess();
 
-  /* waypoint window progress (reach / pass-by consumption + WaypointProgress) */
+  /* waypoint window progress (reach / pass-by consumption and native progress) */
   void updateWaypointProgress();
-  void publishWaypointProgress(bool all_consumed);
+  void reportWaypointProgress(bool all_consumed);
 
   /* PlannerResult feedback (ack / unreachable / exec_finished at batch boundary) */
   void publishPlannerResult(const Eigen::Vector3d& goal, bool plan_status, bool modify_status, bool exec_finished);

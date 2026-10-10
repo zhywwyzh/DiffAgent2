@@ -90,7 +90,7 @@ Parent: specs/implemented/l3-dispatcher.spec.md
   runtime 的注册表、revision、事件重放和取消仍按工具面契约保留并验证。
 - 本轮不新增 `tools/*`、发现/轮询/取消 RPC 方法，也不恢复已删除的资源入口。
   站端取消批次会提交一个独立 `basic_flight.emergency_stop` 调用；这不等同于
-  进程内 cancel，亦不改变“取消不隐含急停”的通用规则。
+  进程内 cancel 的传输入口；两者执行侧均强制停止当前导航并悬停，任务释放与物理停稳分开记账。
 - 生产工具集合以 l3-tool-plane 契约为准。测试能力只能使用测试注册表，不能以
   “联调探针”名义开放生产空实现。
 

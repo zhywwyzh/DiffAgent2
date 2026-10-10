@@ -41,6 +41,8 @@ class ToolWorkflowHost:
 
     def start_tool_workflow(self, call: ToolCall, command: SkillCommand) -> None:
         with self.operation_lock:
+            if self.zenoh_middleware is not None and not self.zenoh_middleware.runtime.can_execute(call.call_id):
+                return
             skill = self.skills.get(call.name)
             if skill is None:
                 self.task_phase.publish(
@@ -68,17 +70,18 @@ class ToolWorkflowHost:
             self.queue.sync_task_buffers_from_prepare([(prompt_text, command)])
             self.queue.pop_next_task()
 
+    def call_is_current(self):
+        call = self._active_tool_call
+        return bool(call is not None and self.zenoh_middleware is not None
+                    and self.zenoh_middleware.runtime.can_execute(call.call_id))
+
     def cancel_tool_call(self, call: ToolCall, reason: str) -> None:
         with self.operation_lock:
             if self._active_tool_call is not None and self._active_tool_call.call_id == call.call_id:
-                skill = self.skills.get(call.name)
-                if skill is not None:
-                    skill.on_cancel()
-                self.enter_global_stop(
-                    f"tool_cancel:{reason or 'requested'}",
-                    shutdown_program=False, publish_hold=False,
-                )
-                self._active_tool_call = None
-                self._active_tool_name = ""
+                try:
+                    self.enter_global_stop(f"tool_cancel:{reason or 'requested'}", shutdown_program=False, publish_hold=False)
+                finally:
+                    self._active_tool_call = None
+                    self._active_tool_name = ""
             if self.zenoh_middleware is not None:
                 self.zenoh_middleware.runtime.mark_cancelled(call.call_id, reason)

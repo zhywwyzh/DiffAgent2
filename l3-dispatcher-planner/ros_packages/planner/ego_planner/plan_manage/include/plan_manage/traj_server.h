@@ -2,10 +2,13 @@
 #define _TRAJ_SERVER_H_
 
 #include <iostream>
+#include <planner_execution/command_output_ros.h>
+#include <mutex>
+#include <atomic>
 #include <thread>
 #include <optimizer/poly_traj_utils.hpp>
 #include <quadrotor_msgs/PositionCommand.h>
-#include <quadrotor_msgs/LocalGoalSet.h>
+#include <quadrotor_msgs/YawPolicy.h>
 #include <ros/ros.h>
 #include <vis_utils/camera_fov.h>
 #include <string>
@@ -20,6 +23,11 @@ namespace plan_manage {
  */
 class TrajServer {
 private:
+  mutable std::recursive_mutex trajectory_mutex_;
+  std::shared_ptr<planner_execution::CommandOutput> command_output_;
+  uint64_t command_generation_{0};
+  std::atomic<bool> running_{true};
+  std::thread command_thread_;
   enum class TrajState { IDLE, PRE_YAW, EXECUTING_TRAJ };
 
   TrajState traj_state_ = TrajState::IDLE;
@@ -62,8 +70,8 @@ private:
     double yaw;
     bool reach_given_yaw_{true};
     bool look_forward{true};
-    uint8_t control_mode{quadrotor_msgs::LocalGoalSet::YAW_MODE_NORMAL};
-    uint8_t path_mode{quadrotor_msgs::LocalGoalSet::YAW_PATH_SHORTEST};
+    uint8_t control_mode{quadrotor_msgs::YawPolicy::NORMAL};
+    uint8_t path_mode{quadrotor_msgs::YawPolicy::SHORTEST};
     Eigen::Vector3d pos;
   };
   struct TIME_REC {
@@ -72,6 +80,10 @@ private:
   } time_rec_;
 
 public:
+  ~TrajServer() { running_=false; if (command_thread_.joinable()) command_thread_.join(); }
+  void setCommandOutput(std::shared_ptr<planner_execution::CommandOutput> output) {
+    std::lock_guard<std::recursive_mutex> lock(trajectory_mutex_); command_output_=std::move(output);
+  }
   TrajServer() {};
   ~TrajServer() {};
 
@@ -99,8 +111,8 @@ public:
    * @param[in] path_mode     Yaw path mode
    */
   void setYaw(double des_yaw, double cur_yaw, Eigen::Vector3d pos, bool look_forward = true,
-              uint8_t control_mode = quadrotor_msgs::LocalGoalSet::YAW_MODE_NORMAL,
-              uint8_t path_mode = quadrotor_msgs::LocalGoalSet::YAW_PATH_SHORTEST);
+              uint8_t control_mode = quadrotor_msgs::YawPolicy::NORMAL,
+              uint8_t path_mode = quadrotor_msgs::YawPolicy::SHORTEST);
   /**
    * Set panorama yaw (continuous 360-degree rotation).
    *
@@ -122,7 +134,7 @@ public:
    * @param[in] source  Source identifier for logging
    */
   void syncYawFromOdom(const double yaw, const std::string& source = "");
-  void updateYawFromOdom(double yaw) { observed_yaw_ = yaw; }
+  void updateYawFromOdom(double yaw) { std::lock_guard<std::recursive_mutex> lock(trajectory_mutex_); observed_yaw_ = yaw; }
   /**
    * Periodic heartbeat callback for trajectory execution.
    */
@@ -135,7 +147,7 @@ public:
   void resetLastPos(const Eigen::Vector3d pos);
   /** Stop trajectory and pre-yaw output ownership. */
   void reset();
-  bool preYawActive() const { return traj_state_ == TrajState::PRE_YAW; }
+  bool preYawActive() const { std::lock_guard<std::recursive_mutex> lock(trajectory_mutex_); return traj_state_ == TrajState::PRE_YAW; }
   bool consumePreYawCompletedEvent();
 
   YAW_GIVEN yaw_given_;

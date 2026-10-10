@@ -124,7 +124,7 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 ## 9. 基础飞行能力端口
 
 基础飞行使用独立的 FlightHost 宿主端口，成员集由本节定义，由
-execution/skill_host 实现通用生命周期；planner 通信由 FlightPorts 承载
+execution/skill_host 实现通用生命周期；planner 通信由 PlannerActionPort 与独立状态、命令端口承载
 （定义于 execution/ports.py，与 VLA 共用）。FlightHost 端口成员为 state、
 origin、start_goal、poll_result、cancel_execution、request_takeoff、
 request_land、request_safety_stop、publish_phase、fail_sequence、
@@ -134,8 +134,7 @@ Protocol 类型声明。
 原点服务由新鲜 odometry 与显式配置的地面高度判定地面/升空；无地面配置时起飞/原点
 不能伪造成功。基础飞行不要求视觉帧；在 cmd 边界内不引入 MAVROS 控制器依赖。
 
-全局停止在清理通用动作状态前通知发布动作的技能实例；取消/覆盖由 dispatcher 推进批次并通过既有目标口发布保持意图，
-不要求 planner 提供新增取消端口。技能注册返回幂等 disposer，只移除所注册实例，不误删后注册实例。
+全局停止在清理通用动作状态前通知发布动作的技能实例；取消经共享 ActionSession 强制请求悬停与 goal handle 取消，立即清理当前任务引用；停止确认前不下发新运动，不注销常驻技能和感知资源。技能注册返回幂等 disposer，只移除所注册实例，不误删后注册实例。
 
 ## 10. VLA 导航技能语义（navigation.vla_nav）
 
@@ -162,7 +161,7 @@ Protocol 类型声明。
   唯一结构原因 `invalid_station_waypoint`（经工具面 fail 词表贯通到
   `rpc_outcome.reason`）。
 - **近点与贴地**：删除缓存帧近点直接成功及其阈值；所有位置腿经新鲜 odometry、
-  真实批次和停稳门。贴地位置取新鲜状态，目标高度为 ground_z 加
+  原生 action 成功和服务端停稳门。贴地位置取新鲜状态，目标高度为 ground_z 加
   `~vla/final_approach_height_m`（默认 0.1 m，必须正且有限）；地面未配置失败。
   贴地前不推进队列、不发布调用终态；不额外发送起降指令。
 - **机上保留项**：高度界 clamp、goal 唯一写入口、取消/保持

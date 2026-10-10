@@ -99,7 +99,7 @@ namespace fsm {
          * Execute the reset on the FSM thread: clear the active goal / window,
          * drop the committed trajectory, re-sync yaw, return to WAIT_TARGET.
          */
-        void handleReset();
+        void clear_navigation();
 
 
     public:
@@ -208,7 +208,7 @@ namespace fsm {
 
         /**
          * Advance the active waypoint when the robot reaches (or passes by) the current
-         * target; publishes WaypointProgress on every consumption.
+         * target; reports native progress on every consumption.
          */
         void updateWaypointProgress();
 
@@ -224,7 +224,7 @@ namespace fsm {
 
         void pushWaypointLookaheadToPlanner();
 
-        virtual void publishWaypointProgress(bool all_consumed) = 0;
+        virtual void reportWaypointProgress(bool all_consumed) = 0;
 
         /* Goal-unreachable escalation state: counts trajectory executions that
          * finish away from the goal; reset on new goal or successful finish. */

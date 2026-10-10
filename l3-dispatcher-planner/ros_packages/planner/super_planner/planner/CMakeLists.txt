@@ -47,6 +47,7 @@ find_package(catkin REQUIRED COMPONENTS
         nav_msgs
         message_generation
         quadrotor_msgs
+        planner_execution
         visualization_msgs
         message_filters
         tf
@@ -61,7 +62,7 @@ find_package(PCL REQUIRED)
 catkin_package(
         INCLUDE_DIRS
         LIBRARIES super_planner
-        CATKIN_DEPENDS roscpp rospy std_msgs slog
+        CATKIN_DEPENDS planner_execution roscpp rospy std_msgs slog
         #  DEPENDS system_lib
 )
 
@@ -98,3 +99,6 @@ target_link_libraries(fsm_node
         super
         ${THIRD_PARTY}
 )
+
+add_dependencies(super ${catkin_EXPORTED_TARGETS})
+add_dependencies(fsm_node ${catkin_EXPORTED_TARGETS})

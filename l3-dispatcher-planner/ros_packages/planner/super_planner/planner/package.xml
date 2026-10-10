@@ -76,4 +76,5 @@
         <!-- Other tools can request additional information be placed here -->
 
     </export>
+  <depend>planner_execution</depend>
 </package>

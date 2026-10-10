@@ -57,7 +57,12 @@ class ToolRuntime:
         event_history_size: int = 1000,
         event_sink=None,
         safety_stop=None,
+        interrupt=None,
+        interrupt_tools=(),
     ) -> None:
+        self._interrupt = interrupt
+        self._interrupt_tools = frozenset(interrupt_tools)
+        self._admission_lock = threading.RLock()
         self._safety_stop = safety_stop
         self.registry = registry
         self._commands = command_queue
@@ -90,74 +95,48 @@ class ToolRuntime:
             return bool(state is not None and not state.terminal and not state.cancel_requested
                         and self._active_call_id == call_id)
 
+    def _notify_interrupt(self, command):
+        if self._interrupt is None:
+            raise RuntimeError('task interruption port is required')
+        self._interrupt(command)
+
     def admit(self, payload: dict) -> dict:
         call = self.registry.normalize_call(payload)
-        fingerprint = hashlib.sha256(
-            json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
-        ).hexdigest()
-        # Keep lease -> runtime lock ordering, also used by active release checks.
-        # Loss cannot slip between owner validation and admission, including replays.
-        with self._leases.owner_guard(call.lease_identity), self._lock:
-            previous = self._calls.get(call.call_id)
-            if previous is not None:
-                if previous.fingerprint != fingerprint:
-                    raise ToolProtocolError(
-                        BUSINESS_REJECTED,
-                        "call id already used with different content",
-                        {"reason": "call_id_conflict", "call_id": call.call_id},
-                    )
-                return dict(previous.ack)
-
-            active = self._active_state_locked()
-            if active is not None:
-                # 同源新指令抢占：同一 station 实例下发的新 AgentPrompt
-                # （前端刷新语义）可取代旧 active call——先经完整取消链
-                # （skill.on_cancel → 软急停 → cancel_all_goals →
-                # mark_cancelled）释放旧技能/action 状态，随即接管
-                # _active_call_id 并 admit 新 call。取消命令在命令队列中
-                # 先于新 call 的 "call" 命令被消费，旧 call 的异步终态
-                # emit 到达时 _active_call_id 已指向新 call（emit 的
-                # `_active_call_id == call_id` 条件不满足），不会误伤新 call。
-                # 非同源（其他 operator/station）仍按 flight_busy 拒绝。
-                if not _same_station_owner(active.call, call):
-                    raise ToolProtocolError(
-                        BUSINESS_REJECTED,
-                        "another flight tool is active",
-                        {
-                            "reason": "flight_busy",
-                            "active_call_id": active.call.call_id,
-                            "active_tool": active.call.name,
-                        },
-                    )
-                active.cancel_requested = True
-                self._commands.put(
-                    ToolCommand("cancel", active.call, "preempted_by_new_instruction")
-                )
-
-
-            ack = {
-                "type": "tool_call_ack",
-                "accepted": True,
-                "call_id": call.call_id,
-                "name": call.name,
-                "flight_session_id": call.flight_session_id,
-                "step_id": call.step_id,
-                "station_id": call.station_id,
-                "station_instance_id": call.station_instance_id,
-                "lease_id": call.lease_id,
-                "reason": "admitted",
-                "ts": _utc_now_iso(),
-            }
-            self._calls[call.call_id] = _CallState(call, fingerprint, ack)
-            self._call_by_frame[call.frame_id] = call.call_id
-            self._active_call_id = call.call_id
-            self._append_event_locked(
-                call,
-                status="running",
-                phase="accepted",
-                message="tool call admitted",
-            )
-            self._commands.put(ToolCommand("call", call))
+        fingerprint = hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        notifications = []
+        # 准入转换串行化，但停止发送不持 runtime 账本锁。
+        with self._admission_lock, self._leases.owner_guard(call.lease_identity):
+            with self._lock:
+                previous = self._calls.get(call.call_id)
+                if previous is not None:
+                    if previous.fingerprint != fingerprint:
+                        raise ToolProtocolError(BUSINESS_REJECTED, 'call id already used with different content', {"reason": "call_id_conflict", "call_id": call.call_id})
+                    return dict(previous.ack)
+                priority = call.name in self._interrupt_tools
+                if not priority and self._commands.full():
+                    raise ToolProtocolError(BUSINESS_REJECTED, 'instruction queue is full', {"reason": "flight_busy"})
+                active = self._active_state_locked()
+                if active is not None:
+                    if not _same_station_owner(active.call, call):
+                        raise ToolProtocolError(BUSINESS_REJECTED, 'another flight tool is active', {"reason": "flight_busy", "active_call_id": active.call.call_id, "active_tool": active.call.name})
+                    active.cancel_requested = True
+                    self.mark_cancelled(active.call.call_id, 'preempted_by_new_instruction')
+                    notifications.append(ToolCommand('cancel', active.call, 'preempted_by_new_instruction'))
+                ack = dict(type='tool_call_ack', accepted=True, call_id=call.call_id, name=call.name,
+                           flight_session_id=call.flight_session_id, step_id=call.step_id,
+                           station_id=call.station_id, station_instance_id=call.station_instance_id,
+                           lease_id=call.lease_id, reason='admitted', ts=_utc_now_iso())
+                self._calls[call.call_id] = _CallState(call, fingerprint, ack)
+                self._call_by_frame[call.frame_id] = call.call_id
+                self._active_call_id = call.call_id
+                self._append_event_locked(call, status='running', phase='accepted', message='tool call admitted')
+            # 首次停止请求完成后才允许新调用进入执行队列。
+            for command in notifications:
+                self._notify_interrupt(command)
+            if priority:
+                self._notify_interrupt(ToolCommand('call', call, 'priority_interrupt'))
+            else:
+                self._commands.put_nowait(ToolCommand('call', call))
             return dict(ack)
 
     def cancel(self, payload: dict) -> dict:
@@ -188,33 +167,22 @@ class ToolRuntime:
                 "invalid cancel request",
                 {"reason": "argument_out_of_range", "details": "reason"},
             )
-        self._leases.require_owner({field: payload.get(field) for field in LEASE_IDENTITY_FIELDS})
-        with self._lock:
-            state = self._calls.get(call_id)
-            if state is None:
-                raise ToolProtocolError(
-                    BUSINESS_REJECTED,
-                    "call not found",
-                    {"reason": "call_not_found", "call_id": call_id},
-                )
-            if state.terminal:
-                return {
-                    "type": "tool_cancel_ack",
-                    "call_id": call_id,
-                    "cancelled": False,
-                    "reason": "already_terminal",
-                    "ts": _utc_now_iso(),
-                }
-            if not state.cancel_requested:
-                state.cancel_requested = True
-                self._commands.put(ToolCommand("cancel", state.call, reason.strip()))
-            return {
-                "type": "tool_cancel_ack",
-                "call_id": call_id,
-                "cancelled": True,
-                "reason": "cancel_requested",
-                "ts": _utc_now_iso(),
-            }
+        identity = {field: payload.get(field) for field in LEASE_IDENTITY_FIELDS}
+        notification = None
+        with self._admission_lock, self._leases.owner_guard(identity):
+            with self._lock:
+                state = self._calls.get(call_id)
+                if state is None:
+                    raise ToolProtocolError(BUSINESS_REJECTED, 'call not found', {"reason": "call_not_found", "call_id": call_id})
+                if state.terminal:
+                    return dict(type='tool_cancel_ack', call_id=call_id, cancelled=False, reason='already_terminal', ts=_utc_now_iso())
+                if not state.cancel_requested:
+                    state.cancel_requested = True
+                    self.mark_cancelled(call_id, reason.strip())
+                    notification = ToolCommand('cancel', state.call, reason.strip())
+            if notification is not None:
+                self._notify_interrupt(notification)
+        return dict(type='tool_cancel_ack', call_id=call_id, cancelled=True, reason='cancel_requested', ts=_utc_now_iso())
 
     def emit(
         self,
@@ -357,26 +325,16 @@ class ToolRuntime:
             return self._active_state_locked() is not None
 
     def cancel_active_for_lease_loss(self, reason: str) -> None:
-        """Lease-loss step: one terminal `connection_lost` for the active
-        call, then the adapter-level cancellation command."""
-        with self._lock:
-            active = self._active_state_locked()
-            if active is None:
-                return
-            call_id = active.call.call_id
-        self.emit(
-            call_id,
-            status="fail",
-            phase="fail",
-            message="connection lost: lease expired or station token gone",
-            error={"code": "connection_lost", "reason": reason},
-        )
-        with self._lock:
-            state = self._calls.get(call_id)
-            if state is not None and not state.cancel_requested:
-                state.cancel_requested = True
-                self._commands.put(ToolCommand("cancel", state.call, reason))
-
+        with self._admission_lock:
+            with self._lock:
+                active = self._active_state_locked()
+                if active is None:
+                    return
+                active.cancel_requested = True
+                self.emit(active.call.call_id, status='fail', phase='fail', message='connection lost',
+                          error={"code": "connection_lost", "reason": reason})
+                command = ToolCommand('cancel', active.call, reason)
+            self._notify_interrupt(command)
 
     def issue_safety_stop(self, reason: str) -> None:
         """租约丢失直接调用安全停止端口，缺失端口或异常由租约状态机保持取消中。"""

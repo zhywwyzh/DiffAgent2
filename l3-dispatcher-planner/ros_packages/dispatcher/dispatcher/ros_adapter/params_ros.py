@@ -24,3 +24,10 @@ def get_private_param(name: str, default: Any = None) -> Any:
 def get_node_name() -> str:
     """读当前节点全名（rospy.get_name 的最小端口化）。"""
     return rospy.get_name()
+
+
+def get_shared_execution_param(name: str, default: Any = None) -> Any:
+    """唯一共享参数树，必需参数缺失时启动失败。"""
+    if name == "ground_z":
+        return rospy.get_param("/planner_execution/" + name, default)
+    return rospy.get_param("/planner_execution/" + name)

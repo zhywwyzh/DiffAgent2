@@ -9,11 +9,12 @@
     <arg name="odometry_topic" value="$(arg odometry_topic)"/>
     <arg name="cloud_topic" value="$(arg cloud_topic)"/>
   </include>
+  <param name="/planner_execution/ground_z" value="$(arg ground_z)" type="double"/>
   <node pkg="dispatcher" type="dispatcher_node.py" name="dispatcher" output="screen" required="true"
         launch-prefix="$(arg python_executable)">
     <param name="headless" value="true"/>
     <param name="drone_id" value="$(arg drone_id)"/>
     <param name="odometry_topic" value="$(arg odometry_topic)"/>
-    <param name="flight/ground_z" value="$(arg ground_z)" type="double"/>
+
   </node>
 </launch>

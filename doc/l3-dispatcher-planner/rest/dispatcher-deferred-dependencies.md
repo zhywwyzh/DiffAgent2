@@ -1,6 +1,6 @@
 # dispatcher 待迁依赖与保留项台账
 
-更新日期：2026-10-09。最新交付见文末“直连任务结果收敛”；本轮未验收。此前状态：R03/R05 的控制职责已上行修正到 dispatcher，修正版未重跑测试；R04 原点子能力保留，其余历史消费继续保留；R05 的 VLA 专属 REPLAN 已随后续 [机上收窄方案](../iteration/design-dispatcher-vla-waypoint-executor-migration.md) **整体退役**（station 解算 waypoint 后机上为终态腿，无 replan；技能自有 replan 状态与 `far_push` 一并删除，`PendingAction.replan_cmd`/`SkillVerdict.REPLAN` 保留为通用账务/裁决机制），记录消费继续挂账；R07 已关门；R01/R02/R06 待迁；R08 已删除且不自动恢复；R09 登记在案（[场景图迁移方案](../iteration/design-dispatcher-scenegraph-migration.md)）。
+更新日期：2026-10-09。当前 R03/R05 已迁移到原生 action 执行，代码交付但未编译、未验收，详见文末“原生 action 接入”。此前直连 topic 与家族执行器条目保留为迁移历史，不能作为现行接口说明。R01/R02/R04/R06 等无关保留项继续挂账。
 
 本文件记录已批准的暂时保留及后续处理线索，不定义新契约。用户明确要求：保留项在未来接入或优化时重新判断，不能因为当前生产技能为空而直接删除。未来实现方案仍按 `iteration/_TEMPLATE.md` 落盘；如需改变端口或行为契约，先更新 `specs/`。
 
@@ -254,3 +254,36 @@ R03/R05 的执行链已作如下代码修正，状态为**代码已接入、运�
 进行停稳判定。未新增测试、未运行验收或构建，旧测试构造的状态及 VLA 参数
 需在获许可后的测试轮次同步，不沿用历史通过数字。R01/R02/R06 记录服务继续
 挂账；core 依赖、通用 schema 原因码与既有参数全量命名整理不属于本轮。
+
+
+## 2026-10-09 原生 action 接入
+
+依据[原生 action 方案](../iteration/design-planner-native-action.md)，R03/R05 迁移归属如下。
+
+| 条目 | 当前实现位置及行为 | 剩余触发条件 |
+|----|----|----|
+| R03 停止与保持 | `ros_packages/planner/planner_execution/src/execution.cpp` 统一停止阶段；EGO/DIFF 原生停止轨迹及 SUPER 保持 cmd 接管；动态停稳后确认取消 | 经明确许可后覆盖真实运动中取消、定位丢失、停止超时、后端差异与实机动态；未关闭 |
+| R05 动作通信与停稳 | `ExecuteWaypoints.action`、服务端 `settle_monitor.cpp`；旧消息与两家族执行器已删除；原始目标和新鲜连续观测仍为成功依据 | 经许可后补新接口领域与至 cmd 证据；外部消费者须同步迁移；未关闭 |
+| R05 客户端归属 | `N/execution/action_session.py` 和 `N/execution/skill_host.py` 共用会话并绑定发送代次/owner；取消结果未确认时禁止后继目标 | 验证迟到终态、断连、重启、覆盖和同名重注册；旧代次不允许标记为当前代次 |
+| R03 安全恢复 | `/planner/execution_state` 提供启动标识、恢复代次与就绪；显式停止确认后解除本地闭锁 | 验证丢失结果及恢复时序；不以连接恢复作为已停止证据 |
+| 配置与启动 | `bringup/config/planner_execution.yaml`、EGO launch 与构建脚本；旧执行参数拒绝 | 所有部署侧启动器加载同源配置；SUPER/DIFF 补运行证据；未接入能力显式拒绝 |
+
+本轮依据为上述实现位置，**没有测试、构建或运行证据**。起降和急停工具的 forwarded 语义、
+VLA 多腿、累计旋转及其他保留项不因引入 action 自动关闭。R03/R05 的可关闭条件仍包含
+真实后端停止与恢复证据；相关代码再次调整时须同时维护此处和索引。
+
+
+## 2026-10-10 强制取消与资源边界更新
+
+当前 R03/R05 的取消归属以下表为准，前述“普通取消不发急停、owner 保留到停稳”的记录退为历史。
+
+| 条目 | 当前实现证据 | 剩余触发条件 |
+|----|----|----|
+| R03 强制停止入口 | `N/tool_plane/runtime.py`、`control_plane.py`；取消与急停绕过普通队列，停止发送先于异步清理 | 许可后补满队列、长调用、异常钩子和发送竞态的运行证据 |
+| R05 任务资源释放 | `N/execution/action_session.py` 的 StopRecord 与 token 回调；`core/skill_router.py::release_call`；代次失效、清指令及技能多腿状态 | 迟到结果、旧调用清理与新调用并发、资源引用释放须验收 |
+| R03 独立保持 | `planner_execution/command_output_ros.cpp`；独立回调及短锁输出屏障；三后端原生停止 | 定位缺失、制动效果、输出连续性和停止超时需真实证据 |
+| R03 DIFF 跟踪接管 | `diff_planner/Apps/traj_server.cpp`、PolyTraj 归属字段、CommandState 回执 | 生成消息须同步重建；跨 topic 时序、断连与跟踪进程重启待验收 |
+| 常驻资源保护 | 停止只清导航目标、轨迹和任务归属；不调用地图清空、飞行原点 reset 或端点注销 | 许可后证明停止期间建图和定位连续，地图及原点保留 |
+| 外部调用链 | 本仓库现行线上契约仍为站端独立急停工具调用；未定位 CoPaw 和外部 elastic-tracker 实现 | 取得对应源码和部署入口后核对按钮请求、轨迹缓存及设备控制边界；不得据本地修改关闭条目 |
+
+本轮没有构建、测试或运行证据；R03/R05 保持未关闭，其他记录服务保留项不变。

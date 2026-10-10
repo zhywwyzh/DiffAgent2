@@ -31,32 +31,34 @@ void ego_planner::plan_manage::TrajServer::initTrajServer(ros::NodeHandle& node)
   last_yaw_ = 0.0;
   last_yawdot_ = 0.0;
   percep_utils_ = std::make_shared<vis_utils::PerceptionUtils>(node_);
-  std::thread cmd_thread(ego_planner::plan_manage::TrajServer::cmdThread, this);
-  cmd_thread.detach();
+  command_thread_=std::thread(ego_planner::plan_manage::TrajServer::cmdThread,this);
 }
 
 void ego_planner::plan_manage::TrajServer::feedDog() {
+  std::lock_guard<std::recursive_mutex> trajectory_guard(trajectory_mutex_);
   heartbeat_time_ = ros::Time::now();
   do_once_ = true;
 }
 
 void ego_planner::plan_manage::TrajServer::resetYawLookforward(Eigen::Vector3d pos, bool enable_pre_yaw) {
+  std::lock_guard<std::recursive_mutex> trajectory_guard(trajectory_mutex_);
   std::cout << "[ego_planner::plan_manage::TrajServer] resetYawLookforward" << std::endl;
   panorama_yaw_active_ = false;
   yaw_given_.pos = pos;
   yaw_given_.reach_given_yaw_ = true;
   yaw_given_.look_forward = true;
-  yaw_given_.control_mode = quadrotor_msgs::LocalGoalSet::YAW_MODE_NORMAL;
-  yaw_given_.path_mode = quadrotor_msgs::LocalGoalSet::YAW_PATH_SHORTEST;
+  yaw_given_.control_mode = quadrotor_msgs::YawPolicy::NORMAL;
+  yaw_given_.path_mode = quadrotor_msgs::YawPolicy::SHORTEST;
   pre_yaw_pending_ = enable_pre_yaw;
 }
 
 void ego_planner::plan_manage::TrajServer::setYaw(double des_yaw, double cur_yaw, Eigen::Vector3d pos,
                                                   bool look_forward, uint8_t control_mode, uint8_t path_mode) {
+  std::lock_guard<std::recursive_mutex> trajectory_guard(trajectory_mutex_);
   panorama_yaw_active_ = false;
   // 保持方向模式下，将新odometry yaw展开到最接近当前内部连续角的等价角度。
   // 这样分段发布全景目标时不会因odometry跨越[-pi, pi]而丢失累计圈数。
-  if (path_mode == quadrotor_msgs::LocalGoalSet::YAW_PATH_KEEP_DIRECTION) {
+  if (path_mode == quadrotor_msgs::YawPolicy::KEEP_DIRECTION) {
     double unwrapped_cur_yaw = cur_yaw;
     while (unwrapped_cur_yaw - last_yaw_ > M_PI)
       unwrapped_cur_yaw -= 2 * M_PI;
@@ -75,6 +77,7 @@ void ego_planner::plan_manage::TrajServer::setYaw(double des_yaw, double cur_yaw
 
 void ego_planner::plan_manage::TrajServer::setPanoramaYaw(double des_yaw, double cur_yaw,
                                                           const Eigen::Vector3d& hold_pos) {
+  std::lock_guard<std::recursive_mutex> trajectory_guard(trajectory_mutex_);
   if (!panorama_yaw_active_) {
     // 全景会话只在首条命令根据odometry初始化，后续目标续接不得清零角速度。
     double unwrapped_cur_yaw = cur_yaw;
@@ -93,11 +96,12 @@ void ego_planner::plan_manage::TrajServer::setPanoramaYaw(double des_yaw, double
   yaw_given_.pos = hold_pos;
   yaw_given_.reach_given_yaw_ = false;
   yaw_given_.look_forward = false;
-  yaw_given_.control_mode = quadrotor_msgs::LocalGoalSet::YAW_MODE_PANORAMA;
-  yaw_given_.path_mode = quadrotor_msgs::LocalGoalSet::YAW_PATH_KEEP_DIRECTION;
+  yaw_given_.control_mode = quadrotor_msgs::YawPolicy::PANORAMA;
+  yaw_given_.path_mode = quadrotor_msgs::YawPolicy::KEEP_DIRECTION;
 }
 
 void ego_planner::plan_manage::TrajServer::syncYawFromOdom(const double yaw, const std::string& source) {
+  std::lock_guard<std::recursive_mutex> trajectory_guard(trajectory_mutex_);
   double normalized_yaw = yaw;
   while (normalized_yaw > M_PI)
     normalized_yaw -= 2 * M_PI;
@@ -117,6 +121,7 @@ void ego_planner::plan_manage::TrajServer::syncYawFromOdom(const double yaw, con
 
 void ego_planner::plan_manage::TrajServer::setTrajectory(const ego_planner::traj_opt::poly_traj::Trajectory& traj,
                                                          double start_time) {
+  std::lock_guard<std::recursive_mutex> trajectory_guard(trajectory_mutex_);
   panorama_yaw_active_ = false;
   traj_ = traj;
   start_time_ = start_time;
@@ -130,6 +135,7 @@ void ego_planner::plan_manage::TrajServer::setTrajectory(const ego_planner::traj
 }
 
 void ego_planner::plan_manage::TrajServer::reset() {
+  std::lock_guard<std::recursive_mutex> trajectory_guard(trajectory_mutex_);
   receive_traj_ = false;
   pre_yaw_pending_ = false;
   pre_yaw_completed_event_ = false;
@@ -138,6 +144,7 @@ void ego_planner::plan_manage::TrajServer::reset() {
 }
 
 bool ego_planner::plan_manage::TrajServer::consumePreYawCompletedEvent() {
+  std::lock_guard<std::recursive_mutex> trajectory_guard(trajectory_mutex_);
   if (!pre_yaw_completed_event_)
     return false;
   pre_yaw_completed_event_ = false;
@@ -146,13 +153,14 @@ bool ego_planner::plan_manage::TrajServer::consumePreYawCompletedEvent() {
 
 std::pair<double, double> ego_planner::plan_manage::TrajServer::calculate_yaw(double t_cur, const Eigen::Vector3d& pos,
                                                                                double dt) {
+  std::lock_guard<std::recursive_mutex> trajectory_guard(trajectory_mutex_);
   // constexpr double YAW_DOT_MAX_PER_SEC = 1.5 * M_PI;
   // constexpr double YAW_DOT_MAX_PER_SEC = 0.8 * M_PI;
   // constexpr double YAW_DOT_DOT_MAX_PER_SEC = 2.0 * M_PI;
   std::pair<double, double> yaw_yawdot(0, 0);
 
   if (!yaw_given_.look_forward &&
-      yaw_given_.control_mode != quadrotor_msgs::LocalGoalSet::YAW_MODE_PANORAMA) {
+      yaw_given_.control_mode != quadrotor_msgs::YawPolicy::PANORAMA) {
     double target_yaw = yaw_given_.yaw;
     while (target_yaw > M_PI)
       target_yaw -= 2 * M_PI;
@@ -177,13 +185,13 @@ std::pair<double, double> ego_planner::plan_manage::TrajServer::calculate_yaw(do
   } else {
     yaw_temp = yaw_given_.yaw;
     double yaw_error = yaw_temp - last_yaw_;
-    if (yaw_given_.path_mode == quadrotor_msgs::LocalGoalSet::YAW_PATH_SHORTEST) {
+    if (yaw_given_.path_mode == quadrotor_msgs::YawPolicy::SHORTEST) {
       while (yaw_error >= M_PI)
         yaw_error -= 2 * M_PI;
       while (yaw_error <= -M_PI)
         yaw_error += 2 * M_PI;
     }
-    const bool panorama_stopped = yaw_given_.control_mode != quadrotor_msgs::LocalGoalSet::YAW_MODE_PANORAMA ||
+    const bool panorama_stopped = yaw_given_.control_mode != quadrotor_msgs::YawPolicy::PANORAMA ||
                                   abs(last_yawdot_) < 0.5 * M_PI / 180.0;
     if (abs(yaw_error) < 0.01 && panorama_stopped) {
       yaw_given_.reach_given_yaw_ = true;
@@ -194,7 +202,7 @@ std::pair<double, double> ego_planner::plan_manage::TrajServer::calculate_yaw(do
 
   double yawdot = 0;
   double d_yaw = yaw_temp - last_yaw_;
-  if (yaw_given_.path_mode == quadrotor_msgs::LocalGoalSet::YAW_PATH_SHORTEST) {
+  if (yaw_given_.path_mode == quadrotor_msgs::YawPolicy::SHORTEST) {
     if (d_yaw >= M_PI)
       d_yaw -= 2 * M_PI;
     if (d_yaw <= -M_PI)
@@ -202,10 +210,10 @@ std::pair<double, double> ego_planner::plan_manage::TrajServer::calculate_yaw(do
   }
 
   double YDM, YDDM;
-  if (yaw_given_.control_mode == quadrotor_msgs::LocalGoalSet::YAW_MODE_PANORAMA) {
+  if (yaw_given_.control_mode == quadrotor_msgs::YawPolicy::PANORAMA) {
     YDM = d_yaw >= 0 ? yaw_vel_panorama_ : -yaw_vel_panorama_;
     YDDM = d_yaw >= 0 ? yaw_acc_panorama_ : -yaw_acc_panorama_;
-  } else if (yaw_given_.control_mode == quadrotor_msgs::LocalGoalSet::YAW_MODE_LOW_SPEED) {
+  } else if (yaw_given_.control_mode == quadrotor_msgs::YawPolicy::LOW_SPEED) {
     YDM = d_yaw >= 0 ? yaw_vel_low_limit_ : -yaw_vel_low_limit_;
     YDDM = d_yaw >= 0 ? yaw_acc_low_limit_ : -yaw_acc_low_limit_;
   } else {
@@ -213,7 +221,7 @@ std::pair<double, double> ego_planner::plan_manage::TrajServer::calculate_yaw(do
     YDDM = d_yaw >= 0 ? yaw_acc_limit_ : -yaw_acc_limit_;
   }
 
-  if (yaw_given_.control_mode == quadrotor_msgs::LocalGoalSet::YAW_MODE_PANORAMA) {
+  if (yaw_given_.control_mode == quadrotor_msgs::YawPolicy::PANORAMA) {
     // 根据剩余角度生成可制动的目标角速度，再按角加速度限制逐周期逼近。
     // 中间目标会在进入制动区前被上层续接，因此巡航阶段能够保持稳定角速度。
     const double remaining_abs = fabs(d_yaw);
@@ -273,6 +281,7 @@ std::pair<double, double> ego_planner::plan_manage::TrajServer::calculate_yaw(do
 
 void ego_planner::plan_manage::TrajServer::publish_cmd(Vector3d p, Vector3d v, Vector3d a, Vector3d j, double y,
                                                        double yd, uint8_t yaw_control_mode) {
+  std::lock_guard<std::recursive_mutex> trajectory_guard(trajectory_mutex_);
   quadrotor_msgs::PositionCommand cmd;
   cmd.header.stamp = ros::Time::now();
   cmd.header.frame_id = "world";
@@ -299,17 +308,19 @@ void ego_planner::plan_manage::TrajServer::publish_cmd(Vector3d p, Vector3d v, V
   cmd.yaw = y;
   cmd.yaw_dot = yd;
   cmd.yaw_control_mode = yaw_control_mode;
-  pos_cmd_pub_.publish(cmd);
+  if (command_output_) command_output_->publish(cmd,command_generation_);
+  else pos_cmd_pub_.publish(cmd);
 
   last_pos_ = p;
 }
 
-void ego_planner::plan_manage::TrajServer::resetLastPos(const Eigen::Vector3d pos) { last_pos_ = pos; }
+void ego_planner::plan_manage::TrajServer::resetLastPos(const Eigen::Vector3d pos) {
+  std::lock_guard<std::recursive_mutex> trajectory_guard(trajectory_mutex_); last_pos_ = pos; }
 
 void ego_planner::plan_manage::TrajServer::cmdThread(void* obj) {
   ego_planner::plan_manage::TrajServer* tsvr = reinterpret_cast<ego_planner::plan_manage::TrajServer*>(obj);
 
-  while (true) {
+  while (tsvr->running_) {
     ros::Time ts = ros::Time::now();
     tsvr->cmdFun();
 
@@ -319,6 +330,11 @@ void ego_planner::plan_manage::TrajServer::cmdThread(void* obj) {
 }
 
 void ego_planner::plan_manage::TrajServer::cmdFun() {
+  std::lock_guard<std::recursive_mutex> trajectory_guard(trajectory_mutex_);
+  if (command_output_) {
+    command_generation_=command_output_->generation();
+    if (!command_output_->enabled()) return;
+  }
 
   /* no publishing before receive traj_ and have heartbeat */
   if (heartbeat_time_.toSec() <= 1e-5)
@@ -362,7 +378,7 @@ void ego_planner::plan_manage::TrajServer::cmdFun() {
 
         // publish
         const uint8_t yaw_control_mode =
-            yaw_given_.control_mode == quadrotor_msgs::LocalGoalSet::YAW_MODE_PANORAMA
+            yaw_given_.control_mode == quadrotor_msgs::YawPolicy::PANORAMA
                 ? quadrotor_msgs::PositionCommand::YAW_CONTROL_TRACK
                 : quadrotor_msgs::PositionCommand::YAW_CONTROL_TARGET;
         publish_cmd(pos, vel, acc, jer, yaw_yawdot.first, yaw_yawdot.second, yaw_control_mode);
@@ -464,6 +480,7 @@ void ego_planner::plan_manage::TrajServer::cmdFun() {
 void ego_planner::plan_manage::TrajServer::drawFOV(const std::vector<Eigen::Vector3d>& list1,
                                                    const std::vector<Eigen::Vector3d>& list2, ros::Publisher& pub,
                                                    double r, double g, double b) {
+  std::lock_guard<std::recursive_mutex> trajectory_guard(trajectory_mutex_);
   visualization_msgs::Marker mk;
   mk.header.frame_id = "world";
   mk.header.stamp = ros::Time::now();

@@ -1,7 +1,5 @@
 """组合飞行 / VLA 领域对象；ROS 端口由调用方注入。"""
 from dispatcher.execution.skill_host import DispatcherFlightHost, VlaSkillHost
-from dispatcher.tools.flight.flight_waypoint import FlightWaypointExecution
-from dispatcher.tools.vla.vla_waypoint import VlaWaypointExecution
 from dispatcher.tools.flight.session import FlightSession
 from dispatcher.tools.flight.takeoff_skill import TakeoffSkill
 from dispatcher.tools.flight.land_skill import LandSkill
@@ -12,9 +10,9 @@ from dispatcher.tools.flight.emergency_stop_skill import EmergencyStopSkill
 from dispatcher.tools.vla.vla_skill import VlaSkill
 
 
-def install_flight(engine, ports, config):
-    execution = FlightWaypointExecution(ports, config)
-    host = DispatcherFlightHost(engine, execution, FlightSession(config))
+def install_flight(engine, execution):
+    host = DispatcherFlightHost(engine, execution, FlightSession(execution.config))
+    engine.lifecycle_tick = execution.tick
     disposers = []
     try:
         for kind in (TakeoffSkill, LandSkill, TranslateSkill, RotateSkill, ReturnSkill, EmergencyStopSkill):
@@ -31,27 +29,14 @@ def install_flight(engine, ports, config):
         raise
 
     def dispose():
-        execution.cancel()
         for inverse in reversed(disposers):
             inverse()
 
     return host, dispose
 
 
-def install_vla(
-    engine, ports, execution_config, host_config,
-):
-    """组合 VLA 领域对象（与 install_flight 同构），注册 navigation.vla_nav。
-
-    - 动作出海用 VLA 家族自己的航点执行（`tools/vla/vla_waypoint.py`；与飞行
-      共用同一 FlightPorts 出站口，独立实例：batch 随机起始互不冲突；
-      飞行独占由 tool-plane 单活动调用与 engine 动作账务（owner 门 / 代次）
-      保证）；
-    - waypoint_world 由站端解算随调用下行（「累积点云 + 位姿@帧时戳 +
-      VLM bbox」在 station 完成），机上无几何/感知注入；
-    - 技能层 slog 出站回调接 engine.runlog.emit；高度与完成门由执行配置统一提供。
-    """
-    execution = VlaWaypointExecution(ports, execution_config)
+def install_vla(engine, execution, host_config):
+    """VLA 和飞行共用动作会话，技能拥有各自多腿流程。"""
     host = VlaSkillHost(engine, execution, host_config)
     skill = VlaSkill(
         host,
@@ -60,7 +45,6 @@ def install_vla(
     dispose_skill = engine.skills.register(skill.name, skill)
 
     def dispose():
-        execution.cancel()
         dispose_skill()
 
     return host, dispose

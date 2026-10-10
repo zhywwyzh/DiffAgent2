@@ -111,7 +111,7 @@ void ego_planner::plan_manage::EGOReplanFSM::init(ros::NodeHandle& nh) {
   exec_finish_trigger_pub_ = nh.advertise<std_msgs::Bool>("exec_finish_trigger", 10);
   planner_result_pub_ = nh.advertise<quadrotor_msgs::PlannerResult>("/planning/planner_result", 10);
   ego_state_trigger_pub_ = nh.advertise<quadrotor_msgs::EgoStateTrigger>("/planning/ego_state_trigger", 10);
-  wp_progress_pub_ = nh.advertise<quadrotor_msgs::WaypointProgress>("/drone_0_ego_planner_node/waypoint_progress", 10);
+
 
   // ROS_INFO("Wait for 3 seconds.");
   // ros::Time t0 = ros::Time::now();
@@ -123,11 +123,9 @@ void ego_planner::plan_manage::EGOReplanFSM::init(ros::NodeHandle& nh) {
   }
 
   if (target_type_ == TARGET_TYPE::MANUAL_TARGET) {
-    // waypoint_sub_ = nh.subscribe("/goal", 1, &ego_planner::plan_manage::EGOReplanFSM::waypointCallback, this);
+    initExecution(nh);
   } else if (target_type_ == TARGET_TYPE::EXPLORE_TARGET) {
-    waypoint_sub_ = nh.subscribe("local_goal", 10, &ego_planner::plan_manage::EGOReplanFSM::aimCallback, this);
-    waypoint_sub_yaw_preset_sub_ =
-        nh.subscribe("local_goal_yaw_preset", 10, &ego_planner::plan_manage::EGOReplanFSM::aimCallbackYawPreset, this);
+    initExecution(nh);
   } else if (target_type_ == TARGET_TYPE::PRESET_TARGET) {
     trigger_sub_ =
         nh.subscribe("/traj_start_trigger", 1, &ego_planner::plan_manage::EGOReplanFSM::triggerCallback, this);
@@ -139,8 +137,10 @@ void ego_planner::plan_manage::EGOReplanFSM::init(ros::NodeHandle& nh) {
 }
 
 void ego_planner::plan_manage::EGOReplanFSM::execFSMCallback(const ros::TimerEvent& e) {
+  std::lock_guard<std::recursive_mutex> guard(execution_mutex_);
   exec_timer_.stop(); // To avoid blockage, because execFSMCallback will call ros::spinOnce() inside
   traj_server_.feedDog();
+  if (execution_holding_ || (execution_action_ && !execution_action_->motion_enabled())) { exec_timer_.start(); return; }
   // measureGroundHeight();
   // measureGroundHeight2();
   mondifyInCollisionFinalGoal();
@@ -406,6 +406,7 @@ force_return:;
 }
 
 void ego_planner::plan_manage::EGOReplanFSM::changeFSMExecState(FSM_EXEC_STATE new_state, string pos_call) {
+  if (new_state == EMERGENCY_STOP && execution_action_) execution_action_->fail("planner_safety_stop");
 
   if (new_state == WAIT_TARGET && exec_state_ != INIT) {
     std_msgs::Bool exec_finish_trigger_msg;
@@ -546,7 +547,8 @@ void ego_planner::plan_manage::EGOReplanFSM::planningReturnsChk() {
         planNextWaypoint(wps_[wpt_id_]);
       }
 
-      /* The navigation task terminated */
+      /* Native action observes the planning failure and confirms stopping. */
+      if (execution_action_) execution_action_->fail("planner_unreachable");
       callEmergencyStop(odom_pos_);
       changeFSMExecState(WAIT_TARGET, "RetChk");
     }
@@ -876,7 +878,7 @@ bool ego_planner::plan_manage::EGOReplanFSM::planNextWaypoint(const Eigen::Vecto
   goal_finish_stable_start_time_ = ros::Time(0);
   cur_traj_to_cur_target_ = false;
   // 最短路径命令在目标边界同步真实yaw；保持方向命令保留TrajServer内部连续角。
-  if (yaw_path_mode == quadrotor_msgs::LocalGoalSet::YAW_PATH_SHORTEST)
+  if (yaw_path_mode == quadrotor_msgs::YawPolicy::SHORTEST)
     traj_server_.syncYawFromOdom(odom_yaw_, "planNextWaypoint");
 
   if (exec_state_ == WAIT_TARGET) {
@@ -889,7 +891,7 @@ bool ego_planner::plan_manage::EGOReplanFSM::planNextWaypoint(const Eigen::Vecto
       yaw_cmd_.cmd_time = ros::Time::now();
       yaw_cmd_.des_yaw = des_yaw;
       traj_server_.setYaw(des_yaw, odom_yaw_, odom_pos_, true, yaw_mode,
-                          quadrotor_msgs::LocalGoalSet::YAW_PATH_SHORTEST);
+                          quadrotor_msgs::YawPolicy::SHORTEST);
     }
 
     if (!look_forward) {
@@ -1085,40 +1087,7 @@ void ego_planner::plan_manage::EGOReplanFSM::waypointCallback(const geometry_msg
   }
 }
 
-void ego_planner::plan_manage::EGOReplanFSM::aimCallbackYawPreset(const quadrotor_msgs::LocalGoalSetPtr& msg) {
-  // Dead topic in this stack (no publisher); final waypoint of the window.
-  const Eigen::Vector3d end_wp = msg->waypoints.size() >= 3 ? Eigen::Vector3d(msg->waypoints[msg->waypoints.size() - 3],
-                                                                              msg->waypoints[msg->waypoints.size() - 2],
-                                                                              msg->waypoints[msg->waypoints.size() - 1])
-                                                            : Eigen::Vector3d::Zero();
-  ROS_INFO("[Ego]: Received goalID: %d, pos: %.1f, %.1f, %.1f, lookforward: %d, yaw: %.2f", msg->drone_id, end_wp.x(),
-           end_wp.y(), end_wp.z(), (int)msg->look_forward, msg->yaw);
-  if (msg->drone_id != planner_manager_->pp_.drone_id)
-    return;
-  std::cout << "[Ego]: <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<" << std::endl;
 
-  initPlannerResult();
-
-  uint8_t yaw_mode = msg->yaw_mode;
-  if (yaw_mode == quadrotor_msgs::LocalGoalSet::YAW_MODE_NORMAL && msg->yaw_low_speed)
-    yaw_mode = quadrotor_msgs::LocalGoalSet::YAW_MODE_LOW_SPEED;
-  uint8_t yaw_path_mode = msg->yaw_path_mode;
-  if (yaw_mode == quadrotor_msgs::LocalGoalSet::YAW_MODE_PANORAMA &&
-      yaw_path_mode == quadrotor_msgs::LocalGoalSet::YAW_PATH_KEEP_DIRECTION) {
-    traj_server_.setPanoramaYaw(msg->yaw, odom_yaw_, end_wp);
-    changeFSMExecState(WAIT_YAW, "Panorama Yaw Preset");
-    return;
-  }
-  if (yaw_mode == quadrotor_msgs::LocalGoalSet::YAW_MODE_PANORAMA) {
-    yaw_mode = quadrotor_msgs::LocalGoalSet::YAW_MODE_NORMAL;
-    yaw_path_mode = quadrotor_msgs::LocalGoalSet::YAW_PATH_SHORTEST;
-  }
-  if (planNextWaypoint(end_wp, msg->yaw, msg->look_forward, yaw_mode, yaw_path_mode))
-  // if (planNextWaypoint(end_wp))
-  {
-    have_trigger_ = true;
-  }
-}
 
 void ego_planner::plan_manage::EGOReplanFSM::execAim() {
   if (abs(odom_yaw_ - aim_direction_) / M_PI * 180 > 10.0 && (target_pos_ - odom_pos_).norm() > 0.05 &&
@@ -1128,7 +1097,7 @@ void ego_planner::plan_manage::EGOReplanFSM::execAim() {
                       odom_yaw_ / M_PI * 180.0, aim_direction_ / M_PI * 180.0,
                       abs(odom_yaw_ - aim_direction_) / M_PI * 180.0);
     traj_server_.setYaw(aim_direction_, odom_yaw_, odom_pos_, false, target_yaw_mode_,
-                        quadrotor_msgs::LocalGoalSet::YAW_PATH_SHORTEST);
+                        quadrotor_msgs::YawPolicy::SHORTEST);
 
   } else {
     ROS_INFO("[Ego-FSM] | Yaw Turned, Executing Plan ... ");
@@ -1138,110 +1107,7 @@ void ego_planner::plan_manage::EGOReplanFSM::execAim() {
   }
 }
 
-void ego_planner::plan_manage::EGOReplanFSM::aimCallback(const quadrotor_msgs::LocalGoalSetPtr& msg) {
-  /* Waypoint window: flattened xyz (1 to 3 points, travel order); a window of
-   * size 1 IS a single-goal message (the final waypoint is the batch goal). */
-  const size_t n_floats = msg->waypoints.size();
-  std::vector<Eigen::Vector3d> raw_wps;
-  if (n_floats >= 3 && n_floats % 3 == 0) {
-    raw_wps.reserve(n_floats / 3);
-    for (size_t i = 0; i < n_floats; i += 3) {
-      raw_wps.emplace_back(msg->waypoints[i], msg->waypoints[i + 1], msg->waypoints[i + 2]);
-    }
-  }
-  const Eigen::Vector3d goal = raw_wps.empty() ? Eigen::Vector3d::Zero() : raw_wps.back();
 
-  ROS_INFO(
-      "[Ego]: Received goalID: %d, pos: %.1f, %.1f, %.1f, lookforward: %d, yaw: %.2f, yaw_mode: %u, yaw_path_mode: %u",
-      msg->drone_id, goal.x(), goal.y(), goal.z(), (int)msg->look_forward, msg->yaw,
-      static_cast<unsigned int>(msg->yaw_mode), static_cast<unsigned int>(msg->yaw_path_mode));
-  if (msg->drone_id != planner_manager_->pp_.drone_id)
-    return;
-
-  std::cout << "[Ego]: <<<<<<<<<<<<<<<<<< New Goal <<<<<<<<<<<<<<<<<< " << std::endl;
-  ROS_INFO("[EGOPlanner] ego_goal_received drone_id=%d goal=%.3f %.3f %.3f yaw=%.3f look_forward=%d "
-           "yaw_mode=%u yaw_path_mode=%u state=aimCallback",
-           msg->drone_id, goal.x(), goal.y(), goal.z(), msg->yaw,
-           static_cast<int>(msg->look_forward), static_cast<unsigned int>(msg->yaw_mode),
-           static_cast<unsigned int>(msg->yaw_path_mode));
-  initPlannerResult();
-  target_pos_ = goal;
-  double yaw = msg->yaw;
-  if (msg->yaw_path_mode == quadrotor_msgs::LocalGoalSet::YAW_PATH_SHORTEST) {
-    while (yaw > M_PI)
-      yaw -= 2 * M_PI;
-    while (yaw < -M_PI)
-      yaw += 2 * M_PI;
-  }
-  target_yaw_ = yaw;
-  target_yaw_mode_ = msg->yaw_mode;
-  if (target_yaw_mode_ == quadrotor_msgs::LocalGoalSet::YAW_MODE_NORMAL && msg->yaw_low_speed)
-    target_yaw_mode_ = quadrotor_msgs::LocalGoalSet::YAW_MODE_LOW_SPEED;
-  target_yaw_path_mode_ = msg->yaw_path_mode;
-  target_look_forward_ = msg->look_forward;
-
-  if (target_yaw_mode_ == quadrotor_msgs::LocalGoalSet::YAW_MODE_PANORAMA &&
-      target_yaw_path_mode_ == quadrotor_msgs::LocalGoalSet::YAW_PATH_KEEP_DIRECTION) {
-    // 全景旋转是纯yaw会话，不生成近零位移轨迹，也不进入GEN_NEW_TRAJ。
-    traj_server_.setPanoramaYaw(target_yaw_, odom_yaw_, target_pos_);
-    changeFSMExecState(WAIT_YAW, "Panorama Yaw");
-    return;
-  }
-
-  // Waypoint window: a new batch always replaces the active one (mission owns
-  // batch sequencing). A window of size 1 is a single-goal message.
-  if (!raw_wps.empty()) {
-    const int n_wp = std::min<size_t>(raw_wps.size(), 3);
-    raw_wps.resize(n_wp);
-    /* Seamless continuation (C): when the JIT-slid window starts at the
-     * currently active waypoint, extend the queue and keep the committed
-     * trajectory instead of replacing the window (which replans from scratch
-     * and yanks the drone toward a fresh goal mid-flight). Only valid while a
-     * trajectory is actually executing (have_target_); otherwise the window
-     * must start planning normally. */
-    if (target_look_forward_ && wp_window_active_ && have_target_ && mergeGoalWindow(msg->batch_id, raw_wps)) {
-      /* Extend the threaded trajectory toward the new window end when the
-       * committed one lags it (window-threaded mode keeps flying without a
-       * per-point replan). */
-      if (wp_chain_.empty() || (wp_chain_.back() - wp_list_.back()).norm() > 0.1)
-        threadWindowTrajectory();
-      else
-        publishWindowVisualization();
-      return;
-    }
-    if (setGoalWindow(msg->batch_id, raw_wps, target_yaw_, target_look_forward_, target_yaw_mode_,
-                      target_yaw_path_mode_)) {
-      // An already-satisfied batch emits all_consumed immediately and leaves
-      // no active window; do not start a legacy single-goal trajectory.
-      if (wp_window_active_)
-        have_trigger_ = true;
-      return;
-    }
-    // Fall through to single-goal path if setGoalWindow failed.
-  }
-
-  // Legacy single-goal message: close any active window so stale wp_list_
-  // state cannot interfere with the new goal (e.g. stopMotion re-issue).
-  wp_window_active_ = false;
-  wp_batch_terminal_pending_ = false;
-  wp_list_.clear();
-  wp_orig_idx_.clear();
-
-  // 计算当前点到目标点的方向的yaw
-  Eigen::Vector3d dxy = target_pos_ - odom_pos_;
-  aim_direction_ = atan2(dxy(1), dxy(0));
-  if (aim_direction_ > M_PI)
-    aim_direction_ -= 2 * M_PI;
-  if (aim_direction_ < -M_PI)
-    aim_direction_ += 2 * M_PI;
-
-  if (if_handle_yaw_) {
-    changeFSMExecState(HANDLE_YAW, "Recv Aim Callback");
-  } else if (planNextWaypoint(target_pos_, target_yaw_, target_look_forward_, target_yaw_mode_,
-                              target_yaw_path_mode_)) {
-    have_trigger_ = true;
-  }
-}
 
 void ego_planner::plan_manage::EGOReplanFSM::readGivenWpsAndPlan() {
   if (waypoint_num_ <= 0) {
@@ -1265,37 +1131,18 @@ void ego_planner::plan_manage::EGOReplanFSM::readGivenWpsAndPlan() {
   planNextWaypoint(wps_[wpt_id_]);
 }
 
-void ego_planner::plan_manage::EGOReplanFSM::mandatoryStopCallback(const std_msgs::Empty& msg) {
-  mandatory_stop_ = true;
-  ROS_ERROR("Received a mandatory stop command!");
-  changeFSMExecState(EMERGENCY_STOP, "Mandatory Stop");
-  enable_fail_safe_ = false;
+void ego_planner::plan_manage::EGOReplanFSM::mandatoryStopCallback(const std_msgs::Empty&) {
+  if (execution_action_) execution_action_->request_stop();
+  else stopExecution();
 }
 
 /* Planner Reset Contract: back to WAIT_TARGET, drop the pending target, and
  * brake on the spot (stop trajectory) until a new goal arrives. */
 bool ego_planner::plan_manage::EGOReplanFSM::resetServiceCallback(std_srvs::Trigger::Request&,
-                                                                  std_srvs::Trigger::Response& res) {
-  have_target_ = false;
-  have_trigger_ = false;
-  pending_goal_finish_trigger_ = false;
-  touch_goal_ = false;
-  /* Planner Reset Contract (PlannerIdleState): the waypoint window is part of
-   * the active goal and MUST be cleared, otherwise a stale window merges the
-   * first post-reset window and the drone never starts. */
-  wp_window_active_ = false;
-  wp_batch_terminal_pending_ = false;
-  wp_chain_.clear();
-  wp_list_.clear();
-  wp_orig_idx_.clear();
-  wp_skipped_mask_ = 0;
-  traj_server_.reset();
-  if (have_odom_)
-    planner_manager_->EmergencyStop(odom_pos_);
-  changeFSMExecState(WAIT_TARGET, "reset");
-  res.success = true;
-  res.message = "planner reset to WAIT_TARGET";
-  return true;
+    std_srvs::Trigger::Response& res) {
+  if (execution_action_) execution_action_->request_stop();
+  else stopExecution();
+  res.success=true; res.message="stop requested; readiness follows observed settling"; return true;
 }
 
 void ego_planner::plan_manage::EGOReplanFSM::ifHandleYawCallback(const std_msgs::BoolConstPtr& msg) {
@@ -1304,6 +1151,7 @@ void ego_planner::plan_manage::EGOReplanFSM::ifHandleYawCallback(const std_msgs:
 }
 
 void ego_planner::plan_manage::EGOReplanFSM::odometryCallback(const nav_msgs::OdometryConstPtr& msg) {
+  std::lock_guard<std::recursive_mutex> guard(execution_mutex_);
   odom_pos_(0) = msg->pose.pose.position.x;
   odom_pos_(1) = msg->pose.pose.position.y;
   odom_pos_(2) = msg->pose.pose.position.z;
@@ -1581,7 +1429,10 @@ void ego_planner::plan_manage::EGOReplanFSM::PublishCanonicalTrajectory() {
   quadrotor_msgs::FillPiecewisePolynomial(
       data->traj, order, [](const auto& traj_obj, int i) { return traj_obj.getPiece(i); },
       [](const auto& piece, int axis, int power) { return piece.getCoeffMat()(axis, power); }, msg);
-  optimized_traj_pub_.publish(msg);
+  if (execution_action_) {
+    const auto epoch=execution_action_->generation();
+    execution_action_->output()->deliver(epoch,[&](){optimized_traj_pub_.publish(msg);});
+  } else optimized_traj_pub_.publish(msg);
 
   const auto& sp = planner_manager_->getSearchPath();
   if (sp.empty()) {
@@ -1751,6 +1602,7 @@ std::string ego_planner::plan_manage::EGOReplanFSM::PlanRetStatistic::show(bool 
 }
 
 ego_planner::plan_manage::EGOReplanFSM::~EGOReplanFSM() {
+  execution_action_.reset();
   if (plan_ret_stat_.failure_histroy.size() > 0) {
     printf("====== failure statistics ======\n");
     while (plan_ret_stat_.failure_histroy.size()) {
@@ -1785,45 +1637,7 @@ void ego_planner::plan_manage::EGOReplanFSM::updatePlannerResult(const Eigen::Ve
   planner_result_pub_.publish(planner_result_);
 }
 
-bool ego_planner::plan_manage::EGOReplanFSM::mergeGoalWindow(uint32_t batch_id,
-                                                             const std::vector<Eigen::Vector3d>& raw_wps) {
-  if (raw_wps.empty() || wp_list_.empty() || wp_active_idx_ >= static_cast<int>(wp_list_.size()))
-    return false;
-  /* Geometry continuity gate: the new window must start at the currently
-   * active waypoint (mission slides overlapping windows), otherwise the batch
-   * is a real replacement and the normal setGoalWindow path owns it. */
-  if ((wp_list_[wp_active_idx_] - raw_wps.front()).norm() > 0.5)
-    return false;
 
-  /* Drop already-consumed points; the queue now starts at the active point,
-   * which equals the new window's first point by the gate above. */
-  if (wp_active_idx_ > 0) {
-    wp_list_.erase(wp_list_.begin(), wp_list_.begin() + wp_active_idx_);
-    wp_orig_idx_.erase(wp_orig_idx_.begin(), wp_orig_idx_.begin() + wp_active_idx_);
-  }
-
-  /* Walk the new window against the queue: matching points rebase their
-   * batch-local index (progress is now reported under the new batch), new
-   * points are appended in travel order. */
-  size_t qi = 0;
-  for (size_t i = 0; i < raw_wps.size(); ++i) {
-    if (qi < wp_list_.size() && (wp_list_[qi] - raw_wps[i]).norm() < 0.5) {
-      wp_orig_idx_[qi] = static_cast<int>(i);
-      ++qi;
-    } else {
-      wp_list_.push_back(raw_wps[i]);
-      wp_orig_idx_.push_back(static_cast<int>(i));
-    }
-  }
-  wp_active_idx_ = 0;
-  wp_batch_id_ = batch_id;
-  wp_window_size_ = static_cast<int>(raw_wps.size());
-  wp_skipped_mask_ = 0;
-  ROS_INFO_STREAM("[EGOPlanner] ego_wp_window_merged batch_id=" << batch_id << " queue_size=" << wp_list_.size()
-                                                                << " window_size=" << wp_window_size_
-                                                                << " active=" << wp_list_.front().transpose());
-  return true;
-}
 
 bool ego_planner::plan_manage::EGOReplanFSM::setGoalWindow(uint32_t batch_id,
                                                            const std::vector<Eigen::Vector3d>& raw_wps, double yaw,
@@ -1943,7 +1757,7 @@ bool ego_planner::plan_manage::EGOReplanFSM::setGoalWindow(uint32_t batch_id,
     yaw_cmd_.cmd_time = ros::Time::now();
     yaw_cmd_.des_yaw = yaw;
     traj_server_.reset();
-    if (yaw_path_mode == quadrotor_msgs::LocalGoalSet::YAW_PATH_SHORTEST)
+    if (yaw_path_mode == quadrotor_msgs::YawPolicy::SHORTEST)
       traj_server_.syncYawFromOdom(odom_yaw_, "yaw_only");
     traj_server_.setYaw(yaw, odom_yaw_, odom_pos_, false, yaw_mode, yaw_path_mode);
     wp_chain_.clear();
@@ -1958,7 +1772,7 @@ bool ego_planner::plan_manage::EGOReplanFSM::setGoalWindow(uint32_t batch_id,
    * (via points), terminal = window end. Intermediate waypoints are passed
    * through at speed; only the window end decelerates. */
   wp_chain_ = wp_list_;
-  planNextWaypoint(wp_list_.back(), yaw, look_forward, yaw_mode, yaw_path_mode);
+  if (!planNextWaypoint(wp_list_.back(), yaw, look_forward, yaw_mode, yaw_path_mode)) return false;
   publishWindowVisualization();
   ROS_INFO_STREAM("[EGOPlanner] ego_set_goal_window batch_id="
                   << batch_id << " window_size=" << wp_window_size_ << " valid_wps=" << wp_list_.size()
@@ -1966,22 +1780,7 @@ bool ego_planner::plan_manage::EGOReplanFSM::setGoalWindow(uint32_t batch_id,
   return true;
 }
 
-bool ego_planner::plan_manage::EGOReplanFSM::threadWindowTrajectory() {
-  if (!wp_window_active_ || wp_list_.empty())
-    return false;
-  /* The committed trajectory already covers the window end: nothing to do. */
-  if (!wp_chain_.empty() && !wp_list_.empty() && (wp_chain_.back() - wp_list_.back()).norm() < 0.1)
-    return false;
-  /* Extend: plan from the current state through the whole window to its end.
-   * planNextWaypoint() keeps the existing trajectory until the new one is
-   * ready (GEN_NEW_TRAJ swaps on success), so this is a seamless extension. */
-  wp_chain_ = wp_list_;
-  const bool ok = planNextWaypoint(wp_list_.back(), target_yaw_, target_look_forward_, target_yaw_mode_,
-                                   target_yaw_path_mode_, false);
-  if (ok)
-    publishWindowVisualization();
-  return ok;
-}
+
 
 void ego_planner::plan_manage::EGOReplanFSM::publishWindowVisualization() {
   if (window_points_pub_.getNumSubscribers() <= 0 || wp_list_.empty())
@@ -2027,7 +1826,7 @@ void ego_planner::plan_manage::EGOReplanFSM::publishWindowVisualization() {
 
 void ego_planner::plan_manage::EGOReplanFSM::consumeWaypoint(bool all_consumed) {
   if (all_consumed) {
-    publishWaypointProgress(true);
+    reportWaypointProgress(true);
     wp_batch_terminal_pending_ = false;
     wp_window_active_ = false;
     wp_chain_.clear();
@@ -2035,29 +1834,17 @@ void ego_planner::plan_manage::EGOReplanFSM::consumeWaypoint(bool all_consumed) 
     wp_orig_idx_.clear();
   } else {
     wp_active_idx_++;
-    publishWaypointProgress(false);
+    reportWaypointProgress(false);
   }
 }
 
-void ego_planner::plan_manage::EGOReplanFSM::publishWaypointProgress(bool all_consumed) const {
-  quadrotor_msgs::WaypointProgress msg;
-  msg.batch_id = wp_batch_id_;
-  msg.skipped_mask = wp_skipped_mask_;
-  msg.all_consumed = all_consumed;
-
-  if (all_consumed) {
-    msg.consumed_count = wp_window_size_;
-    msg.active_idx = wp_window_size_;
-  } else if (!wp_orig_idx_.empty()) {
-    msg.consumed_count = wp_orig_idx_[wp_active_idx_ - 1] + 1;
-    msg.active_idx =
-        (wp_active_idx_ < static_cast<int>(wp_orig_idx_.size())) ? wp_orig_idx_[wp_active_idx_] : wp_window_size_;
-  } else {
-    msg.consumed_count = wp_active_idx_;
-    msg.active_idx = wp_active_idx_;
-  }
-
-  wp_progress_pub_.publish(msg);
+void ego_planner::plan_manage::EGOReplanFSM::reportWaypointProgress(bool all_consumed) const {
+  if (!execution_action_) return;
+  planner_execution::Progress p;
+  p.all_consumed=all_consumed; p.skipped_mask=wp_skipped_mask_;
+  p.active_index=all_consumed ? wp_window_size_ : wp_active_idx_;
+  p.consumed_count=p.active_index;
+  execution_action_->progress(p);
 }
 
 bool ego_planner::plan_manage::EGOReplanFSM::checkWaypointPassby(const Eigen::Vector3d& pos) const {

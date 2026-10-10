@@ -71,13 +71,13 @@ void DiffReplanFSM::init(ros::NodeHandle& nh) {
   optimized_traj_pub_ = nh.advertise<quadrotor_msgs::PiecewisePolynomial>("planner/optimized_traj", 10);
   heartbeat_pub_ = nh.advertise<std_msgs::Empty>("planning/heartbeat", 10);
   fsm_state_pub_ = nh.advertise<std_msgs::UInt8>("planning/fsm_state", 10);
-  wp_progress_pub_ = nh.advertise<quadrotor_msgs::WaypointProgress>("waypoint_progress", 10);
+
   plan_result_pub_ = nh.advertise<quadrotor_msgs::PlannerResult>("/planning/planner_result", 10);
   exec_finish_pub_ = nh.advertise<std_msgs::Bool>("exec_finish_trigger", 10);
   ground_height_pub_ = nh.advertise<std_msgs::Float64>("/ground_height_measurement", 10);
 
   if (target_type_ == TARGET_TYPE::MANUAL_TARGET) {
-    waypoint_sub_ = nh.subscribe("/goal", 1, &DiffReplanFSM::waypointCallback, this);
+    initExecution(nh);
   } else if (target_type_ == TARGET_TYPE::PRESET_TARGET) {
     trigger_sub_ = nh.subscribe("/traj_start_trigger", 1, &DiffReplanFSM::triggerCallback, this);
 
@@ -94,9 +94,11 @@ void DiffReplanFSM::init(ros::NodeHandle& nh) {
 }
 
 void DiffReplanFSM::execFSMCallback(const ros::TimerEvent& e) {
+  std::lock_guard<std::recursive_mutex> guard(execution_mutex_);
   exec_timer_.stop(); // To avoid blockage
   std_msgs::Empty heartbeat_msg;
   heartbeat_pub_.publish(heartbeat_msg);
+  if (execution_holding_ || (execution_action_ && !execution_action_->motion_enabled())) { exec_timer_.start(); return; }
 
   static int fsm_num = 0;
   fsm_num++;
@@ -343,6 +345,7 @@ void DiffReplanFSM::finishProcess() {
 }
 
 void DiffReplanFSM::changeFSMExecState(FSM_EXEC_STATE new_state, string pos_call) {
+  if (new_state == EMERGENCY_STOP && execution_action_) execution_action_->fail("planner_safety_stop");
 
   if (new_state == exec_state_)
     continously_called_times_++;
@@ -389,6 +392,8 @@ std::pair<int, DiffReplanFSM::FSM_EXEC_STATE> DiffReplanFSM::timesOfConsecutiveS
 }
 
 void DiffReplanFSM::checkCollisionCallback(const ros::TimerEvent& e) {
+  std::lock_guard<std::recursive_mutex> guard(execution_mutex_);
+  if (execution_holding_) return;
   // check ground height by the way
   if (enable_ground_height_measurement_) {
     double height;
@@ -648,23 +653,12 @@ bool DiffReplanFSM::planNextWaypoint(const Eigen::Vector3d next_wp, bool flag_2r
   return planNextWaypointWindow(one_pt_wps, flag_2replan);
 }
 
-void DiffReplanFSM::publishWaypointProgress(bool all_consumed) {
-  quadrotor_msgs::WaypointProgress msg;
-  msg.batch_id = wp_batch_id_;
-  msg.skipped_mask = 0;
-  msg.all_consumed = all_consumed;
-  if (all_consumed) {
-    msg.consumed_count = static_cast<uint8_t>(wp_window_size_);
-    msg.active_idx = static_cast<uint8_t>(wp_window_size_);
-  } else {
-    msg.consumed_count = wp_active_idx_ > 0 ? static_cast<uint8_t>(wp_orig_idx_[wp_active_idx_ - 1] + 1) : 0;
-    msg.active_idx = wp_active_idx_ < static_cast<int>(wp_list_.size())
-                         ? static_cast<uint8_t>(wp_orig_idx_[wp_active_idx_])
-                         : static_cast<uint8_t>(wp_window_size_);
-  }
-  wp_progress_pub_.publish(msg);
-  ROS_INFO("[DiffReplanFSM] wp_progress batch_id=%u consumed=%d active=%d all=%d", wp_batch_id_, msg.consumed_count,
-           msg.active_idx, (int)all_consumed);
+void DiffReplanFSM::reportWaypointProgress(bool all_consumed) {
+  if (!execution_action_) return;
+  planner_execution::Progress p;
+  p.all_consumed=all_consumed;
+  p.active_index=all_consumed ? wp_window_size_ : wp_active_idx_;
+  p.consumed_count=p.active_index; execution_action_->progress(p);
 }
 
 void DiffReplanFSM::publishPlannerResult(const Eigen::Vector3d& goal, bool plan_status, bool modify_status,
@@ -707,61 +701,14 @@ void DiffReplanFSM::updateWaypointProgress() {
     return;
   wp_active_idx_++;
   if (wp_active_idx_ < static_cast<int>(wp_list_.size())) {
-    publishWaypointProgress(false);
+    reportWaypointProgress(false);
   } else {
-    publishWaypointProgress(true);
+    reportWaypointProgress(true);
     has_window_ = false;
   }
 }
 
-void DiffReplanFSM::waypointCallback(const quadrotor_msgs::LocalGoalSetConstPtr& msg) {
-  /* Waypoint window: flattened xyz (1 to 3 points, travel order); a window of
-   * size 1 IS a single-goal message (the final waypoint is the batch goal).
-   * Yaw fields are not used by this backend. */
-  std::vector<Eigen::Vector3d> raw_wps;
-  for (size_t i = 0; i + 2 < msg->waypoints.size(); i += 3)
-    raw_wps.emplace_back(msg->waypoints[i], msg->waypoints[i + 1], msg->waypoints[i + 2]);
-  if (raw_wps.empty()) {
-    ROS_WARN("Received goal with empty waypoint window, ignore this goal!");
-    return;
-  }
 
-  if (planner_manager_->grid_map_->getInflateOccupancy(raw_wps.back()) == -1) {
-    ROS_WARN("The goal is outside the safe fence, ignore this goal!");
-    return;
-  }
-
-  /* Drop leading waypoints the drone is already on top of (mirror SUPER), keeping
-   * the original window indices for progress reporting. */
-  wp_list_.clear();
-  wp_orig_idx_.clear();
-  for (size_t i = 0; i < raw_wps.size(); ++i) {
-    wp_list_.push_back(raw_wps[i]);
-    wp_orig_idx_.push_back(static_cast<int>(i));
-  }
-  while (wp_list_.size() > 1 && (odom_pos_ - wp_list_.front()).norm() < wp_reach_radius_) {
-    wp_list_.erase(wp_list_.begin());
-    wp_orig_idx_.erase(wp_orig_idx_.begin());
-  }
-  wp_batch_id_ = msg->batch_id;
-  wp_window_size_ = static_cast<int>(raw_wps.size());
-  wp_active_idx_ = 0;
-  has_window_ = true;
-  wp_flow_active_ = true;
-  wp_plan_count_ = 0;
-
-  for (const auto& wp : wp_list_)
-    ROS_INFO("Received goal: %f, %f, %f", wp(0), wp(1), wp(2));
-
-  if (planNextWaypointWindow(wp_list_, true)) {
-    last_target_change_time_ = ros::Time::now().toSec();
-    have_trigger_ = true;
-    publishPlannerResult(raw_wps.back(), true, false, false); // ack: window accepted
-  } else {
-    has_window_ = false;
-    publishPlannerResult(raw_wps.back(), false, false, true); // unreachable: batch dropped
-  }
-}
 
 bool DiffReplanFSM::mondifyInCollisionFinalGoal() {
   if (planner_manager_->grid_map_->getBiggerInflateOccupancy(final_goal_)) {
@@ -820,30 +767,19 @@ void DiffReplanFSM::readGivenWpsAndPlan() {
   planNextWaypoint(wps_[wpt_id_], true);
 }
 
-void DiffReplanFSM::mandatoryStopCallback(const std_msgs::Empty& msg) {
-  mandatory_stop_ = true;
-  ROS_ERROR("Received a mandatory stop command!");
-  changeFSMExecState(EMERGENCY_STOP, "Mandatory Stop");
-  enable_fail_safe_ = false;
+void DiffReplanFSM::mandatoryStopCallback(const std_msgs::Empty&) {
+  if (execution_action_) execution_action_->request_stop(); else stopExecution();
 }
 
 /* Planner Reset Contract: back to WAIT_TARGET, drop the pending target, and
  * brake on the spot (stop trajectory) until a new goal arrives. */
 bool DiffReplanFSM::resetServiceCallback(std_srvs::Trigger::Request&, std_srvs::Trigger::Response& res) {
-  have_target_ = false;
-  have_trigger_ = false;
-  have_new_target_ = false;
-  catch_goal_ = false;
-  wp_flow_active_ = false; // no stale batch-boundary reports after reset
-  if (have_odom_)
-    callEmergencyStop(odom_pos_);
-  changeFSMExecState(WAIT_TARGET, "reset");
-  res.success = true;
-  res.message = "planner reset to WAIT_TARGET";
-  return true;
+  if (execution_action_) execution_action_->request_stop(); else stopExecution();
+  res.success=true; res.message="stop requested; readiness follows observed settling"; return true;
 }
 
 void DiffReplanFSM::odometryCallback(const nav_msgs::OdometryConstPtr& msg) {
+  std::lock_guard<std::recursive_mutex> guard(execution_mutex_);
   odom_pos_(0) = msg->pose.pose.position.x;
   odom_pos_(1) = msg->pose.pose.position.y;
   odom_pos_(2) = msg->pose.pose.position.z;
@@ -985,6 +921,10 @@ void DiffReplanFSM::polyTraj2ROSMsg(traj_utils::PolyTraj& poly_msg, traj_utils::
 
   poly_msg.drone_id = planner_manager_->pp_.drone_id;
   poly_msg.traj_id = data->traj_id;
+  if (execution_action_) {
+    poly_msg.execution_boot_id=execution_action_->boot_id();
+    poly_msg.execution_generation=execution_action_->generation();
+  }
   poly_msg.start_time = ros::Time(data->start_time);
   poly_msg.order = 5; // todo, only support order = 5 now.
   poly_msg.duration.resize(piece_num);

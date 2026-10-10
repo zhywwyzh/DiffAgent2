@@ -61,6 +61,8 @@ class ZenohTaskMiddleware:
         shutdown=None,
         feedback_factory=None,
         safety_stop=None,
+        interrupt=None,
+        interrupt_tools=(),
     ) -> None:
         self.registry = ToolRegistry.default()
         self.stack_id = (stack_id or os.environ.get("LX_STACK_ID", "")).strip().strip("/")
@@ -71,7 +73,7 @@ class ZenohTaskMiddleware:
         self.instance_id = uuid.uuid4().hex[:12]
         manager_kwargs = {} if lease_ttl_s is None else {"ttl_s": lease_ttl_s}
         self.leases = ConnectionLeaseManager(self.stack_id, **manager_kwargs)
-        self.runtime = ToolRuntime(self.registry, command_queue, self.leases, safety_stop=safety_stop)
+        self.runtime = ToolRuntime(self.registry, command_queue, self.leases, safety_stop=safety_stop, interrupt=interrupt, interrupt_tools=interrupt_tools)
         self.leases.set_active_call_probe(self.runtime.has_active_call)
         self.leases.bind_loss_handlers(
             self.runtime.cancel_active_for_lease_loss,

@@ -18,6 +18,7 @@ find_package(catkin REQUIRED COMPONENTS
   nav_msgs
   geometry_msgs
   quadrotor_msgs
+  planner_execution
   visualization_msgs
   traj_utils
   message_generation
@@ -31,7 +32,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
  INCLUDE_DIRS include
  LIBRARIES ego_planner
- CATKIN_DEPENDS traj_utils vis_utils
+ CATKIN_DEPENDS planner_execution traj_utils vis_utils
 )
 
 include_directories(
@@ -44,6 +45,8 @@ include_directories(
 )
 
 add_library(ego_planner
+  src/execution_backend.cpp
+  src/execution_backend_ros.cpp
   src/ego_replan_fsm.cpp
   src/planner_manager.cpp
   src/traj_server.cpp

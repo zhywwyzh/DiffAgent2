@@ -37,19 +37,27 @@
 #include "visualization_msgs/Marker.h"
 #include "quadrotor_msgs/PlannerResult.h"
 #include "quadrotor_msgs/PositionCommand.h"
-#include "quadrotor_msgs/LocalGoalSet.h"
-#include "quadrotor_msgs/WaypointProgress.h"
+#include "quadrotor_msgs/YawPolicy.h"
+#include <planner_execution/action_server_ros.h>
+#include <std_msgs/Empty.h>
 #include "vis_utils/camera_fov.h"
 namespace super_planner {
 namespace fsm {
 class FsmRos1 : public Fsm {
+  std::recursive_mutex execution_mutex_;
+  std::unique_ptr<planner_execution::WaypointActionServer> execution_action_;
+  bool execution_holding_{false};
+  void initExecution();
+  bool startExecution(const planner_execution::Target& target);
+  bool stopExecution();
+
   ros::NodeHandle nh_;
-  ros::Subscriber goal_sub_, traj_start_trigger_sub_;
+  ros::Subscriber traj_start_trigger_sub_;
   ros::ServiceServer reset_srv_;
-  ros::Publisher cmd_pub, path_pub_, plan_result_pub_, exec_finish_pub_, wp_progress_pub_, fsm_state_pub_;
+  ros::Publisher path_pub_, plan_result_pub_, exec_finish_pub_, fsm_state_pub_;
   ros::Timer execution_timer_, replan_timer_, cmd_timer_;
   quadrotor_msgs::PositionCommand pid_cmd_;
-  quadrotor_msgs::LocalGoalSet latest_goal_;
+  planner_execution::Target latest_goal_;
   super_planner::rog_map::ROGMap::Ptr map_ptr_;
   vis_utils::PerceptionUtils::Ptr percep_utils_;
   quadrotor_msgs::PositionCommand latest_cmd;
@@ -78,11 +86,11 @@ class FsmRos1 : public Fsm {
   void publishMissionFeedback(bool plan_status, bool modify_status, bool exec_finished) {
     quadrotor_msgs::PlannerResult plan_msg;
     /* The batch goal is the final waypoint of the latest window. */
-    const std::vector<float>& wps = latest_goal_.waypoints;
-    if (wps.size() >= 3) {
-      plan_msg.planner_goal.x = wps[wps.size() - 3];
-      plan_msg.planner_goal.y = wps[wps.size() - 2];
-      plan_msg.planner_goal.z = wps[wps.size() - 1];
+    const auto& wps = latest_goal_.waypoints;
+    if (!wps.empty()) {
+      plan_msg.planner_goal.x = wps.back()[0];
+      plan_msg.planner_goal.y = wps.back()[1];
+      plan_msg.planner_goal.z = wps.back()[2];
     }
     plan_msg.plan_times = plan_count_;
     plan_msg.plan_status = plan_status;
@@ -105,7 +113,7 @@ class FsmRos1 : public Fsm {
   /* Goal-unreachable escalation: tell the mission layer the goal failed.
    * exec_finished=true so the mission FSM can advance even without a
    * successful trajectory completion (it will re-plan or skip). */
-  void publishMissionFailure() override { publishMissionFeedback(false, false, true); }
+  void publishMissionFailure() override { publishMissionFeedback(false, false, true); if (execution_action_) execution_action_->fail("planner_unreachable"); }
 
   /* Called when the drone is already at the goal during GENERATE_TRAJ:
    * publish exec_finished so the mission layer knows this goal was reached
@@ -114,29 +122,12 @@ class FsmRos1 : public Fsm {
 
   void resetVisualizedPath() override { path.poses.clear(); }
 
-  void publishWaypointProgress(bool all_consumed) override {
-    quadrotor_msgs::WaypointProgress msg;
-    msg.batch_id = gi_.batch_id;
-    msg.skipped_mask = gi_.wp_skipped_mask;
-    msg.all_consumed = all_consumed;
-    if (all_consumed) {
-      msg.consumed_count = static_cast<uint8_t>(gi_.wp_window_size);
-      msg.active_idx = static_cast<uint8_t>(gi_.wp_window_size);
-    } else {
-      msg.consumed_count = gi_.wp_active_idx > 0 ? static_cast<uint8_t>(gi_.wp_orig_idx[gi_.wp_active_idx - 1] + 1) : 0;
-      msg.active_idx = gi_.wp_active_idx < static_cast<int>(gi_.wp_list.size())
-                           ? static_cast<uint8_t>(gi_.wp_orig_idx[gi_.wp_active_idx])
-                           : static_cast<uint8_t>(gi_.wp_window_size);
-    }
-    wp_progress_pub_.publish(msg);
-    SLOG_EVENT(slog::Level::info, "wp_progress_pub",
-               {
-                   slog::F("batch_id", msg.batch_id),
-                   slog::F("consumed", msg.consumed_count),
-                   slog::F("active", msg.active_idx),
-                   slog::F("skipped_mask", static_cast<unsigned int>(msg.skipped_mask)),
-                   slog::F("all_consumed", static_cast<bool>(msg.all_consumed)),
-               });
+  void reportWaypointProgress(bool all_consumed) override {
+    if (!execution_action_) return;
+    planner_execution::Progress p;
+    p.all_consumed=all_consumed; p.skipped_mask=gi_.wp_skipped_mask;
+    p.active_index=all_consumed ? gi_.wp_window_size : gi_.wp_active_idx;
+    p.consumed_count=p.active_index; execution_action_->progress(p);
   }
 
   void publishCurPoseToPath() override {
@@ -202,13 +193,15 @@ public:
   FsmRos1() = default;
 
   ~FsmRos1() {
-    ros::shutdown();
-    exit(0);
+    execution_action_.reset();
+    execution_timer_.stop(); replan_timer_.stop(); cmd_timer_.stop();
   };
 
   typedef std::shared_ptr<FsmRos1> Ptr;
 
   bool getPoseFromTraj(super_planner::super_utils::Pose& pose) {
+    std::lock_guard<std::recursive_mutex> guard(execution_mutex_);
+    if (execution_holding_) return false;
     if (machine_state_ != FOLLOW_TRAJ) {
       SLOG_WARN("[Fsm] Not in FOLLOW_TRAJ state, can't get pose from traj.");
       return false;
@@ -252,83 +245,19 @@ public:
     return true;
   }
 
-  void processGoal(const quadrotor_msgs::LocalGoalSet& msg) {
-    latest_goal_ = msg;
-    ++plan_count_;
-    /* The batch goal is the final waypoint of the window (size 1 = single
-     * goal); legacy single-goal fallback (no waypoints) degrades to zero. */
-    super_planner::super_utils::Vec3f goal_p{0.0f, 0.0f, 0.0f};
-    if (msg.waypoints.size() >= 3) {
-      goal_p = Vec3f{msg.waypoints[msg.waypoints.size() - 3], msg.waypoints[msg.waypoints.size() - 2],
-                     msg.waypoints[msg.waypoints.size() - 1]};
-    }
 
-    double yaw = msg.yaw;
-    int yaw_mode = msg.yaw_mode;
-    int yaw_path_mode = msg.yaw_path_mode;
 
-    if (yaw_path_mode == quadrotor_msgs::LocalGoalSet::YAW_PATH_SHORTEST) {
-      while (yaw > M_PI)
-        yaw -= 2 * M_PI;
-      while (yaw < -M_PI)
-        yaw += 2 * M_PI;
-    }
 
-    if (yaw_mode == quadrotor_msgs::LocalGoalSet::YAW_MODE_NORMAL && msg.yaw_low_speed) {
-      yaw_mode = quadrotor_msgs::LocalGoalSet::YAW_MODE_LOW_SPEED;
-    }
-
-    super_planner::super_utils::Quatf goal_q(Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()));
-    publishMissionFeedback(true, true, false);
-
-    /* Waypoint window: waypoints is a flattened xyz array (at most 3 points in
-     * travel order). Non-empty => multi-goal batch with SUPER-internal progress. */
-    const size_t n_floats = msg.waypoints.size();
-    if (n_floats >= 3 && n_floats % 3 == 0) {
-      std::vector<Vec3f> raw_wps;
-      const size_t n_wp = std::min<size_t>(n_floats / 3, 3);
-      raw_wps.reserve(n_wp);
-      for (size_t i = 0; i < n_wp; i++) {
-        raw_wps.emplace_back(msg.waypoints[3 * i], msg.waypoints[3 * i + 1], msg.waypoints[3 * i + 2]);
-      }
-      if (setGoalWindow(msg.batch_id, raw_wps, goal_q, yaw_mode, yaw_path_mode, msg.look_forward)) {
-        return;
-      }
-    }
-    /* Legacy single-goal path: no active window. */
-    gi_.wp_list.clear();
-    gi_.wp_orig_idx.clear();
-    planner_ptr_->setWaypointLookahead({});
-    setGoalPosiAndYaw(goal_p, goal_q, yaw_mode, yaw_path_mode, msg.look_forward);
-  }
-
-  void goalCallback(const quadrotor_msgs::LocalGoalSetConstPtr& msg) {
-    if (cfg_.traj_start_trigger_en && waiting_traj_start_trigger_) {
-      /* Batch goal = final waypoint of the window. */
-      std::string goal_str = "[0.000 0.000 0.000]";
-      if (msg->waypoints.size() >= 3) {
-        goal_str = fmt::format("[{:.3f} {:.3f} {:.3f}]", msg->waypoints[msg->waypoints.size() - 3],
-                               msg->waypoints[msg->waypoints.size() - 2], msg->waypoints[msg->waypoints.size() - 1]);
-      }
-      SLOG_EVENT(slog::Level::warn, "local_goal_blocked",
-                 {slog::F("reason", "wait_traj_start_trigger"), slog::F("topic", cfg_.traj_start_trigger_topic),
-                  slog::F("goal", goal_str)});
-      return;
-    }
-    processGoal(*msg);
-  }
 
   /* Planner Reset Contract: only flag the request; the FSM main loop
-   * consumes it (handleReset) on its own thread. */
+   * consumes it (clear_navigation) on its own thread. */
   bool resetServiceCallback(std_srvs::Trigger::Request&, std_srvs::Trigger::Response& res) {
-    yaw_only_traj_valid_ = false; /* FsmRos1-local; cleared on FSM thread too */
-    requestReset();
-    res.success = true;
-    res.message = "reset requested (consumed by FSM loop)";
-    return true;
+    execution_action_->request_stop();
+    res.success=true; res.message="stop requested; readiness follows observed settling"; return true;
   }
 
   void trajStartTriggerCallback(const geometry_msgs::PoseStampedConstPtr&) {
+    std::lock_guard<std::recursive_mutex> guard(execution_mutex_);
     waiting_traj_start_trigger_ = false;
     /* In-place /agent/stack_reset re-arms and re-publishes this one-shot
      * trigger; the odometry yaw has just snapped back to the launch
@@ -350,7 +279,6 @@ public:
     ros1_ptr_->initTelemetry(cfg_.telemetry_level, cfg_.telemetry_stdout_en, cfg_.telemetry_mcap_en,
                              cfg_.telemetry_mcap_dir);
     planner_ptr_ = std::make_shared<SuperPlanner>(cfg_path, ros_ptr_, map_ptr_);
-    cmd_pub = nh_.advertise<quadrotor_msgs::PositionCommand>(cfg_.cmd_topic, 10);
     path_pub_ = nh_.advertise<nav_msgs::Path>("fsm/path", 100);
     fsm_state_pub_ = nh_.advertise<visualization_msgs::Marker>("visualization/fsm_state", 1);
 
@@ -363,16 +291,9 @@ public:
     percep_utils_ = std::make_shared<vis_utils::PerceptionUtils>(nh_);
     plan_result_pub_ = nh_.advertise<quadrotor_msgs::PlannerResult>("/planning/planner_result", 10);
     exec_finish_pub_ = nh_.advertise<std_msgs::Bool>("/drone_0_mission_executive/exec_finish_trigger", 10);
-    wp_progress_pub_ =
-        nh_.advertise<quadrotor_msgs::WaypointProgress>("/drone_0_ego_planner_node/waypoint_progress", 10);
 
-    int cmd_cnt = 0;
 
-    if (cfg_.click_goal_en) {
-      goal_sub_ = nh_.subscribe(cfg_.click_goal_topic, 1, &FsmRos1::goalCallback, this);
-      SLOG_WARN(" -- [Fsm] CLICKGOAL ENABLE.");
-      cmd_cnt++;
-    }
+    initExecution();
 
     if (cfg_.traj_start_trigger_en) {
       traj_start_trigger_sub_ =
@@ -383,11 +304,6 @@ public:
     /* Planner Reset Contract (std_srvs/Trigger, fixed name shared by
      * every backend since they run mutually exclusively). */
     reset_srv_ = nh_.advertiseService("/planner/reset", &FsmRos1::resetServiceCallback, this);
-
-    if (cmd_cnt != 1) {
-      SLOG_ERROR(" -- [Fsm] CMD INPUT ERROR.");
-      exit(0);
-    }
 
     if (cfg_.timer_en) {
       execution_timer_ = nh_.createTimer(ros::Duration(0.01), &FsmRos1::mainFsmTimerCallback, this); // 100Hz
@@ -406,9 +322,15 @@ public:
     pid_cmd_.kv[0] = 3.4;
     pid_cmd_.kv[1] = 3.4;
     pid_cmd_.kv[2] = 4.0;
+    execution_action_->output()->set_gains({pid_cmd_.kx[0],pid_cmd_.kx[1],pid_cmd_.kx[2]},
+                                          {pid_cmd_.kv[0],pid_cmd_.kv[1],pid_cmd_.kv[2]});
+    execution_action_->start();
   }
 
   void pubCmdTimerCallback(const ros::TimerEvent& event) {
+    std::lock_guard<std::recursive_mutex> guard(execution_mutex_);
+    if (execution_holding_ || !execution_action_->motion_enabled()) return;
+    const auto command_generation=execution_action_->generation();
     if (stop) {
       return;
     }
@@ -468,14 +390,12 @@ public:
       pid_cmd_.yaw = yaw;
       pid_cmd_.yaw_dot = yaw_dot;
       pid_cmd_.trajectory_flag = 1;
-      cmd_pub.publish(pid_cmd_);
-      recordCommand(pid_cmd_);
+      if (execution_action_->output()->publish(pid_cmd_,command_generation)) recordCommand(pid_cmd_);
       return;
     }
 
     getOnePositionCommand(pid_cmd_, traj_finish_);
-    cmd_pub.publish(pid_cmd_);
-    recordCommand(pid_cmd_);
+    if (execution_action_->output()->publish(pid_cmd_,command_generation)) recordCommand(pid_cmd_);
 
     // Draw FOV at current command pose (throttled ~20Hz)
     static int fov_cnt = 0;
@@ -513,9 +433,14 @@ public:
     }
   }
 
-  void replanTimerCallback(const ros::TimerEvent& event) { callReplanOnce(); }
+  void replanTimerCallback(const ros::TimerEvent&) {
+    std::lock_guard<std::recursive_mutex> guard(execution_mutex_);
+    if (!execution_holding_ && execution_action_->motion_enabled()) callReplanOnce();
+  }
 
   void mainFsmTimerCallback(const ros::TimerEvent& event) {
+    std::lock_guard<std::recursive_mutex> guard(execution_mutex_);
+    if (execution_holding_ || !execution_action_->motion_enabled()) return;
     callMainFsmOnce();
     publishFsmStateText();
   }

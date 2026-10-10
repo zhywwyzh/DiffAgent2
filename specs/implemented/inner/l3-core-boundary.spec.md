@@ -79,9 +79,9 @@ core 只做五件事：
 | `engine.py` | `__init__`、`_enter_global_stop`、`_run_inference_loop`、`_recover_inference_after_exception`、`run_inference`、`_fail_unregistered_dispatch`、`_sleep_unlocked` |
 | `core/telemetry.py`（`RunTelemetry`） | `__init__`、`emit`、`publish_command_content`、`fmt_wait_age`、`wait_diag` |
 | `core/task_phase.py`（`TaskPhaseBridge`） | `__init__`、`publish`、`set_active_frame`、`set_middleware` |
-| `core/skill_router.py`（`SkillRouter`） | `__init__`、`register`、`get`、`dispatch_plan`、`validate_active_tool`、`owner_skill`、`snapshot_owner`、`stash_task_result`、`pop_task_result`、`dispose` |
+| `core/skill_router.py`（`SkillRouter`） | `__init__`、`register`、`get`、`dispatch_plan`、`validate_active_tool`、`owner_skill`、`snapshot_owner`、`stash_task_result`、`pop_task_result`、`release_call`、`dispose` |
 | `core/actuators.py`（`PlannerActuators`） | `__init__`、`set_if_handle_yaw` |
-| `core/tool_workflow.py`（`ToolWorkflowHost`） | `__init__`、`bind_tool_middleware`、`_activate_tool_call`、`start_tool_workflow`、`cancel_tool_call` |
+| `core/tool_workflow.py`（`ToolWorkflowHost`） | `__init__`、`bind_tool_middleware`、`_activate_tool_call`、`start_tool_workflow`、`cancel_tool_call`、`call_is_current` |
 | `core/prompt_queue.py`（`PromptQueue`） | `__init__`、`sync_task_buffers_from_prepare`、`pop_next_task`、`load_next_prompt`、`advance_head_prompt`、`reset_plan_cycle_if_needed`、`clear_all`、`head_command`、`is_command_empty`、`is_prepared_empty` |
 | `core/state_ledger.py`（`StateLedger`） | `__init__`、`set_state`、`_state_name`、`bump_task_generation`、`fail_sequence`、`reset_running` |
 | `core/action_gate.py`（`ActionGate`） | `__init__`、`action_done`、`handle_post_action`、`clear_action_state`；`PendingAction.clear` |
@@ -104,3 +104,6 @@ core 只做五件事：
 
 任务准入/取消、全局停止与单次 FSM 处理共享可重入生命周期锁；等待时必须释放锁，
 避免阻塞新调用。`_sleep_unlocked` 只管理等待期间的锁释放/恢复，不承担领域决策。
+
+共享执行资源的异步取消通过装配注入的 `lifecycle_tick` 推进；core 每节拍机械调用，
+不识别具体动作或 ROS 状态，不增加 FSM 状态或任务队列。等待日志由资源 owner 输出。
