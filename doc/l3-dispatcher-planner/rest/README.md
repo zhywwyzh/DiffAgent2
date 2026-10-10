@@ -77,3 +77,12 @@ R03/R05 仍需受控停止及恢复证据；CoPaw 按钮实现及其至设备的
 按用户明确要求，[清理方案](../iteration/design-remove-unused-follow-reservation.md)已删除未接入的目标跟随字段、全部消费方及相关外部接入预留说明。
 此前历史保留决定不再适用于现行接口；通用感知缓存与偏航控制继续保留。
 本轮仅完成代码修改，未运行测试、门禁、构建或验收；消息签名变化须在后续部署前同步生成并构建相关消费方。
+
+
+## 连续目标跟踪接入（2026-10-10）
+
+[迁移方案](../iteration/design-tracking-migration.md)已完成首期机上代码与启动配置交付，
+状态和剩余条件见 [R10](dispatcher-deferred-dependencies.md#r10) 及 R03/R05。
+显式 tracking 入口装配 UETrack、TrackSkill 和同进程 EGO/Elastic；默认八工具集合不变。
+普通导航成功现在也须确认保持与停稳，再允许跟踪准入。本轮未编译、未验收；GPU 权重、
+相机标定及站端端到端消费仍须在后续部署联调时提供证据，不能视为生产能力已交付。

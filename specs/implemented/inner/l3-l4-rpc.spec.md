@@ -107,3 +107,11 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 | RPC5 | 当前 owner token 删除、TTL 到期、旧回调迟到、安全停失败及重试符合有序租约状态机 |
 | RPC6 | 生产集合与工具面契约一致；不新增别名、任务编号或站端代码改动 |
 | RPC7 | 关闭/启动失败逆序释放 queryable、publisher、presence、watch 与线程；真实传输验证与进程内测试分别留证 |
+
+## tracking 显式装配的消费约定
+
+默认生产集合不变；显式 tracking 入口的能力与状态见 `l3-tool-plane.spec.md` §1。
+站端须按发现结果处理 `navigation.track`，传入原始像素框、精确图像时戳和视觉会话身份。
+其 `workflow_result` 只在业务稳定和执行停止确认后由 dispatcher 产生；内部连续 action
+取消回执不是 RPC 成功或外部取消事件。站端不得沿用旧版 `action_result` 元数据推导成功。
+外部站端代码不在本轮修改范围，端到端消费尚未验收。

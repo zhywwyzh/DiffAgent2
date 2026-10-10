@@ -1,0 +1,27 @@
+<launch>
+  <arg name="ground_z" doc="已校准的 world 地面高度"/>
+  <arg name="camera_rotation" doc="相机安装旋转，行优先九元素 YAML 数组"/>
+  <arg name="camera_translation" doc="相机相对机体平移，三元素 YAML 数组，米"/>
+  <arg name="drone_id" default="0"/>
+  <arg name="odometry_topic" default="/ekf_quat/ekf_odom"/>
+  <arg name="cloud_topic" default="/cloud_registered"/>
+  <arg name="tracker_url" default="http://127.0.0.1:2250"/>
+  <arg name="python_executable" default="python3"/>
+  <include file="$(dirname)/ego.launch">
+    <arg name="tracking_enabled" value="true"/>
+    <arg name="drone_id" value="$(arg drone_id)"/>
+    <arg name="odometry_topic" value="$(arg odometry_topic)"/>
+    <arg name="cloud_topic" value="$(arg cloud_topic)"/>
+  </include>
+  <param name="/planner_execution/ground_z" value="$(arg ground_z)" type="double"/>
+  <node pkg="dispatcher" type="dispatcher_node.py" args="--tracking-profile" name="dispatcher" output="screen" required="true"
+        launch-prefix="$(arg python_executable)">
+    <param name="headless" value="true"/>
+    <param name="drone_id" value="$(arg drone_id)"/>
+    <param name="odometry_topic" value="$(arg odometry_topic)"/>
+    <rosparam file="$(dirname)/../config/tracking.yaml" command="load"/>
+    <param name="track/api_url" value="$(arg tracker_url)"/>
+    <rosparam param="track/camera_rotation" subst_value="true">$(arg camera_rotation)</rosparam>
+    <rosparam param="track/camera_translation" subst_value="true">$(arg camera_translation)</rosparam>
+  </node>
+</launch>

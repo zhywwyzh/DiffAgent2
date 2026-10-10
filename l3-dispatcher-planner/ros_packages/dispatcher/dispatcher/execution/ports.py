@@ -98,7 +98,7 @@ class ExecutionState:
 
 
 class PlannerActionPort(Protocol):
-    def connected(self) -> bool: ...
+    def connected(self, goal=None) -> bool: ...
     def send(self, token: str, goal: Goal): ...
     def cancel(self, handle) -> None: ...
     def events(self) -> tuple[ActionEvent, ...]: ...
@@ -114,3 +114,14 @@ class StopRecord:
     handle: object | None
     request_sent: bool = False
     last_attempt: float = 0.0
+
+
+@dataclass(frozen=True)
+class TrackingGoal:
+    session_id: str
+    execution_id: str
+    follow_distance_m: float
+    distance_tolerance_m: float
+    target_height_m: float
+    observation_timeout_s: float
+    duration_s: float

@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 from contextlib import ExitStack
 from dataclasses import fields
 import threading
@@ -195,6 +196,33 @@ def create_vla_runtime(engine, execution):
     return dispose
 
 
+def create_tracking_runtime(engine, execution):
+    from dispatcher.tools.track.ports import TrackConfig
+    from dispatcher.tools.track.track_skill import TrackSkill
+    from dispatcher.execution.skill_host import TrackHost, TrackingFrames
+    from dispatcher.perception.tracking_frames import FrameStore
+    from dispatcher.ros_adapter.tracking_frames_ros import TrackingFramesRos
+    from dispatcher.ros_adapter.tracking_observation_ros import TrackingObservationRos
+    resources = ExitStack()
+    try:
+        config = TrackConfig(**{f.name: params_ros.get_private_param('track/'+f.name, f.default) for f in fields(TrackConfig)})
+        store = FrameStore(max_age=config.seed_max_age_s)
+        frames = TrackingFramesRos(store)
+        resources.callback(frames.close)
+        output = TrackingObservationRos()
+        resources.callback(output.close)
+        host = TrackHost(engine, execution, config, TrackingFrames(store, frames.now), output,
+            params_ros.get_private_param('track/camera_rotation'),
+            params_ros.get_private_param('track/camera_translation'))
+        skill = TrackSkill(host)
+        resources.callback(skill.close)
+        resources.callback(engine.skills.register(skill.name, skill))
+    except Exception:
+        resources.close()
+        raise
+    return resources.close
+
+
 def start_dispatcher_workers(node):
     """Start task-0 workflow workers and return the non-daemon inference thread."""
     inference_thread = threading.Thread(target=node.run_inference)
@@ -202,7 +230,7 @@ def start_dispatcher_workers(node):
     return inference_thread
 
 
-def main():
+def main(*, tracking=False):
     """Node entry: bootstrap config, compose the tool plane, spin ROS."""
     logging.basicConfig(level=logging.INFO)
     node = RosNode()
@@ -222,8 +250,16 @@ def main():
         # 参数拒绝或 VLA 装配失败时也释放已创建的飞行资源。
         dispose_vla = create_vla_runtime(engine, execution)
         resources.callback(dispose_vla)
+        registry = None
+        if tracking:
+            from dispatcher.tool_plane.registry import ToolRegistry
+            from dispatcher.tools.flight.catalog import flight_specs
+            from dispatcher.tools.vla.catalog import vla_specs
+            from dispatcher.tools.track.catalog import track_specs
+            resources.callback(create_tracking_runtime(engine, execution))
+            registry = ToolRegistry(tuple(flight_specs()) + tuple(vla_specs()) + tuple(track_specs()))
         control_plane = ToolControlPlane(
-            engine.tools, interrupt=execution.request_stop, interrupt_tools={"basic_flight.emergency_stop"}, log=RosLog(), shutdown=RosShutdown(),
+            engine.tools, registry=registry, interrupt=execution.request_stop, interrupt_tools={"basic_flight.emergency_stop"}, log=RosLog(), shutdown=RosShutdown(),
             feedback_factory=lambda middleware: FeedbackPlane(middleware, on_reset=flight_host.reset_session),
         )
         resources.callback(control_plane.close)
@@ -237,4 +273,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(tracking="--tracking-profile" in sys.argv[1:])

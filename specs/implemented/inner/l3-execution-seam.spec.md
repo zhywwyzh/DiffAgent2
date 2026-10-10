@@ -107,3 +107,14 @@ DIFF 仅准入沿路径朝向，不接受显式偏航控制。
 | G12 | 领域执行的完成、取消及跨进程生命周期有对应证据 |
 
 实现记录与剩余条件归 doc/l3-dispatcher-planner/iteration/design-planner-native-action.md；强制取消调整归 design-task-cancel-emergency-hover.md（代码交付，未验收）。
+
+## 9. 连续执行扩展
+
+连续目标跟踪按 `specs/proposed/inner/l3-tracking.spec.md` 实施。新增原生 action 与观测数据流，
+不向 WaypointTarget 恢复旧跟随预留。EGO 同进程共用动作资源和输出；普通动作与连续动作
+互斥。连续动作不使用静态航点到达门，只复用定位、期限、停止和动态停稳；业务完成归技能。
+
+普通航点动作满足原目标完成门后，也须撤销运动输出、接管保持并确认动态停稳，才返回成功；
+防止普通导航成功后仍占用输出，使连续动作无法准入。保持阶段的取消或安全停止覆盖成功候选。
+`ActionSession.finish` 仅用于技能内部收尾，保留当前 owner 以消费停止结果；外部取消仍立即
+释放 owner 并使用独立 StopRecord。过期轨迹采样只可撤销匹配的输出代次，不能停止后继任务。

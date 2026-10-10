@@ -85,7 +85,6 @@ public:
     std::lock_guard<std::recursive_mutex> lock(trajectory_mutex_); command_output_=std::move(output);
   }
   TrajServer() {};
-  ~TrajServer() {};
 
   /**
    * Initialize the trajectory server with ROS node handle.

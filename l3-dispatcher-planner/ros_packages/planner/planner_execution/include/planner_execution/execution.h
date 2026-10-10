@@ -7,6 +7,7 @@ class WaypointExecution {
   WaypointExecution(Config config, Backend backend);
   std::string admission(const Target& target, double now) const;
   void start(const Target& target, double now);
+  void startContinuous(double duration, double now);
   void observe(const State& state);
   void commit() { if (backend_.commit) backend_.commit(); }
   void progress(const Progress& progress);
@@ -35,6 +36,8 @@ class WaypointExecution {
   SettleMonitor settle_;
   std::optional<Result> result_;
   std::string phase_{"bootstrapping"}, reason_;
+  bool continuous_{false}, completing_{false};
+  double duration_{0};
   bool active_{false}, cancelled_{false}, stop_started_{false}, hold_confirmed_{false};
   unsigned long long recovery_generation_{0};
   double started_{0}, stopping_{0}, continuous_yaw_{0};

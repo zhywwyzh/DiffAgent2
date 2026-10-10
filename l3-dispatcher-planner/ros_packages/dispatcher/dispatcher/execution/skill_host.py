@@ -329,3 +329,113 @@ class VlaSkillHost:
     def advance_prompt(self) -> None:
         """本条 prompt 无动作直接结束：推进到下一条 prompt。"""
         self.engine.prompt_queue.advance_head_prompt()
+
+
+class TrackingFrames:
+    """只读帧端口；不暴露缓存写入。"""
+    def __init__(self, store, now):
+        self._store, self.now = store, now
+
+    @property
+    def generation(self):
+        return self._store.generation
+
+    def seed(self, stamp):
+        return self._store.seed(stamp)
+
+    def latest_rgb(self, after_stamp, ros_now, max_age):
+        return self._store.latest_rgb(after_stamp, ros_now, max_age)
+
+
+class TrackHost:
+    def __init__(self, engine, execution, config, frames, observations, rotation, translation):
+        self.engine, self.execution, self.config = engine, execution, config
+        self.frames, self.observations = frames, observations
+        import numpy as np
+        rotation = np.asarray(rotation, dtype=float)
+        translation = np.asarray(translation, dtype=float)
+        if rotation.size != 9 or translation.shape != (3,) or not np.isfinite(rotation).all() or not np.isfinite(translation).all():
+            raise ValueError('tracking_calibration_required')
+        rotation = rotation.reshape(3, 3)
+        if (not np.allclose(rotation.T @ rotation, np.eye(3), atol=1e-5, rtol=0)
+                or not np.isclose(np.linalg.det(rotation), 1.0, atol=1e-5, rtol=0)):
+            raise ValueError('invalid_tracking_calibration')
+        self.rotation, self.translation = tuple(rotation.ravel()), tuple(translation)
+
+    def report(self, phase, elapsed):
+        self.engine.runlog.emit('info', 'tracking_wait', phase=phase, elapsed_s=elapsed)
+
+    def state(self):
+        return self.execution.state()
+
+    def require_idle(self):
+        self.execution.require_idle()
+
+    def arm(self, owner):
+        self.execution.require_idle()
+        e = self.engine
+        e.skills.snapshot_owner()
+        if e.skills.owner_skill() is not owner:
+            raise RuntimeError('action_owner_mismatch')
+        e.action_gate._action_generation += 1
+        e.action_gate._action_finish_generation = -1
+        e.action_finish = False
+        e.action_in_progress = True
+        e.action_start_time = time.time()
+        e.ledger.set_state(DISPATCHER_STATE.WAIT_ACTION_FINISH, reason='action:armed')
+
+    def start_tracking(self, owner, goal):
+        if self.engine.skills.owner_skill() is not owner:
+            raise RuntimeError('action_owner_mismatch')
+        return self.execution.start(goal, generation=self.engine.action_gate._action_generation, owner=owner)
+
+    def poll_tracking(self, key):
+        return self.execution.poll(generation=key.generation, owner=key.owner)
+
+    def tracking_feedback(self, key):
+        return self.execution.feedback(key)
+
+    def finish_tracking(self, key):
+        self.execution.finish(key)
+
+    def publish_observation(self, output, frame, session_id, execution_id):
+        import math
+        import numpy as np
+        from dispatcher.tools.track.ports import Observation
+        info = frame.intrinsics or {}
+        values = tuple(float(info.get(k, float('nan'))) for k in ('fx','fy','cx','cy'))
+        rotation = np.asarray(self.rotation).reshape(3,3)
+        if (not all(math.isfinite(x) for x in values) or min(values[:2]) <= 0 or
+                not np.allclose(rotation.T @ rotation, np.eye(3), atol=1e-5) or
+                not np.isclose(np.linalg.det(rotation), 1.0, atol=1e-5) or
+                not all(math.isfinite(x) for x in self.translation) or
+                info.get('width') != frame.rgb.shape[1] or info.get('height') != frame.rgb.shape[0]):
+            raise ValueError('invalid_tracking_calibration')
+        value = Observation(frame.stamp_ns, output.submit_seq, tuple(output.bbox), frame.rgb.shape[1],
+            frame.rgb.shape[0], values, tuple(rotation.ravel()), tuple(self.translation))
+        self.observations.publish(value, session_id, execution_id)
+
+    def publish_telemetry(self, *args):
+        self.observations.display(*args)
+
+    def complete(self, owner, result):
+        e = self.engine
+        if e.skills.owner_skill() is not owner:
+            return
+        e.skills.stash_task_result(result)
+        e.action_gate._action_finish_generation = e.action_gate._action_generation
+        e.action_finish = True
+
+    def cancel_execution(self, owner=None):
+        self.execution.cancel(owner)
+
+    def fail_sequence(self, reason):
+        try:
+            self.execution.cancel()
+        finally:
+            e = self.engine
+            e.ledger.fail_sequence(reason)
+            e.task_phase.publish('fail', error={'code':'execution_failed', 'message':reason})
+            e.action_gate.clear_action_state()
+            e.if_plan = False
+            e.ledger.set_state(DISPATCHER_STATE.WAIT_FOR_MISSION, reason='skill:failed')

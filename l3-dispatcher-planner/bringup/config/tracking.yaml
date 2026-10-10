@@ -1,0 +1,18 @@
+# 技能业务参数；共享执行配置归 planner_execution.yaml。
+track:
+  api_url: http://127.0.0.1:2250
+  request_timeout_s: 5.0
+  init_timeout_s: 30.0
+  seed_max_age_s: 15.0
+  observation_timeout_s: 0.5
+  loss_timeout_s: 5.0
+  session_timeout_s: 600.0
+  follow_distance_m: 2.5
+  distance_tolerance_m: 0.3
+  yaw_tolerance_rad: 0.2
+  aircraft_speed_m_s: 0.1
+  target_speed_m_s: 0.2
+  finish_hold_s: 3.0
+  target_height_m: 1.0
+  rgb_topic: /camera/color/image_raw/compressed
+  info_topic: /camera/color/camera_info

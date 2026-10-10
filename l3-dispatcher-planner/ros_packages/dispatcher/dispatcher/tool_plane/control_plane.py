@@ -41,6 +41,7 @@ class ToolControlPlane:
         feedback_factory=None,
         interrupt=None,
         interrupt_tools=(),
+        registry=None,
     ) -> None:
         self._host = host
         self._interrupt = interrupt
@@ -58,6 +59,7 @@ class ToolControlPlane:
             safety_stop=self._issue_safety_stop,
             interrupt=self._request_interrupt,
             interrupt_tools=interrupt_tools,
+            registry=registry,
         )
         self._intake = ToolIntake(self.middleware.registry, host)
         self._threads: list[threading.Thread] = []

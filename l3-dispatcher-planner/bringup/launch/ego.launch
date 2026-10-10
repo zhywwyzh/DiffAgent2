@@ -1,4 +1,5 @@
 <launch>
+  <arg name="tracking_enabled" default="false"/>
   <arg name="drone_id" default="0"/>
   <arg name="odometry_topic" default="/ekf_quat/ekf_odom"/>
   <arg name="cloud_topic" default="/cloud_registered"/>
@@ -6,6 +7,7 @@
   <param name="/planner_execution/odometry_topic" value="$(arg odometry_topic)"/>
   <node pkg="ego_planner" type="ego_planner_node" name="ego_planner_node" output="screen" required="true">
     <rosparam file="$(dirname)/../config/ego_planner.yaml" command="load"/>
+    <param name="tracking_enabled" value="$(arg tracking_enabled)"/>
     <param name="fsm/drone_id" value="$(arg drone_id)"/>
     <param name="manager/drone_id" value="$(arg drone_id)"/>
     <param name="fsm/realworld_experiment" value="false"/>

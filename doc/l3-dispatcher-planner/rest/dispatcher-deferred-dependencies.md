@@ -291,3 +291,37 @@ VLA 多腿、累计旋转及其他保留项不因引入 action 自动关闭。R0
 | 外部调用链 | 本仓库现行线上契约仍为站端独立急停工具调用；未定位 CoPaw 按钮实现和设备控制闭环证据 | 取得站端源码和部署入口后核对按钮请求及设备控制边界；不得据本地修改关闭条目 |
 
 本轮没有构建、测试或运行证据；R03/R05 保持未关闭，其他记录服务保留项不变。
+
+
+<a id="r10"></a>
+## R10 — 连续目标跟踪（代码接入，未验收）
+
+- **触发条件**：迁移 `navigation.track`、调整视觉观测、连续规划、导航与跟踪切换、
+  正常完成或取消时，须同时读取本项及 R03/R05。
+- **DiffAgent2 旧版调用链**：站端 grounding/人工框选 → `tools/track/skill.py` →
+  UETrack 服务与 bbox → mission tracking 生命周期 → Elastic → MotionGate。
+  原动作取消回执不构成新版动态停止证据。
+- **DiffAgent2 新版归属**：`N/tools/track/track_skill.py` 持有流程；
+  `N/perception/tracking_frames.py` 保存原始 seed；`N/ros_adapter/tracking_*_ros.py`
+  收发图像与观测；`N/execution/action_session.py` 共用 owner、结果与停止账务。
+  `ros_packages/planner/elastic_tracker/` 是纯算法与 ROS 外壳；
+  `planner_execution` 共用原生 action 生命周期和唯一 CommandOutput；EGO 注入地图查询。
+- **实现证据**：新增 `TrackTarget.action`、`TrackingObservation.msg`、
+  `bringup/launch/tracking.launch`、`bringup/config/tracking.yaml` 和 `docker/tracker/`。
+  普通导航满足目标门后追加保持接管与动态停稳；连续动作内部收尾只有在业务候选与
+  stop_confirmed 汇合后才提交 workflow_result。旧 mission/MotionGate/任务编号未迁入。
+- **接入建议与部署条件**：仅显式入口装配第九项工具；默认八项不变。先准备本地模型权重
+  及摘要清单、GPU 服务、相机外参、对齐深度和原图时戳，再对齐站端发现与完成元数据。
+  首期只装配 EGO；SUPER/DIFF 连续跟踪未迁。记录服务仍归 R01/R06。
+- **验收与剩余条件**：本轮未运行测试、编译、门禁或验收，无运行证据。须获明确许可后
+  覆盖 seed 错帧、低置信度、无深度、地图失效、旧代次、长规划中取消、完成后保持、
+  与普通导航切换，以及真实站端到 `/setpoint_cmd` 链路。
+- **可删除条件**：相关实现获准验收、站端消费者完成对齐、生产集合与契约同步后，才可
+  关闭迁移条目；不得仅因新版已有代码就删台账或宣布可飞行。
+
+### R03/R05 本轮补充（2026-10-10）
+
+tracking 共用原生停止门和设备停止确认；正常业务结束使用内部 action 取消并保留技能 owner，
+外部取消仍立即释放任务资源。普通航点成功增加保持阶段，安全停止或取消优先于成功候选。
+`CommandOutput::requestStopIfCurrent` 只封锁匹配代次，防止迟到采样撤销后继导航。
+上述均为代码接入证据；R03/R05 继续未关闭，原有实机动态与恢复条件不变。

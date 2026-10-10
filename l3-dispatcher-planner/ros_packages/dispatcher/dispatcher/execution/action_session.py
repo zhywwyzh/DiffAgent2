@@ -4,7 +4,7 @@ import threading
 import time
 import uuid
 from dataclasses import replace
-from dispatcher.execution.ports import ActionKey, ActionResult, StopRecord
+from dispatcher.execution.ports import ActionKey, ActionResult, StopRecord, TrackingGoal
 
 
 class ActionSession:
@@ -58,16 +58,38 @@ class ActionSession:
             if self._pending is not None or self._active is not None:
                 raise RuntimeError('execution_busy')
             self.state()
-            if not all(math.isfinite(v) for v in (*goal.position, goal.yaw)):
-                raise ValueError('non_finite_goal')
-            lower = self.config.ground_z if goal.ground_approach else self.config.min_height
-            if lower is None:
-                raise ValueError('ground_height_unconfigured')
-            if not lower <= goal.position[2] <= self.config.max_height:
-                raise ValueError('goal_height_out_of_range')
+            if isinstance(goal, TrackingGoal):
+                if (not goal.session_id or not goal.execution_id or
+                        not all(math.isfinite(v) and v > 0 for v in (goal.follow_distance_m,
+                            goal.distance_tolerance_m, goal.observation_timeout_s, goal.duration_s)) or
+                        not self.config.min_height <= goal.target_height_m <= self.config.max_height):
+                    raise ValueError('invalid_tracking_goal')
+            else:
+                if not all(math.isfinite(v) for v in (*goal.position, goal.yaw)):
+                    raise ValueError('non_finite_goal')
+                lower = self.config.ground_z if goal.ground_approach else self.config.min_height
+                if lower is None:
+                    raise ValueError('ground_height_unconfigured')
+                if not lower <= goal.position[2] <= self.config.max_height:
+                    raise ValueError('goal_height_out_of_range')
             key = ActionKey(generation, owner)
             self._pending = (key, goal, self.clock())
             return key
+
+    def finish(self, key):
+        """内部收尾保留当前 owner，供技能汇合业务完成与停止结果。"""
+        with self._lock:
+            if self._active is None or self._active['key'] != key:
+                raise RuntimeError('tracking_not_active')
+            if 'finishing_since' not in self._active:
+                self._active['finishing_since'] = self.clock()
+            self.actions.cancel(self._active['handle'])
+
+    def feedback(self, key):
+        with self._lock:
+            if self._active is None or self._active['key'] != key:
+                return None
+            return self.actions.feedback(self._active['token'])
 
     def request_stop(self, reason='task_cancelled', *, retry=False):
         # 可在 engine 生命周期锁被占用时设置；发送提交点再次检查。
@@ -163,9 +185,12 @@ class ActionSession:
             self._results[key] = result
         active = self._active
         if active is not None:
-            limit = (self.config.action_timeout_s + self.config.stop_timeout_s + self.config.state_timeout_s
+            limit = (active['duration_s'] + self.config.stop_timeout_s + self.config.state_timeout_s
                      if active['admitted'] else self.config.admission_timeout_s)
-            if not fresh or ready.boot_id != active['boot_id'] or now-active['sent_at'] >= limit:
+            since = active.get('finishing_since', active['sent_at'])
+            if 'finishing_since' in active:
+                limit = self.config.stop_timeout_s + self.config.state_timeout_s
+            if not fresh or ready.boot_id != active['boot_id'] or now-since >= limit:
                 key = active['key']
                 reason = 'planner_disconnected' if not fresh else ('planner_restarted' if ready.boot_id != active['boot_id'] else 'action_result_timeout')
                 self.request_stop(reason)
@@ -178,10 +203,10 @@ class ActionSession:
                 self._results[key] = ActionResult(False, self._fault)
                 self._pending = None
             elif (not self._blocked.is_set() and self._stop is None and self._active is None and fresh
-                  and ready.ready and ready.stop_confirmed and ready.received > self._released_at and self.actions.connected()):
+                  and ready.ready and ready.stop_confirmed and ready.received > self._released_at and self.actions.connected(goal)):
                 self._pending = None
                 token = uuid.uuid4().hex
-                self._active = dict(key=key, token=token, handle=None, sent_at=now, admitted=False, boot_id=ready.boot_id)
+                self._active = dict(key=key, token=token, handle=None, sent_at=now, admitted=False, boot_id=ready.boot_id, duration_s=goal.duration_s if isinstance(goal, TrackingGoal) else self.config.action_timeout_s)
                 try:
                     # 此锁串行化发送与停止；回调只携带 token，绝不捕获 owner。
                     if self._blocked.is_set() or not self._can_send():

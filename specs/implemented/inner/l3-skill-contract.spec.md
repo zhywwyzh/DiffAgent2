@@ -241,3 +241,12 @@ Protocol 类型声明。
 - 激活图名（旧库经全局参数 `fsm/scene_graph_load_name`、`/scene_graph/active_name`
   直读）**不作为参数**：经端口/共享状态提供（`l3-dispatcher/ros-adapter-boundary`
   R3/R5），技能不得直读全局参数。
+
+## 12. tracking 实施端口
+
+目标能力按 `specs/proposed/inner/l3-tracking.spec.md` 实施。TrackHost 提供
+`config`、`state`、`frames`、`require_idle`、`report`、`arm`、`start_tracking`、`tracking_feedback`、
+`publish_observation`、`publish_telemetry`、`finish_tracking`、`poll_tracking`、`fail_sequence`、
+`complete`、`cancel_execution`；ROS 收发经适配端口，技能不得访问 engine 私有状态。
+`frames` 是宿主的只读缓存访问端口，推理生产者只读；写入方仅为 ROS 适配层。
+未验收实现不加入默认生产集合，显式装配返回 disposer。

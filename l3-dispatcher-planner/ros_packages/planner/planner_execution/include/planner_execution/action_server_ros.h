@@ -4,6 +4,8 @@
 #include <atomic>
 #include <actionlib/server/action_server.h>
 #include <quadrotor_msgs/ExecuteWaypointsAction.h>
+#include <quadrotor_msgs/TrackTargetAction.h>
+#include <quadrotor_msgs/TrackingObservation.h>
 #include <quadrotor_msgs/ExecutionState.h>
 #include <nav_msgs/Odometry.h>
 #include <ros/ros.h>
@@ -18,6 +20,7 @@ class WaypointActionServer {
   WaypointActionServer(ros::NodeHandle nh, Backend backend, std::recursive_mutex& mutex, bool external_output=false, const std::string& command_topic="/position_cmd");
   ~WaypointActionServer();
   void start();
+  void enableTracking(TrackingBackend backend);
   void progress(const Progress& value);
   void fail(const std::string& reason);
   void request_stop();
@@ -27,6 +30,15 @@ class WaypointActionServer {
   bool motion_enabled() const { return output_->enabled(); }
   static double now();
  private:
+  using TrackServer = actionlib::ActionServer<quadrotor_msgs::TrackTargetAction>;
+  using TrackHandle = TrackServer::GoalHandle;
+  void receiveTrackingGoal(TrackHandle handle);
+  void cancelTrackingGoal(TrackHandle handle);
+  void receiveTrackingObservation(const quadrotor_msgs::TrackingObservationConstPtr& msg);
+  TrackingBackend tracking_;
+  std::unique_ptr<TrackServer> tracking_server_;
+  std::optional<TrackHandle> track_active_;
+  ros::Subscriber tracking_observation_;
   void goal(Handle handle);
   void cancel(Handle handle);
   void odometry(const nav_msgs::OdometryConstPtr& msg);

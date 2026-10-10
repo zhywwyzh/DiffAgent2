@@ -1602,7 +1602,9 @@ std::string ego_planner::plan_manage::EGOReplanFSM::PlanRetStatistic::show(bool 
 }
 
 ego_planner::plan_manage::EGOReplanFSM::~EGOReplanFSM() {
+  if (tracking_) tracking_->shutdown();
   execution_action_.reset();
+  tracking_.reset();
   if (plan_ret_stat_.failure_histroy.size() > 0) {
     printf("====== failure statistics ======\n");
     while (plan_ret_stat_.failure_histroy.size()) {

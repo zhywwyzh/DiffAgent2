@@ -48,4 +48,5 @@
   <export>
   </export>
   <depend>planner_execution</depend>
+  <depend>elastic_tracker</depend>
 </package>

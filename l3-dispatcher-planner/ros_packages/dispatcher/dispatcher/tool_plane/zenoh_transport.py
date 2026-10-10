@@ -63,8 +63,9 @@ class ZenohTaskMiddleware:
         safety_stop=None,
         interrupt=None,
         interrupt_tools=(),
+        registry=None,
     ) -> None:
-        self.registry = ToolRegistry.default()
+        self.registry = registry if registry is not None else ToolRegistry.default()
         self.stack_id = (stack_id or os.environ.get("LX_STACK_ID", "")).strip().strip("/")
         if not self.stack_id:
             raise RuntimeError("LX_STACK_ID or stack_id is required")

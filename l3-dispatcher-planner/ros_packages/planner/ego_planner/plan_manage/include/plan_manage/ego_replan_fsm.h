@@ -24,6 +24,7 @@
 #include <quadrotor_msgs/PlannerResult.h>
 #include <quadrotor_msgs/EgoStateTrigger.h>
 #include <planner_execution/action_server_ros.h>
+#include <elastic_tracker/tracking_ros.h>
 #include <std_srvs/Trigger.h>
 #include <plan_manage/planner_manager.h>
 #include <traj_utils/PolyTraj.h>
@@ -58,6 +59,7 @@ public:
 
 private:
   std::recursive_mutex execution_mutex_;
+  std::unique_ptr<elastic_tracker::TrackingRos> tracking_;
   std::unique_ptr<planner_execution::WaypointActionServer> execution_action_;
   bool execution_holding_{false};
   void initExecution(ros::NodeHandle& nh);

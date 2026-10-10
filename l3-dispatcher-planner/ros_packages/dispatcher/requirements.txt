@@ -1,3 +1,5 @@
 eclipse-zenoh==1.5.1
 numpy
 PyYAML
+requests
+opencv-python-headless

@@ -1,0 +1,10 @@
+std_msgs/Header header
+string session_id
+string execution_id
+uint64 sequence
+float64[4] bbox
+uint32 width
+uint32 height
+float64[4] intrinsics
+float64[9] rotation
+float64[3] translation

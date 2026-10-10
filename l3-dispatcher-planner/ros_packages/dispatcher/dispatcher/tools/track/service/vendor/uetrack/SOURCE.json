@@ -1,0 +1,31 @@
+{
+  "repository": "https://github.com/kangben258/UETrack",
+  "commit": "fd13b0eaf16d51536008295f3b27807c69eaad50",
+  "patches": [
+    "lib/models/uetrack/encoder.py: inference-only — an empty MODEL.ENCODER.PRETRAIN_TYPE now skips the backbone init load instead of torch.load(''); the checkpoint carries every parameter, so inference results are unchanged"
+  ],
+  "files": {
+    "experiments/uetrack/uetrack_base.yaml": "746f666a6a3af5eef41b719a92ac6c8fd15efa2d9c2026e851054ba77862e541",
+    "lib/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "lib/config/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "lib/config/uetrack/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "lib/config/uetrack/config.py": "2585f5cc4ddb9814cd588e582d23a57544f2efdd5abe9b0f29d5f1f9b3072a07",
+    "lib/models/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "lib/models/uetrack/__init__.py": "1a185a9b768274904267a7ce4ffb4338e204c4d6ee33305003884e7fe2578780",
+    "lib/models/uetrack/clip.py": "982834a78681ca94eabe863eabd7b5bc3089c9896b1429114726a84b99cc24b1",
+    "lib/models/uetrack/decoder.py": "a6ac29053882ecf31a3312ddd0f2f85d35a83f4f85a1271db12aab190eb6e68d",
+    "lib/models/uetrack/encoder.py": "7cb6cd2672ebd271254637ec5ef9a4ab5516bb5c68162092a30974a0c2416477",
+    "lib/models/uetrack/fastitpn.py": "f397295f5a101efed840f5f95fc8931388b633a918c43121d67bdf8cd126a171",
+    "lib/models/uetrack/fastitpn_teacher.py": "ddff6cc4ba5f4093f6a77e3c04565320f5d167f34b8533a85497b2e976621d1e",
+    "lib/models/uetrack/task_decoder.py": "91f5be9390577b5145bb168bb12d879d0fc26d35e404f36bf8bf25fd627869e1",
+    "lib/models/uetrack/uetrack.py": "ccd02def46adc4e6cb24c31138b6c90a2046200c7a5a2491efb7b7624158e299",
+    "lib/test/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "lib/test/tracker/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "lib/test/tracker/utils.py": "ad1334108c513b65b0a11df9a189ffb645a29737682158f15cc9e9ac402fa191",
+    "lib/test/utils/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "lib/test/utils/hann.py": "94de2151485d5911797afc5a2a431a4dcf99c6b293835b5b2d86bb27945bd504",
+    "lib/utils/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "lib/utils/box_ops.py": "45b4a999e982f6bba0eefff4cfc40e7f168a226f0cc252a9c8d5e58e05b89ee5",
+    "lib/utils/misc.py": "84d7a2d1d758d95a7ecb5110f652b650eddd621be35f2cad5bccd30305edf625"
+  }
+}

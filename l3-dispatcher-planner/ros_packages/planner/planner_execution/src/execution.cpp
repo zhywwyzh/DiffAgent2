@@ -35,20 +35,28 @@ std::string WaypointExecution::admission(const Target& t, double now) const {
   return backend_.validate(t);
 }
 void WaypointExecution::start(const Target& t, double now) {
+  continuous_=false; completing_=false; duration_=config_.action_timeout_s;
   target_=t; progress_=Progress{}; result_.reset(); settle_.reset(); previous_=state_;
   continuous_yaw_=state_.yaw;
   active_=true; cancelled_=false; hold_confirmed_=false; started_=now; phase_="executing";
   try { if (!backend_.start(t)) fail("planner_rejected_goal",now); }
   catch (...) { fail("planner_start_failed",now); }
 }
+void WaypointExecution::startContinuous(double duration,double now) {
+  target_=Target{}; progress_=Progress{}; result_.reset(); settle_.reset(); previous_=state_;
+  continuous_=true; completing_=false; duration_=duration; active_=true; cancelled_=false;
+  hold_confirmed_=false; started_=now; phase_="executing";
+}
 void WaypointExecution::observe(const State& s) { state_=s; }
 void WaypointExecution::progress(const Progress& p) {
   if (active_ && phase_!="stopping") progress_=p;
 }
 void WaypointExecution::begin_stop(const std::string& reason, bool cancelled, double now) {
+  if (reason!="goal_reached") completing_=false;
   if (phase_=="stopping") {
     stopping_=std::min(stopping_,now);
     if (cancelled) { cancelled_=true; reason_="cancelled"; }
+    else if (!cancelled_ && reason_=="goal_reached" && reason!="goal_reached") reason_=reason;
     return;
   }
   reason_=reason; cancelled_=cancelled; phase_="stopping"; stopping_=now;
@@ -82,7 +90,7 @@ void WaypointExecution::tick(double now) {
     if (!stop_started_) { settle_.reset(); return; }
     if (!fresh(now)) { settle_.reset(); return; }
     if (settle_.update(state_,config_,nullptr))
-      finish(cancelled_ ? Result::Status::Cancelled : Result::Status::Aborted,true);
+      finish(cancelled_ ? Result::Status::Cancelled : (completing_ ? Result::Status::Succeeded : Result::Status::Aborted),true);
     return;
   }
   if (!fresh(now)) { fail("odometry_unavailable",now); return; }
@@ -96,12 +104,12 @@ void WaypointExecution::tick(double now) {
   }
   previous_=state_;
   if (progress_.skipped_mask) { fail("waypoint_skipped",now); return; }
-  if (now-started_>=config_.action_timeout_s) { fail("action_timeout",now); return; }
-  if (!progress_.all_consumed) return;
+  if (now-started_>=duration_) { fail("action_timeout",now); return; }
+  if (continuous_ || !progress_.all_consumed) return;
   phase_="settling";
   State observation=state_;
   if (target_.yaw_path==1) observation.yaw=continuous_yaw_;
-  if (settle_.update(observation,config_,&target_)) { reason_="goal_reached"; finish(Result::Status::Succeeded,true); }
+  if (settle_.update(observation,config_,&target_)) { completing_=true; begin_stop("goal_reached",false,now); }
 }
 std::optional<Result> WaypointExecution::take_result() { auto r=result_; result_.reset(); return r; }
 }

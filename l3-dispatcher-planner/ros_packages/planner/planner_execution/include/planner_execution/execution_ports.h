@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <cstdint>
 #include <functional>
 #include <string>
 #include <vector>
@@ -37,6 +38,33 @@ struct Result {
   std::string reason;
   bool stop_confirmed;
   State state;
+};
+struct TrackRequest {
+  std::string session_id, execution_id;
+  double follow_distance_m, distance_tolerance_m, target_height_m, observation_timeout_s, duration_s;
+};
+struct TrackObservation {
+  std::string session_id, execution_id;
+  uint64_t sequence;
+  double stamp;
+  unsigned width, height;
+  std::array<double,4> bbox, intrinsics;
+  std::array<double,9> rotation;
+  Vec3 translation;
+};
+struct TrackFeedback {
+  bool valid{false};
+  double stamp{0};
+  uint64_t sequence{0};
+  Vec3 position{}, velocity{};
+};
+struct TrackingBackend {
+  std::function<std::string(const TrackRequest&)> start;
+  std::function<void(const TrackObservation&)> observation;
+  std::function<std::string(double)> tick;
+  std::function<TrackFeedback()> feedback;
+  std::function<void(uint64_t)> commit;
+  std::function<void()> stop;
 };
 struct Backend {
   std::function<std::string(const Target&)> validate;

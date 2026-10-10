@@ -46,6 +46,11 @@ Contract-ID: l3-dispatcher
 | `specs/implemented/inner/flight-actions.spec.md` | 六个基础飞行动作的参数、完成语义和 cmd 输出边界 |
 | `specs/implemented/inner/l3-package-layout.spec.md` | dispatcher 子包平面划分、命名规范与依赖方向 |
 
+## 部分实施的提案
+
+`specs/proposed/inner/l3-tracking.spec.md` 描述连续目标跟踪。本地代码已接入显式
+tracking 装配，尚未编译或验收；不属于默认生产工具集合。采纳后的叶契约再进入上表。
+
 ## 边界
 
 本契约不拥有：planner 的内部算法与后端选择；l4 侧协议与站端行为；C++

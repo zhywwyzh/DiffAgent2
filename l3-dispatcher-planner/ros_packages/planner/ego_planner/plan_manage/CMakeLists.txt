@@ -19,6 +19,7 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   quadrotor_msgs
   planner_execution
+  elastic_tracker
   visualization_msgs
   traj_utils
   message_generation
@@ -32,7 +33,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
  INCLUDE_DIRS include
  LIBRARIES ego_planner
- CATKIN_DEPENDS planner_execution traj_utils vis_utils
+ CATKIN_DEPENDS elastic_tracker planner_execution traj_utils vis_utils
 )
 
 include_directories(

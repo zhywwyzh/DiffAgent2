@@ -1,5 +1,6 @@
 #include "planner_execution/action_server_ros.h"
 #include <chrono>
+#include <algorithm>
 #include <cmath>
 #include <limits>
 #include <stdexcept>
@@ -37,8 +38,69 @@ WaypointActionServer::WaypointActionServer(ros::NodeHandle nh, Backend backend, 
   timer_=nh_.createWallTimer(ros::WallDuration(0.05),&WaypointActionServer::tick,this);
   spinner_=std::make_unique<ros::AsyncSpinner>(3,&queue_);
 }
-void WaypointActionServer::start() { server_->start(); spinner_->start(); }
+void WaypointActionServer::start() { server_->start(); if (tracking_server_) tracking_server_->start(); spinner_->start(); }
 WaypointActionServer::~WaypointActionServer() { output_->request_stop(); spinner_->stop(); timer_.stop(); }
+void WaypointActionServer::enableTracking(TrackingBackend backend) {
+  tracking_=std::move(backend);
+  tracking_server_=std::make_unique<TrackServer>(nh_,"/planner/track_target",
+      [this](TrackHandle h){receiveTrackingGoal(h);},[this](TrackHandle h){cancelTrackingGoal(h);},false);
+  tracking_observation_=nh_.subscribe("/planner/tracking_observation",1,&WaypointActionServer::receiveTrackingObservation,this);
+}
+void WaypointActionServer::receiveTrackingGoal(TrackHandle h) {
+  std::unique_lock<std::recursive_mutex> guard(mutex_,std::try_to_lock);
+  quadrotor_msgs::TrackTargetResult result;
+  if (!guard.owns_lock()) { result.reason="execution_busy"; h.setRejected(result); return; }
+  if (h.getGoalStatus().status==actionlib_msgs::GoalStatus::RECALLING) {
+    result.reason="cancelled_before_execution"; result.stop_confirmed=execution_.holding(); h.setCanceled(result); return;
+  }
+  apply_stop();
+  if (active_ || track_active_ || !execution_.ready() || !execution_.fresh(now()) || !output_->holding()) {
+    result.reason="execution_not_ready"; h.setRejected(result); return;
+  }
+  const auto& g=*h.getGoal();
+  TrackRequest request{g.session_id,g.execution_id,g.follow_distance_m,g.distance_tolerance_m,
+      g.target_height_m,g.observation_timeout_s,g.duration_s};
+  bool valid=!g.session_id.empty() && !g.execution_id.empty() && std::isfinite(g.target_height_m) &&
+      g.target_height_m>=config_.min_height && g.target_height_m<=config_.max_height;
+  for (double v:{g.follow_distance_m,g.distance_tolerance_m,g.observation_timeout_s,g.duration_s}) valid=valid && std::isfinite(v) && v>0;
+  if (!valid || g.duration_s>600 || g.observation_timeout_s>config_.state_timeout_s) {
+    result.reason="invalid_tracking_goal"; h.setRejected(result); return;
+  }
+  const auto epoch=output_->generation();
+  try { result.reason=tracking_.start(request); }
+  catch (...) { result.reason="tracking_backend_failed"; }
+  if (!result.reason.empty()) { tracking_.stop(); h.setRejected(result); return; }
+  {
+    std::lock_guard<std::recursive_mutex> stop_guard(stop_mutex_);
+    active_id_=h.getGoalID().id;
+  }
+  if (h.getGoalStatus().status==actionlib_msgs::GoalStatus::RECALLING) {
+    tracking_.stop(); result.reason="cancelled_before_execution";
+    result.stop_confirmed=execution_.holding(); h.setCanceled(result);
+    std::lock_guard<std::recursive_mutex> stop_guard(stop_mutex_); active_id_.clear(); return;
+  }
+  track_active_=h; h.setAccepted(); execution_.startContinuous(g.duration_s,now());
+  if (!output_->resume(epoch)) { if (!apply_stop()) execution_.cancel(now()); tracking_.stop(); }
+  else tracking_.commit(output_->generation());
+  publish_state();
+}
+void WaypointActionServer::cancelTrackingGoal(TrackHandle h) {
+  std::lock_guard<std::recursive_mutex> guard(stop_mutex_);
+  if (h.getGoalID().id!=active_id_ || active_id_.empty()) return;
+  pending_cancel_=true; request_stop();
+}
+void WaypointActionServer::receiveTrackingObservation(const quadrotor_msgs::TrackingObservationConstPtr& msg) {
+  TrackObservation value;
+  value.session_id=msg->session_id; value.execution_id=msg->execution_id;
+  value.sequence=msg->sequence; value.stamp=msg->header.stamp.toSec();
+  value.width=msg->width; value.height=msg->height;
+  std::copy(msg->bbox.begin(),msg->bbox.end(),value.bbox.begin());
+  std::copy(msg->intrinsics.begin(),msg->intrinsics.end(),value.intrinsics.begin());
+  std::copy(msg->rotation.begin(),msg->rotation.end(),value.rotation.begin());
+  std::copy(msg->translation.begin(),msg->translation.end(),value.translation.begin());
+  std::unique_lock<std::recursive_mutex> guard(mutex_,std::try_to_lock);
+  if (guard.owns_lock() && track_active_ && execution_.phase()=="executing") tracking_.observation(value);
+}
 void WaypointActionServer::goal(Handle h) {
   std::unique_lock<std::recursive_mutex> guard(mutex_,std::try_to_lock);
   if (!guard.owns_lock()) {
@@ -56,7 +118,7 @@ void WaypointActionServer::goal(Handle h) {
   target.yaw_mode=msg.target.yaw_policy.mode; target.yaw_path=msg.target.yaw_policy.path;
   for (const auto& p:msg.target.waypoints) target.waypoints.push_back({p.x,p.y,p.z});
   apply_stop();
-  const std::string reason=active_ ? "execution_busy" :
+  const std::string reason=(active_ || track_active_) ? "execution_busy" :
       (!output_->enabled() && !output_->holding() ? "command_output_unavailable" : execution_.admission(target,now()));
   if (!reason.empty()) {
     quadrotor_msgs::ExecuteWaypointsResult r; r.reason=reason;
@@ -110,6 +172,7 @@ bool WaypointActionServer::apply_stop() {
     cancelled=pending_cancel_; started=stop_requested_at_;
     pending_stop_=false; pending_cancel_=false;
   }
+  if (track_active_ && tracking_.stop) tracking_.stop();
   if (cancelled) execution_.cancel(started);
   else execution_.request_stop(started);
   return true;
@@ -134,15 +197,38 @@ void WaypointActionServer::progress(const Progress& p) {
 }
 void WaypointActionServer::fail(const std::string& reason) {
   output_->request_stop();
-  std::lock_guard<std::recursive_mutex> guard(mutex_); execution_.fail(reason,now());
+  std::lock_guard<std::recursive_mutex> guard(mutex_);
+  if (track_active_ && tracking_.stop) tracking_.stop();
+  execution_.fail(reason,now());
 }
 void WaypointActionServer::tick(const ros::WallTimerEvent&) {
   std::unique_lock<std::recursive_mutex> guard(mutex_,std::try_to_lock);
   if (!guard.owns_lock()) return;
   apply_stop();
   if (execution_.ready() && !output_->enabled() && !output_->holding()) execution_.fail("command_output_unavailable",now());
+  if (track_active_ && execution_.phase()=="executing" && !output_->enabled())
+    execution_.fail("track_observation_lost",now());
+  if (track_active_ && execution_.phase()=="executing") {
+    try {
+      const auto reason=tracking_.tick(ros::Time::now().toSec());
+      if (!reason.empty()) fail(reason);
+    } catch (...) { fail("tracking_backend_failed"); }
+  }
   execution_.tick(now());
+  if (track_active_ && execution_.phase()!="executing") {
+    output_->request_stop();
+    tracking_.stop();
+  }
   if (auto result=execution_.take_result()) {
+    if (track_active_) {
+      quadrotor_msgs::TrackTargetResult r;
+      r.reason=result->reason; r.stop_confirmed=result->stop_confirmed;
+      r.state_valid=execution_.fresh(now());
+      if (result->status==Result::Status::Cancelled) track_active_->setCanceled(r);
+      else track_active_->setAborted(r);
+      track_active_.reset();
+      std::lock_guard<std::recursive_mutex> stop_guard(stop_mutex_); active_id_.clear();
+    }
     if (active_) {
       quadrotor_msgs::ExecuteWaypointsResult r;
       r.reason=result->reason; r.stop_confirmed=result->stop_confirmed;
@@ -163,6 +249,14 @@ void WaypointActionServer::tick(const ros::WallTimerEvent&) {
       active_.reset();
       std::lock_guard<std::recursive_mutex> stop_guard(stop_mutex_); active_id_.clear();
     }
+  }
+  if (track_active_) {
+    const auto f=tracking_.feedback(); quadrotor_msgs::TrackTargetFeedback msg;
+    msg.phase=execution_.phase(); msg.valid=f.valid; msg.observation_stamp.fromSec(f.stamp);
+    msg.sequence=f.sequence;
+    msg.position.x=f.position[0]; msg.position.y=f.position[1]; msg.position.z=f.position[2];
+    msg.velocity.x=f.velocity[0]; msg.velocity.y=f.velocity[1]; msg.velocity.z=f.velocity[2];
+    track_active_->publishFeedback(msg);
   }
   if (active_ && !execution_.target().waypoints.empty()) {
     quadrotor_msgs::ExecuteWaypointsFeedback f;

@@ -31,6 +31,13 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 `navigation.vla_nav` 与 `navigation.vla_rotate` 的元数据见下。测试自有能力
 不注册到生产默认集合；后续能力同样须有完整实现与测试。
 
+**显式 tracking 装配（2026-10-10）**：`tracking.launch` 以 `dispatcher_node.py --tracking-profile` 在组合根注入
+上述八项加 `navigation.track` 的独立注册表；普通入口仍为八项。此入口用于后续获许可的
+联调，代码已接入、未编译及验收，不能据此认定生产能力。它不是 RPC 启停开关，列表
+不随模型或传感器就绪状态变化；revision 由该入口实际元数据计算，不复用八项记录值。
+`navigation.track` 的 schema 与生命周期归 `specs/proposed/inner/l3-tracking.spec.md`，
+完成元数据为 `workflow_result`，并发语义为 `flight-exclusive`。
+
 **`navigation.vla_nav`**：station 解算航点的执行载体——站端以「累积点云（最新，
 世界系）+ 位姿按帧时戳插值 + VLM bbox」解算 `waypoint_world` 后下发，机上为
 航点执行器（无 bbox 消费、无几何解算）。完成语义 `action_result`，

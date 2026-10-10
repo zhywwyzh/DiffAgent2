@@ -19,6 +19,7 @@ class CommandOutput {
   explicit CommandOutput(ros::NodeHandle nh, bool remote = false, bool publish = true, const std::string& command_topic="/position_cmd");
   ~CommandOutput();
   void request_stop();
+  bool requestStopIfCurrent(uint64_t generation);
   void set_boot(uint64_t boot);
   void set_gains(const std::array<double,3>& kx,const std::array<double,3>& kv);
   bool obsolete(uint64_t boot,uint64_t generation) const;

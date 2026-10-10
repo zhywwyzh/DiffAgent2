@@ -51,6 +51,11 @@ void CommandOutput::request_stop() {
   if (remote_) remote_stop_generation_=generation_-1;
   blocked_=true; hold_locked();
 }
+bool CommandOutput::requestStopIfCurrent(uint64_t generation) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  if(blocked_ || generation_!=generation) return false;
+  ++generation_; blocked_=true; hold_locked(); return true;
+}
 bool CommandOutput::resume(uint64_t expected) {
   std::lock_guard<std::mutex> lock(mutex_);
   if (generation_!=expected) return false;

@@ -1,0 +1,17 @@
+# GPU packages are supplied by the hardware-compatible base, never PyPI.
+pip==25.2
+numpy==1.26.4
+opencv-python-headless==4.10.0.84
+fastapi==0.115.12
+uvicorn==0.34.2
+pydantic==2.11.4
+PyYAML==6.0.2
+Pillow==11.2.1
+ftfy==6.3.1
+regex==2024.11.6
+tqdm==4.67.1
+huggingface-hub==0.30.2
+safetensors==0.5.3
+packaging==24.2
+einops==0.8.2
+easydict==1.13

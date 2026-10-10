@@ -17,6 +17,17 @@ void EGOReplanFSM::initExecution(ros::NodeHandle& nh) {
   backend.stop=[this](){return stopExecution();};
   execution_action_=std::make_unique<planner_execution::WaypointActionServer>(nh,backend,execution_mutex_);
   traj_server_.setCommandOutput(execution_action_->output());
+  bool tracking_enabled=false;
+  nh.param("tracking_enabled",tracking_enabled,false);
+  if(tracking_enabled) {
+    auto map=planner_manager_->map_->cur_;
+    elastic_tracker::MapPort port;
+    port.resolution=map->getResolution();
+    port.occupied=[map](const Eigen::Vector3d& p){return !map->isInBuf(p) || map->getInflateOccupancy(p)!=0;};
+    port.ready=[map](){return map->isInited() && !map->getOdomDepthTimeout();};
+    port.freeze=[map](bool freeze){map->LockCopyToOutputAllMap(freeze);};
+    tracking_=std::make_unique<elastic_tracker::TrackingRos>(nh,std::move(port),*execution_action_);
+  }
   execution_action_->start();
 }
 }}
