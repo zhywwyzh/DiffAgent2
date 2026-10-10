@@ -480,15 +480,15 @@ class BasePolicyNode(object):
             self.road_cloud_topic, PointCloud2, queue_size=1
         )
 
-        # -- 分通道独立订阅（tracking 快通道，不参与 Frame 同步）--
-        self.tracking_sensor_enable = bool(
-            rospy.get_param("~tracking_sensor_enable", True)
+        # -- 分通道独立订阅（感知快通道，不参与 Frame 同步）--
+        self.sensor_enable = bool(
+            rospy.get_param("~perception/sensor_enable", True)
         )
-        self.tracking_depth_max_delta = float(
-            rospy.get_param("~tracking_depth_max_delta", 0.1)
+        self.depth_max_delta_s = float(
+            rospy.get_param("~perception/depth_max_delta_s", 0.1)
         )
-        self.tracking_cloud_max_delta = float(
-            rospy.get_param("~tracking_cloud_max_delta", 0.05)
+        self.cloud_max_delta_s = float(
+            rospy.get_param("~perception/cloud_max_delta_s", 0.05)
         )
 
         # 快通道 RGB（高帧率，不经过同步器）
@@ -507,10 +507,10 @@ class BasePolicyNode(object):
 
         # Depth buffer stores aligned-depth messages and decodes them lazily.
         self.depth_buffer = SensorBuffer(
-            maxlen=300, max_delta=self.tracking_depth_max_delta
+            maxlen=300, max_delta=self.depth_max_delta_s
         )
         if self.depth_enabled:
-            self._tracking_depth_sub = rospy.Subscriber(
+            self._depth_raw_sub = rospy.Subscriber(
                 self.depth_topic,
                 depth_msg_type,
                 self._depth_raw_callback,
@@ -518,13 +518,13 @@ class BasePolicyNode(object):
                 tcp_nodelay=True,
             )
         else:
-            self._tracking_depth_sub = None
+            self._depth_raw_sub = None
 
         # Cloud buffer（存原始 PointCloud2，投影时惰性解码）
         self.cloud_buffer = SensorBuffer(
-            maxlen=200, max_delta=self.tracking_cloud_max_delta
+            maxlen=200, max_delta=self.cloud_max_delta_s
         )
-        self._tracking_cloud_sub = rospy.Subscriber(
+        self._cloud_raw_sub = rospy.Subscriber(
             self.cloud_topic,
             PointCloud2,
             self._cloud_raw_callback,
@@ -558,7 +558,7 @@ class BasePolicyNode(object):
             publish_rate=self.cloud_accumulator_publish_rate,
         )
 
-    # ──────────── 独立快通道回调（tracking 传感器，不参与 Frame 同步） ────────────
+    # ──────────── 独立快通道回调（感知传感器，不参与 Frame 同步） ────────────
 
     def _fast_rgb_callback(self, msg):
         """高帧率 RGB 回调，仅解码图像并缓存，不触发 Frame 同步。"""

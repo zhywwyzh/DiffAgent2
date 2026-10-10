@@ -41,6 +41,11 @@
 - **另一个仓库**（`<old-repo-root>`）=
   **DiffAgent2 旧版**。
 
+DiffAgent2 旧版的实际路径以仓库根目录 `.local.env` 中的 `OLD_REPO_ROOT`
+为唯一来源。研究或迁移前必须读取该配置；未配置时询问用户，禁止根据
+目录名猜测。实际路径只保存在被 Git 忽略的 `.local.env` 中，不写入纳入
+版本控制的文档。
+
 在文档、spec、issue 与对话中提到二者时，一律用“DiffAgent2 新版 /
 DiffAgent2 旧版”称呼，不混用路径或简称。
 
