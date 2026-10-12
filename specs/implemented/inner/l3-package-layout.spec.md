@@ -124,4 +124,4 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 tracking 按叶提案实施。`execution/skill_host.py` 读取感知缓存并通过 TrackHost 暴露只读端口，
 `tools/track/` 不导入 perception 或 ROS。推理服务及 HTTP 客户端归 track 家族。
 ROS 适配层可导入 `tools/track/ports.py` 的纯数据协议，不能导入技能流程实现。
-Elastic 的占据查询由 EGO 装配根直接注入，领域算法不依赖 ROS 消息或参数树。
+Elastic 的地图读取由 EGO 装配根直接注入；领域数据协议 MapView 归 Elastic，EGO 小图所有者生产一致快照。Elastic 不反向依赖 EGO 包，领域算法不依赖 ROS 消息或参数树。

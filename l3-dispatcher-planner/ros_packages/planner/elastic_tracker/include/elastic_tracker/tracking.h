@@ -1,5 +1,6 @@
 #pragma once
 #include <elastic_tracker/algorithm_config.h>
+#include <elastic_tracker/map_view.h>
 #include <planner_execution/execution_ports.h>
 #include <Eigen/Geometry>
 #include <memory>
@@ -7,13 +8,6 @@
 #include <vector>
 #include <optional>
 namespace elastic_tracker {
-/** EGO 原生占据查询；坐标单位为米，freeze 只冻结输出快照。 */
-struct MapPort {
-  double resolution;
-  std::function<bool(const Eigen::Vector3d&)> occupied;
-  std::function<bool()> ready;
-  std::function<void(bool)> freeze;
-};
 /** world 位姿；stamp 为传感器时间（秒），position 单位为米。 */
 struct Pose {
   double stamp;
@@ -42,7 +36,7 @@ struct Command {
  */
 class Tracking {
  public:
-  Tracking(MapPort map, AlgorithmConfig config, double min_height, double max_height);
+  Tracking(MapReader map, AlgorithmConfig config, double min_height, double max_height, std::string frame);
   ~Tracking();
   /** 建立有界执行；now 为当前源时间（秒），返回空字符串表示可准入。 */
   std::string startTracking(const planner_execution::TrackRequest& request, double now);

@@ -1,7 +1,7 @@
 #include <elastic_tracker/algorithm_config.h>
 #pragma once
 #include <planning/decomp_util/ellipsoid_decomp.h>
-#include <mapping/mapping.h>
+#include <elastic_tracker/map_view.h>
 
 #include <Eigen/Core>
 #include <iostream>
@@ -55,7 +55,7 @@ class Env {
   double t_start_;
 
   std::unordered_map<Eigen::Vector3i, NodePtr> visited_nodes_;
-  std::shared_ptr<mapping::OccGridMap> mapPtr_;
+  std::shared_ptr<const elastic_tracker::MapView> mapPtr_;
   std::vector<Node> storage_;
   NodePtr data_[MAX_MEMORY];
   double desired_dist_, theta_clearance_, tolerance_d_;
@@ -73,7 +73,7 @@ class Env {
       }
       auto ptr = data_[visited_nodes_.size()];
       ptr->idx = idx;
-      ptr->valid = !mapPtr_->isOccupied(idx);
+      ptr->valid = !!mapPtr_->flightFree(idx);
       ptr->state = UNVISITED;
       visited_nodes_[idx] = ptr;
       return ptr;
@@ -104,15 +104,15 @@ class Env {
     if (!debugDue()) {
       return;
     }
-    const Eigen::Vector3d start_pos = mapPtr_->idx2pos(start_idx);
-    const Eigen::Vector3d end_pos = mapPtr_->idx2pos(end_idx);
+    const Eigen::Vector3d start_pos = mapPtr_->center(start_idx);
+    const Eigen::Vector3d end_pos = mapPtr_->center(end_idx);
     std::cout << "[env][" << tag << "][" << reason << "]"
               << " start_idx=[" << start_idx.transpose() << "]"
               << " end_idx=[" << end_idx.transpose() << "]"
               << " start_pos=[" << start_pos.transpose() << "]"
               << " end_pos=[" << end_pos.transpose() << "]"
-              << " start_occupied=" << mapPtr_->isOccupied(start_idx)
-              << " end_occupied=" << mapPtr_->isOccupied(end_idx)
+              << " start_occupied=" << !mapPtr_->flightFree(start_idx)
+              << " end_occupied=" << !mapPtr_->flightFree(end_idx)
               << " ray_valid=" << checkRayValid(start_pos, end_pos)
               << " visited=" << visited_nodes_.size()
               << " max_memory=" << MAX_MEMORY
@@ -123,10 +123,10 @@ class Env {
               << " desired_dist=" << desired_dist_
               << " tolerance_d=" << tolerance_d_;
     if (curPtr != nullptr) {
-      const Eigen::Vector3d cur_pos = mapPtr_->idx2pos(curPtr->idx);
+      const Eigen::Vector3d cur_pos = mapPtr_->center(curPtr->idx);
       std::cout << " current_idx=[" << curPtr->idx.transpose() << "]"
                 << " current_pos=[" << cur_pos.transpose() << "]"
-                << " current_occupied=" << mapPtr_->isOccupied(curPtr->idx)
+                << " current_occupied=" << !mapPtr_->flightFree(curPtr->idx)
                 << " current_g=" << curPtr->g
                 << " current_h=" << curPtr->h
                 << " idx_dist_to_end=" << (end_idx - curPtr->idx).norm();
@@ -135,7 +135,8 @@ class Env {
   }
 
  public:
-  Env(const elastic_tracker::AlgorithmConfig& config, std::shared_ptr<mapping::OccGridMap> mapPtr)
+  void setMap(std::shared_ptr<const elastic_tracker::MapView> map) { mapPtr_=std::move(map); }
+  Env(const elastic_tracker::AlgorithmConfig& config, std::shared_ptr<const elastic_tracker::MapView> mapPtr)
       : mapPtr_(std::move(mapPtr)), storage_(MAX_MEMORY), desired_dist_(config.follow_distance_m),
         theta_clearance_(config.visibility_angle_rad), tolerance_d_(config.distance_tolerance_m) {
     for (int i = 0; i < MAX_MEMORY; ++i) {
@@ -146,13 +147,14 @@ class Env {
   Env& operator=(const Env&) = delete;
 
   bool inline checkRayValid(const Eigen::Vector3d& p0, const Eigen::Vector3d& p1, double max_dist) const {
+    if (!mapPtr_->clearSegment(p0,p1)) return false;
     Eigen::Vector3d dp = p1 - p0;
     double dist = dp.norm();
     if (dist > max_dist) {
       return false;
     }
-    Eigen::Vector3i idx0 = mapPtr_->pos2idx(p0);
-    Eigen::Vector3i idx1 = mapPtr_->pos2idx(p1);
+    Eigen::Vector3i idx0 = mapPtr_->index(p0);
+    Eigen::Vector3i idx1 = mapPtr_->index(p1);
     Eigen::Vector3i d_idx = idx1 - idx0;
     Eigen::Vector3i step = d_idx.array().sign().cast<int>();
     Eigen::Vector3d delta_t;
@@ -166,7 +168,7 @@ class Env {
     t_max = t_max.cwiseProduct(delta_t);
     Eigen::Vector3i rayIdx = idx0;
     while ((rayIdx - idx1).squaredNorm() > 1) {
-      if (mapPtr_->isOccupied(rayIdx)) {
+      if (!mapPtr_->flightFree(rayIdx)) {
         return false;
       }
       // find the shortest t_max
@@ -180,9 +182,10 @@ class Env {
     return true;
   }
   bool inline checkRayValid(const Eigen::Vector3d& p0, const Eigen::Vector3d& p1) const {
+    if (!mapPtr_->clearSegment(p0,p1)) return false;
     Eigen::Vector3d dp = p1 - p0;
-    Eigen::Vector3i idx0 = mapPtr_->pos2idx(p0);
-    Eigen::Vector3i idx1 = mapPtr_->pos2idx(p1);
+    Eigen::Vector3i idx0 = mapPtr_->index(p0);
+    Eigen::Vector3i idx1 = mapPtr_->index(p1);
     Eigen::Vector3i d_idx = idx1 - idx0;
     Eigen::Vector3i step = d_idx.array().sign().cast<int>();
     Eigen::Vector3d delta_t;
@@ -196,7 +199,7 @@ class Env {
     t_max = t_max.cwiseProduct(delta_t);
     Eigen::Vector3i rayIdx = idx0;
     while ((rayIdx - idx1).squaredNorm() > 1) {
-      if (mapPtr_->isOccupied(rayIdx)) {
+      if (!mapPtr_->flightFree(rayIdx)) {
         return false;
       }
       // find the shortest t_max
@@ -229,8 +232,8 @@ class Env {
     pc.clear();
     Eigen::Vector3d p0 = line.front();
     Eigen::Vector3d p1 = line.back();
-    Eigen::Vector3i idx0 = mapPtr_->pos2idx(p0);
-    Eigen::Vector3i idx1 = mapPtr_->pos2idx(p1);
+    Eigen::Vector3i idx0 = mapPtr_->index(p0);
+    Eigen::Vector3i idx1 = mapPtr_->index(p1);
     Eigen::Vector3i d_idx = idx1 - idx0;
     Eigen::Vector3i step = d_idx.array().sign().cast<int>();
     Eigen::Vector3d delta_t;
@@ -239,8 +242,8 @@ class Env {
     for (tmp_p.x() = idx0.x() - margin.x(); tmp_p.x() <= idx0.x() + margin.x(); ++tmp_p.x()) {
       for (tmp_p.y() = idx0.y() - margin.y(); tmp_p.y() <= idx0.y() + margin.y(); ++tmp_p.y()) {
         for (tmp_p.z() = idx0.z() - margin.z(); tmp_p.z() <= idx0.z() + margin.z(); ++tmp_p.z()) {
-          if (mapPtr_->isOccupied(tmp_p)) {
-            pc.push_back(mapPtr_->idx2pos(tmp_p));
+          if (!mapPtr_->flightFree(tmp_p)) {
+            pc.push_back(mapPtr_->center(tmp_p));
           }
         }
       }
@@ -270,8 +273,8 @@ class Env {
       for (tmp_p.x() = center.x() - margin.x(); tmp_p.x() <= center.x() + margin.x(); ++tmp_p.x()) {
         for (tmp_p.y() = center.y() - margin.y(); tmp_p.y() <= center.y() + margin.y(); ++tmp_p.y()) {
           for (tmp_p.z() = center.z() - margin.z(); tmp_p.z() <= center.z() + margin.z(); ++tmp_p.z()) {
-            if (mapPtr_->isOccupied(tmp_p)) {
-              pc.push_back(mapPtr_->idx2pos(tmp_p));
+            if (!mapPtr_->flightFree(tmp_p)) {
+              pc.push_back(mapPtr_->center(tmp_p));
             }
           }
         }
@@ -397,30 +400,9 @@ class Env {
   
   
 
-  bool rayValid(const Eigen::Vector3i& idx0, const Eigen::Vector3i& idx1) {
-    Eigen::Vector3i d_idx = idx1 - idx0;
-    Eigen::Vector3i step = d_idx.array().sign().cast<int>();
-    Eigen::Vector3d delta_t;
-    for (int i = 0; i < 3; ++i) {
-      delta_t(i) = d_idx(i) == 0 ? std::numeric_limits<double>::max() : 1.0 / std::fabs(d_idx(i));
-    }
-    Eigen::Vector3d t_max(0.5, 0.5, 0.5);
-    t_max = t_max.cwiseProduct(delta_t);
-    Eigen::Vector3i rayIdx = idx0;
-    while ((rayIdx - idx1).squaredNorm() > 1) {
-      if (mapPtr_->isOccupied(rayIdx)) {
-        return false;
-      }
-      // find the shortest t_max
-      int s_dim = 0;
-      for (int i = 1; i < 3; ++i) {
-        s_dim = t_max(i) < t_max(s_dim) ? i : s_dim;
-      }
-      rayIdx(s_dim) += step(s_dim);
-      t_max(s_dim) += delta_t(s_dim);
-    }
-    return true;
-  };
+  bool rayValid(const Eigen::Vector3i& start, const Eigen::Vector3i& target) const {
+    return mapPtr_->clearSegment(mapPtr_->center(start),mapPtr_->center(target),true);
+  }
 
   inline bool findVisiblePath(const Eigen::Vector3i& start_idx,
                               const Eigen::Vector3i& end_idx,
@@ -543,20 +525,23 @@ class Env {
                               std::vector<Eigen::Vector3d>& way_pts,
                               std::vector<Eigen::Vector3d>& path) {
     t_start_ = elastic_tracker::monotonicSeconds();
-    Eigen::Vector3i start_idx = mapPtr_->pos2idx(start_p);
+    if (!mapPtr_->flightFree(start_p)) return false;
+    Eigen::Vector3i start_idx = mapPtr_->index(start_p);
     std::vector<Eigen::Vector3i> idx_path;
     path.push_back(start_p);
     for (const auto& target : targets) {
-      Eigen::Vector3i end_idx = mapPtr_->pos2idx(target);
+      const auto state=mapPtr_->state(target,false);
+      if (state==elastic_tracker::MapState::Outside || state==elastic_tracker::MapState::Boundary) return false;
+      Eigen::Vector3i end_idx = mapPtr_->index(target);
       idx_path.clear();
       if (!findVisiblePath(start_idx, end_idx, idx_path)) {
         return false;
       }
       start_idx = idx_path.back();
       for (const auto& idx : idx_path) {
-        path.push_back(mapPtr_->idx2pos(idx));
+        path.push_back(mapPtr_->center(idx));
       }
-      way_pts.push_back(mapPtr_->idx2pos(start_idx));
+      way_pts.push_back(mapPtr_->center(start_idx));
     }
     return true;
   }
@@ -577,7 +562,7 @@ class Env {
       Eigen::Vector3d p = center;
       p.x() += desired_dist_ * cos(t_l);
       p.y() += desired_dist_ * sin(t_l);
-      if (!checkRayValid(p, center)) {
+      if (!mapPtr_->flightFree(p) || !mapPtr_->clearSegment(p, center, true)) {
         t_l += d_theta;
         break;
       }
@@ -586,7 +571,7 @@ class Env {
       Eigen::Vector3d p = center;
       p.x() += desired_dist_ * cos(t_r);
       p.y() += desired_dist_ * sin(t_r);
-      if (!checkRayValid(p, center)) {
+      if (!mapPtr_->flightFree(p) || !mapPtr_->clearSegment(p, center, true)) {
         t_r -= d_theta;
         break;
       }
@@ -637,8 +622,9 @@ class Env {
   inline bool short_astar(const Eigen::Vector3d& start_p,
                           const Eigen::Vector3d& end_p,
                           std::vector<Eigen::Vector3d>& path) {
-    Eigen::Vector3i start_idx = mapPtr_->pos2idx(start_p);
-    Eigen::Vector3i end_idx = mapPtr_->pos2idx(end_p);
+    if (!mapPtr_->flightFree(start_p)) return false;
+    Eigen::Vector3i start_idx = mapPtr_->index(start_p);
+    Eigen::Vector3i end_idx = mapPtr_->index(end_p);
     if (start_idx == end_idx) {
       path.clear();
       path.push_back(start_p);
@@ -741,7 +727,7 @@ class Env {
     }
     if (ret) {
       for (NodePtr ptr = curPtr->parent; ptr->parent != nullptr; ptr = ptr->parent) {
-        path.push_back(mapPtr_->idx2pos(ptr->idx));
+        path.push_back(mapPtr_->center(ptr->idx));
       }
       std::reverse(path.begin(), path.end());
     }
@@ -757,7 +743,7 @@ class Env {
     for (int i = 0; i < M - 1; ++i) {
       const Eigen::Vector3d& p0 = path.back();
       const Eigen::Vector3d& p1 = wayPts[i + 1];
-      if (mapPtr_->pos2idx(p0) == mapPtr_->pos2idx(p1)) {
+      if (mapPtr_->index(p0) == mapPtr_->index(p1)) {
         continue;
       }
       if (!checkRayValid(p0, p1, 1.5)) {

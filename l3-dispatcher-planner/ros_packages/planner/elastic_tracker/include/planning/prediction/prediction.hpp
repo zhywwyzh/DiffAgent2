@@ -1,7 +1,7 @@
 #include <elastic_tracker/algorithm_config.h>
 #pragma once
 
-#include <mapping/mapping.h>
+
 
 #include <Eigen/Core>
 #include <iostream>
@@ -36,13 +36,12 @@ struct Predict {
   bool debug_search_ = false;
   double debug_throttle_ = 0.5;
   double last_debug_log_{0};
-  mapping::OccGridMap map;
   std::vector<Node> storage;
   NodePtr data[MAX_MEMORY];
   int stack_top;
 
   inline bool isValid(const Eigen::Vector3d& p, const Eigen::Vector3d& v) const {
-    return (v.norm() < vmax) && (!map.isOccupied(p));
+    return p.allFinite() && v.allFinite() && v.norm() < vmax;
   }
 
   inline bool debugDue() {
@@ -79,8 +78,7 @@ struct Predict {
       std::cout << " current_p=[" << curPtr->p.transpose() << "]"
                 << " current_v=[" << curPtr->v.transpose() << "]"
                 << " current_t=" << curPtr->t
-                << " current_speed=" << curPtr->v.norm()
-                << " current_occupied=" << map.isOccupied(curPtr->p);
+                << " current_speed=" << curPtr->v.norm();
     }
     std::cout << std::endl;
   }
@@ -94,10 +92,6 @@ struct Predict {
   }
   Predict(const Predict&) = delete;
   Predict& operator=(const Predict&) = delete;
-  inline void setMap(const mapping::OccGridMap& _map) {
-    map = _map;
-    // map.inflate_last();
-  }
 
   inline bool predict(const Eigen::Vector3d& target_p,
                       const Eigen::Vector3d& target_v,

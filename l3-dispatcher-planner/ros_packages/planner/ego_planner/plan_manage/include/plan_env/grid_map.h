@@ -3,6 +3,8 @@
 
 #include <algorithm>
 #include <atomic>
+#include <array>
+#include <elastic_tracker/map_view.h>
 #include <thread>
 #include <mutex>
 #include <chrono>
@@ -367,6 +369,8 @@ public:
    * @return Local update range vector [m]
    */
   inline Eigen::Vector3d getLocalMapRange() const { return mp_.local_update_range3d_; };
+  void enableTrackingMap();
+  std::shared_ptr<const elastic_tracker::MapView> readTrackingMap();
   void LockCopyToOutputInfMap(bool lock);
   void LockCopyToOutputAllMap(bool lock);
   void resetOccupancyToUnknown();
@@ -451,6 +455,13 @@ private:
   std::atomic<uint64_t> last_cloud_projected_count_{0};
   std::atomic<double> last_cloud_odom_skew_{0.0};
   std::mutex mtx_vis_, mtx_memcpy_inf_, mtx_memcpy_;
+  // 仅 tracking 小图启用；不修改 EGO 导航的占据判断。
+  // bit 0：历史自由证据；bit 1/2：当前融合批次真实射线 miss/hit。
+  std::vector<uint8_t> tracking_free_;
+  std::array<std::weak_ptr<const elastic_tracker::MapView>,2> tracking_views_;
+  uint64_t tracking_revision_{0}, tracking_reset_epoch_{0};
+  double tracking_input_time_{0}, tracking_source_time_{0}, tracking_fusion_time_{0}, tracking_fusion_monotonic_{0};
+  void recordTrackingFusion(double source_time);
 
   enum
   {
@@ -505,7 +516,7 @@ private:
   void CopyToOutputMap();
 
   inline void changeInfBuf(const bool dir, const int inf_buf_idx, const Eigen::Vector3i &global_idx);
-  inline int setCacheOccupancy(Eigen::Vector3d pos, int occ);
+  inline int setCacheOccupancy(Eigen::Vector3d pos, int occ, bool sensor_evidence=false);
   Eigen::Vector3d closetPointInMap(const Eigen::Vector3d &pt, const Eigen::Vector3d &camera_pt);
   void initMapBoundary();
 
@@ -545,7 +556,7 @@ private:
 /* ============================== definition of inline functions
  * ============================== */
 
-inline int GridMap::setCacheOccupancy(Eigen::Vector3d pos, int occ)
+inline int GridMap::setCacheOccupancy(Eigen::Vector3d pos, int occ, bool sensor_evidence)
 {
   // if (occ != 1 && occ != 0)
   //   return INVALID_IDX;
@@ -553,6 +564,8 @@ inline int GridMap::setCacheOccupancy(Eigen::Vector3d pos, int occ)
   Eigen::Vector3i id = pos2GlobalIdx(pos);
   int idx_ctns = globalIdx2BufIdx(id);
 
+  if (sensor_evidence && !tracking_free_.empty())
+    tracking_free_[idx_ctns] |= occ == 1 ? 4 : 2;
   md_.count_hit_and_miss_[idx_ctns] += 1;
 
   if (md_.count_hit_and_miss_[idx_ctns] == 1)
@@ -600,6 +613,9 @@ inline void GridMap::changeInfBuf(const bool dir, const int inf_buf_idx, const E
             {
               ROS_ERROR("A negtive value of nearby obstacle number! reset the map.");
               std::fill(md_.occ_buf_.begin(), md_.occ_buf_.end(), mp_.clamp_min_log_);
+              std::fill(tracking_free_.begin(), tracking_free_.end(), 0);
+              ++tracking_reset_epoch_;
+              tracking_fusion_time_ = tracking_fusion_monotonic_ = 0;
               std::fill(md_.occ_buf_inf_.begin(), md_.occ_buf_inf_.end(), GRID_MAP_UNKNOWN_FLAG);
               std::fill(md_.count_hit_and_miss_.begin(), md_.count_hit_and_miss_.end(), 0);
               std::fill(md_.count_hit_.begin(), md_.count_hit_.end(), 0);
@@ -635,6 +651,9 @@ inline void GridMap::changeInfBuf(const bool dir, const int inf_buf_idx, const E
           {
             ROS_ERROR("Negtive value (%d) of nearby obstacle number! reset the map.", md_.occ_buf_inf_[id_inf_buf]);
             std::fill(md_.occ_buf_.begin(), md_.occ_buf_.end(), mp_.clamp_min_log_);
+              std::fill(tracking_free_.begin(), tracking_free_.end(), 0);
+              ++tracking_reset_epoch_;
+              tracking_fusion_time_ = tracking_fusion_monotonic_ = 0;
             std::fill(md_.occ_buf_inf_.begin(), md_.occ_buf_inf_.end(), GRID_MAP_UNKNOWN_FLAG);
             std::fill(md_.count_hit_and_miss_.begin(), md_.count_hit_and_miss_.end(), 0);
             std::fill(md_.count_hit_.begin(), md_.count_hit_.end(), 0);

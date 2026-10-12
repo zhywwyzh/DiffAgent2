@@ -1,7 +1,7 @@
 #include <elastic_tracker/tracking_ros.h>
 #include <stdexcept>
 namespace elastic_tracker {
-TrackingRos::TrackingRos(ros::NodeHandle nh,MapPort map,planner_execution::WaypointActionServer& execution)
+TrackingRos::TrackingRos(ros::NodeHandle nh,MapReader map,planner_execution::WaypointActionServer& execution)
     :nh_(nh),execution_(execution),output_(execution.output()) {
   nh_.setCallbackQueue(&queue_);
   AlgorithmConfig c; ros::NodeHandle params("/elastic_tracker");
@@ -14,7 +14,7 @@ TrackingRos::TrackingRos(ros::NodeHandle nh,MapPort map,planner_execution::Waypo
   double low=0.3,high=3.0;
   nh_.getParam("/planner_execution/min_height",low); nh_.getParam("/planner_execution/max_height",high);
   nh_.getParam("/planner_execution/world_frame",frame_);
-  tracking_=std::make_unique<Tracking>(std::move(map),c,low,high);
+  tracking_=std::make_unique<Tracking>(std::move(map),c,low,high,frame_);
   planner_execution::TrackingBackend backend;
   backend.start=[this](const planner_execution::TrackRequest& r){return tracking_->startTracking(r,ros::Time::now().toSec());};
   backend.observation=[this](const planner_execution::TrackObservation& o){tracking_->receiveObservation(o);};

@@ -1,4 +1,5 @@
 #include "plan_env/grid_map.h"
+#include <elastic_tracker/algorithm_config.h>
 #include <ros/time.h>
 
 using namespace std;
@@ -212,6 +213,11 @@ void GridMap::paramAdjust(double reso, double rangex, double rangey, double rang
   mtx_.lock();
   mtx_vis_.lock();
 
+  if (!tracking_free_.empty()) {
+    tracking_free_.clear();
+    ++tracking_reset_epoch_;
+    tracking_fusion_time_ = tracking_fusion_monotonic_ = 0;
+  }
   mp_.resolution_ = reso;
   mp_.local_update_range3d_(0) = rangex;
   mp_.local_update_range3d_(1) = rangey;
@@ -312,6 +318,7 @@ void GridMap::updateOccupancy(void *obj)
     t4 = ros::Time::now();
 
     map->clearAndInflateLocalMap(); // md_.occ_buf_inf_ is required for hysteresis loop
+    map->recordTrackingFusion(map->tracking_input_time_);
     map->CopyToOutputMap();
     t5 = ros::Time::now();
 
@@ -408,6 +415,7 @@ void GridMap::updateOccupancyPC(void *obj, const sensor_msgs::PointCloud2ConstPt
     t4 = ros::Time::now();
 
     map->clearAndInflateLocalMap(); // md_.occ_buf_inf_ is required for hysteresis loop
+    map->recordTrackingFusion(img->header.stamp.toSec());
     map->CopyToOutputMap();
     t5 = ros::Time::now();
 
@@ -576,6 +584,7 @@ void GridMap::fadingCallback(void *obj)
         }
       }
     }
+    if (!map->tracking_free_.empty()) ++map->tracking_revision_;
     map->mtx_.unlock();
     ros::Time t1 = ros::Time::now();
     int milli_time = (int)((t1 - t0).toSec() * 1000);
@@ -616,6 +625,7 @@ void GridMap::depthPoseCallback(const sensor_msgs::ImageConstPtr &img,
 
     mtx_.lock();
     cv_ptr->image.copyTo(md_.depth_image_);
+    tracking_input_time_=img->header.stamp.toSec();
 
     if ((int)md_.proj_points_.size() != md_.depth_image_.cols * md_.depth_image_.rows / mp_.skip_pixel_ / mp_.skip_pixel_)
       md_.proj_points_.resize(md_.depth_image_.cols * md_.depth_image_.rows / mp_.skip_pixel_ / mp_.skip_pixel_);
@@ -666,11 +676,6 @@ void GridMap::depthOdomCallback(const sensor_msgs::ImageConstPtr &img,
     body2world(2, 3) = odom->pose.pose.position.z;
     body2world(3, 3) = 1.0;
 
-    Eigen::Matrix4d cam_T = body2world * md_.cam2body_;
-    md_.camera_pos_(0) = cam_T(0, 3);
-    md_.camera_pos_(1) = cam_T(1, 3);
-    md_.camera_pos_(2) = cam_T(2, 3);
-    md_.camera_r_m_ = cam_T.block<3, 3>(0, 0);
 
     /* get depth image */
     cv_bridge::CvImagePtr cv_ptr;
@@ -681,7 +686,14 @@ void GridMap::depthOdomCallback(const sensor_msgs::ImageConstPtr &img,
     }
 
     mtx_.lock();
+    Eigen::Matrix4d cam_T = body2world * md_.cam2body_;
+    md_.camera_pos_(0) = cam_T(0, 3);
+    md_.camera_pos_(1) = cam_T(1, 3);
+    md_.camera_pos_(2) = cam_T(2, 3);
+    md_.camera_r_m_ = cam_T.block<3, 3>(0, 0);
+
     cv_ptr->image.copyTo(md_.depth_image_);
+    tracking_input_time_=img->header.stamp.toSec();
     md_.gray_image_ = cv::Mat::zeros(md_.depth_image_.rows, md_.depth_image_.cols, CV_8UC1);
 
     if ((int)md_.proj_points_.size() != md_.depth_image_.cols * md_.depth_image_.rows / mp_.skip_pixel_ / mp_.skip_pixel_)
@@ -1016,6 +1028,7 @@ void GridMap::updateESDF3d()
 
 void GridMap::moveRingBuffer()
 {
+  if (!tracking_free_.empty()) ++tracking_revision_;
   if (!mp_.have_initialized_)
     initMapBoundary();
 
@@ -1271,19 +1284,19 @@ void GridMap::raycastProcess()
     if (!isInBuf(end_p))
     {
       end_p = closetPointInMap(end_p, origin_p);
-      vox_idx = setCacheOccupancy(end_p, 0);
+      vox_idx = setCacheOccupancy(end_p, 0, true);
     }
     //! 2. Inside the Map
     else
     {
       //! 2.1. Inside the sensor range
       if((end_p - origin_p).norm() < mp_.depth_filter_maxdist_){
-        vox_idx = setCacheOccupancy(end_p, 1);
+        vox_idx = setCacheOccupancy(end_p, 1, true);
       }
       //! 2.2. Out of the sensor range
       else{
         end_p = origin_p + (end_p - origin_p).normalized() * mp_.depth_filter_maxdist_;
-        vox_idx = setCacheOccupancy(end_p, 0);
+        vox_idx = setCacheOccupancy(end_p, 0, true);
       }
     }
 
@@ -1308,7 +1321,7 @@ void GridMap::raycastProcess()
       Eigen::Vector3d tmp = (ray_pt + Eigen::Vector3d(0.5, 0.5, 0.5)) * mp_.resolution_;
 
       pts_num++;
-      vox_idx = setCacheOccupancy(tmp, 0);
+      vox_idx = setCacheOccupancy(tmp, 0, true);
 
       // if (vox_idx != INVALID_IDX)
       // {
@@ -1390,6 +1403,9 @@ void GridMap::raycastProcess()
     // float log_odds_update =
     //     md_.count_hit_[idx_ctns] >= md_.count_hit_and_miss_[idx_ctns] - md_.count_hit_[idx_ctns] ? mp_.prob_hit_log_ : mp_.prob_miss_log_;
 
+    if (!tracking_free_.empty())
+      tracking_free_[idx_ctns] = (tracking_free_[idx_ctns] & 4) ? 0 :
+        ((tracking_free_[idx_ctns] & 2) ? 1 : (tracking_free_[idx_ctns] & 1));
     md_.count_hit_[idx_ctns] = md_.count_hit_and_miss_[idx_ctns] = 0;
 
     // if (log_odds_update >= 0 && md_.occ_buf_[idx_ctns] >= mp_.clamp_max_log_)    // 为啥要加这个判断，直接更新不就行了，降低代码可读性还导致frontier bug TMD
@@ -1476,6 +1492,10 @@ void GridMap::resetOccupancyToUnknown()
   std::lock_guard<std::mutex> output_lock(mtx_memcpy_);
   std::lock_guard<std::mutex> output_inf_lock(mtx_memcpy_inf_);
 
+  ++tracking_reset_epoch_;
+  ++tracking_revision_;
+  tracking_fusion_time_ = tracking_fusion_monotonic_ = 0;
+  std::fill(tracking_free_.begin(), tracking_free_.end(), 0);
   const float unknown_occ = mp_.clamp_min_log_ - mp_.unknown_flag_;
   std::fill(md_.occ_buf_.begin(), md_.occ_buf_.end(), unknown_occ);
   std::fill(md_.occ_buf_output_.begin(), md_.occ_buf_output_.end(), unknown_occ);
@@ -1590,6 +1610,7 @@ void GridMap::clearBuffer(char casein, int bound)
         Eigen::Vector3i id_global(x, y, z);
         int id_buf = globalIdx2BufIdx(id_global);
         int id_buf_inf = globalIdx2InfBufIdx(id_global);
+        if (!tracking_free_.empty()) tracking_free_[id_buf] = 0;
         md_.count_hit_[id_buf] = 0;
         md_.count_hit_and_miss_[id_buf] = 0;
         md_.hit_accum_[id_buf] = 0;
@@ -2031,3 +2052,69 @@ void MapManager::resetAllMapsToUnknown()
 }
 } // namespace plan_env
 } // namespace ego_planner
+
+namespace ego_planner { namespace plan_env {
+void GridMap::enableTrackingMap()
+{
+  std::lock_guard<std::mutex> lock(mtx_);
+  tracking_free_.assign(md_.occ_buf_.size(), 0);
+  ++tracking_reset_epoch_;
+  tracking_fusion_time_ = tracking_fusion_monotonic_ = 0;
+}
+
+void GridMap::recordTrackingFusion(double source_time)
+{
+  if (tracking_free_.empty()) return;
+  if (tracking_source_time_>0 && source_time<tracking_source_time_) {
+    ++tracking_reset_epoch_;
+    std::fill(tracking_free_.begin(),tracking_free_.end(),0);
+  }
+  tracking_source_time_=source_time;
+  ++tracking_revision_;
+  tracking_fusion_time_ = ros::Time::now().toSec();
+  tracking_fusion_monotonic_ = elastic_tracker::monotonicSeconds();
+}
+
+std::shared_ptr<const elastic_tracker::MapView> GridMap::readTrackingMap()
+{
+  std::unique_lock<std::mutex> lock(mtx_, std::try_to_lock);
+  if (!lock || tracking_free_.size()!=md_.occ_buf_.size() || tracking_free_.empty() ||
+      !mp_.have_initialized_ || md_.target_pos_update_ || tracking_fusion_time_<=0) return {};
+  auto slot = std::find_if(tracking_views_.begin(), tracking_views_.end(),
+                           [](const auto& view){ return view.expired(); });
+  if (slot==tracking_views_.end()) return {};
+  auto view=std::make_shared<elastic_tracker::MapView>();
+  view->resolution=mp_.resolution_;
+  view->origin=md_.rb_lb3i_;
+  view->size=md_.rb_size3i_;
+  view->frame="world";
+  view->revision=tracking_revision_;
+  view->reset_epoch=tracking_reset_epoch_;
+  view->source_time=tracking_source_time_;
+  view->fusion_time=tracking_fusion_time_;
+  view->fusion_monotonic=tracking_fusion_monotonic_;
+  view->timeout_s=mp_.odom_depth_timeout_;
+  view->virtual_wall=mp_.enable_virtual_walll_;
+  view->ground=mp_.virtual_ground_;
+  view->ceiling=mp_.virtual_ceil_;
+  view->cells.resize(md_.occ_buf_.size());
+  size_t offset=0;
+  for(int z=0;z<view->size.z();++z)
+    for(int y=0;y<view->size.y();++y)
+      for(int x=0;x<view->size.x();++x) {
+        const Eigen::Vector3i id=view->origin+Eigen::Vector3i(x,y,z);
+        const size_t base=globalIdx2BufIdx(id), inflated=globalIdx2InfBufIdx(id);
+        const auto inf=md_.occ_buf_inf_[inflated];
+        const bool occupied=inf>=GRID_MAP_OBS_FLAG;
+        uint8_t value=0;
+        if(tracking_free_[base] && !occupied && md_.occ_buf_[base]<mp_.min_occupancy_log_)
+          value|=elastic_tracker::MapView::ObservedFree;
+        if(occupied) value|=elastic_tracker::MapView::BaseObstacle;
+        if(inf>0) value|=elastic_tracker::MapView::InflatedObstacle;
+        view->cells[offset++]=value;
+      }
+  *slot=view;
+  return view;
+}
+
+} } // namespace ego_planner::plan_env

@@ -8,7 +8,7 @@
 namespace elastic_tracker {
 class TrackingRos {
  public:
-  TrackingRos(ros::NodeHandle nh, MapPort map, planner_execution::WaypointActionServer& execution);
+  TrackingRos(ros::NodeHandle nh, MapReader map, planner_execution::WaypointActionServer& execution);
   ~TrackingRos();
   void shutdown();
  private:

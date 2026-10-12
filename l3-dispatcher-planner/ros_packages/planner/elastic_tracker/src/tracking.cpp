@@ -11,17 +11,12 @@
 namespace elastic_tracker {
 namespace {
 planner_execution::Vec3 array(const Eigen::Vector3d& v) { return {v.x(),v.y(),v.z()}; }
-struct Freeze {
-  MapPort& map;
-  explicit Freeze(MapPort& value):map(value) { map.freeze(true); }
-  ~Freeze() { map.freeze(false); }
-};
 }
 struct Tracking::Impl {
-  MapPort map;
+  MapReader read_map;
+  std::string frame;
   AlgorithmConfig config;
   double floor, ceiling;
-  std::shared_ptr<mapping::OccGridMap> grid;
   std::unique_ptr<env::Env> environment;
   std::unique_ptr<prediction::Predict> prediction;
   std::unique_ptr<traj_opt::TrajOpt> optimizer;
@@ -34,17 +29,14 @@ struct Tracking::Impl {
   planner_execution::TrackRequest request;
   planner_execution::TrackFeedback feedback;
   std::shared_ptr<Trajectory> trajectory;
-  Eigen::Vector3d observed_target{Eigen::Vector3d::Zero()};
-  bool mask_target{false};
   Eigen::Vector3d hold_position{Eigen::Vector3d::Zero()}, target{Eigen::Vector3d::Zero()};
   double trajectory_stamp{0}, started{0}, last_plan{0}, yaw{0}, last_sample{0};
-  uint64_t sequence{0}, generation{0};
+  uint64_t sequence{0}, generation{0}, map_epoch{0};
   bool active{false};
   std::atomic<bool> clock_reset{false};
-  std::atomic<double> motion_until{0}, wall_motion_until{0};
-  Impl(MapPort mapPort,AlgorithmConfig configuration,double low,double high):map(std::move(mapPort)),config(configuration),floor(low),ceiling(high) {
-    if(config.samples<2 || config.samples>128 || !std::isfinite(map.resolution) || map.resolution<=0 ||
-        !map.occupied || !map.ready || !map.freeze || !std::isfinite(floor) || !std::isfinite(ceiling) || floor>ceiling)
+  std::atomic<double> motion_until{0}, wall_motion_until{0}, map_until{0}, wall_map_until{0};
+  Impl(MapReader reader,AlgorithmConfig configuration,double low,double high,std::string world):read_map(std::move(reader)),frame(std::move(world)),config(configuration),floor(low),ceiling(high) {
+    if(config.samples<2 || config.samples>128 || !read_map || frame.empty() || !std::isfinite(floor) || !std::isfinite(ceiling) || floor>ceiling)
       throw std::invalid_argument("invalid_elastic_config");
     for(double value:{config.max_speed_m_s,config.max_acceleration_m_s2,config.time_weight,config.position_weight,
         config.tracking_weight,config.visibility_weight,config.velocity_weight,config.acceleration_weight,
@@ -53,19 +45,18 @@ struct Tracking::Impl {
       if(!std::isfinite(value) || value<=0) throw std::invalid_argument("invalid_elastic_config");
     if(config.horizon_s/config.prediction_step_s<2 || config.horizon_s/config.prediction_step_s>100)
       throw std::invalid_argument("invalid_elastic_horizon");
-    grid=std::make_shared<mapping::OccGridMap>();
-    grid->resolution=map.resolution;
-    grid->occupied=[this](const Eigen::Vector3d& p){if(p.z()<floor || p.z()>ceiling) return true;
-      const Eigen::Vector3d delta=p-observed_target;
-      if(mask_target && std::abs(delta.x())<0.5 && std::abs(delta.y())<0.5 && std::abs(delta.z())<1.0) return false;
-      return map.occupied(p);};
+
   }
 };
-Tracking::Tracking(MapPort map,AlgorithmConfig config,double low,double high):impl_(new Impl(std::move(map),config,low,high)) {}
+Tracking::Tracking(MapReader map,AlgorithmConfig config,double low,double high,std::string frame):impl_(new Impl(std::move(map),config,low,high,std::move(frame))) {}
 Tracking::~Tracking()=default;
 std::string Tracking::startTracking(const planner_execution::TrackRequest& request,double now) {
   auto& implementation=*impl_;
-  if (!implementation.map.ready()) return "tracking_map_unavailable";
+  if (implementation.environment) implementation.environment->setMap({});
+  const double read_started=monotonicSeconds();
+  auto sourceNow=[&](){return now+monotonicSeconds()-read_started;};
+  auto map=implementation.read_map();
+  if (!map || map->frame!=implementation.frame || !map->fresh(sourceNow(),monotonicSeconds())) return "tracking_map_unavailable";
   {
     std::lock_guard<std::mutex> lock(implementation.sensors);
     if (!implementation.latest_pose || now-implementation.latest_pose->stamp<0 ||
@@ -75,11 +66,13 @@ std::string Tracking::startTracking(const planner_execution::TrackRequest& reque
     auto forward=pose.orientation*Eigen::Vector3d::UnitX();
     implementation.yaw=std::atan2(forward.y(),forward.x());
   }
-  implementation.mask_target=false;
+  implementation.map_epoch=map->reset_epoch;
+  implementation.map_until=std::min(map->source_time,map->fusion_time)+map->timeout_s;
+  implementation.wall_map_until=map->fusion_monotonic+map->timeout_s;
   implementation.request=request; implementation.config.follow_distance_m=request.follow_distance_m;
   implementation.config.distance_tolerance_m=request.distance_tolerance_m;
-  implementation.environment=std::make_unique<env::Env>(implementation.config,implementation.grid);
-  implementation.prediction=std::make_unique<prediction::Predict>(implementation.config); implementation.prediction->setMap(*implementation.grid);
+  implementation.environment=std::make_unique<env::Env>(implementation.config,map);
+  implementation.prediction=std::make_unique<prediction::Predict>(implementation.config);
   implementation.optimizer=std::make_unique<traj_opt::TrajOpt>(implementation.config);
   implementation.estimator.reset(); implementation.pending.reset(); implementation.feedback={}; implementation.sequence=0;
   implementation.clock_reset=false; implementation.started=monotonicSeconds(); implementation.last_plan=0;
@@ -127,7 +120,14 @@ void Tracking::receiveObservation(const planner_execution::TrackObservation& val
 std::string Tracking::planTracking(double now) {
   auto& implementation=*impl_;
   if (implementation.clock_reset) return "tracking_clock_reset";
-  if (!implementation.map.ready()) return "tracking_map_unavailable";
+  if (implementation.environment) implementation.environment->setMap({});
+  const double read_started=monotonicSeconds();
+  auto sourceNow=[&](){return now+monotonicSeconds()-read_started;};
+  auto map=implementation.read_map();
+  if (!map || map->frame!=implementation.frame || !map->fresh(sourceNow(),monotonicSeconds())) return "tracking_map_unavailable";
+  if (map->reset_epoch!=implementation.map_epoch) return "tracking_map_reset";
+  implementation.map_until=std::min(map->source_time,map->fusion_time)+map->timeout_s;
+  implementation.wall_map_until=map->fusion_monotonic+map->timeout_s;
   if (implementation.pending) {
     const auto b=*implementation.pending;
     if (now-b.stamp<0 || now-b.stamp>implementation.request.observation_timeout_s) implementation.pending.reset();
@@ -167,7 +167,6 @@ std::string Tracking::planTracking(double now) {
     if (monotonicSeconds()-implementation.started>implementation.request.observation_timeout_s) return "track_observation_lost";
     return "";
   }
-  implementation.observed_target=target; implementation.mask_target=true;
   implementation.feedback.position=array(target); implementation.feedback.velocity=array(velocity);
   if (now-implementation.last_plan<0.1) return "";
   implementation.last_plan=now;
@@ -183,7 +182,7 @@ std::string Tracking::planTracking(double now) {
       initial.col(0)=implementation.latest_pose->position;
     }
   }
-  Freeze freeze(implementation.map);
+  implementation.environment->setMap(map);
   std::vector<Eigen::Vector3d> predicted,path,waypoints,visible;
   std::vector<double> angles;
   if(!implementation.prediction->predict(target,velocity,predicted) || predicted.size()<2 ||
@@ -201,17 +200,27 @@ std::string Tracking::planTracking(double now) {
   if(!implementation.optimizer->generate_traj(initial,final,predicted,visible,angles,corridors,*trajectory)) return "track_unreachable";
   const double duration=trajectory->getTotalDuration();
   if(!std::isfinite(duration) || duration<=0) return "track_invalid_trajectory";
-  const double step=std::min(0.02,implementation.map.resolution/(2*implementation.config.max_speed_m_s));
+  const double step=std::min(0.02,map->resolution/(2*implementation.config.max_speed_m_s));
+  auto latest=implementation.read_map();
+  if (!latest || latest->frame!=implementation.frame || latest->reset_epoch!=map->reset_epoch ||
+      !latest->fresh(sourceNow(),monotonicSeconds()) || !map->fresh(sourceNow(),monotonicSeconds())) return "tracking_map_changed";
+  Eigen::Vector3d previous=trajectory->getPos(0);
   for(double t=0;;t=std::min(t+step,duration)) {
     const Eigen::Vector3d position=trajectory->getPos(t), velocity=trajectory->getVel(t), acceleration=trajectory->getAcc(t);
     if(!position.allFinite() || !velocity.allFinite() || !acceleration.allFinite() ||
         velocity.norm()>implementation.config.max_speed_m_s || acceleration.norm()>implementation.config.max_acceleration_m_s2)
       return "track_invalid_trajectory";
-    if(position.z()<implementation.floor || position.z()>implementation.ceiling || implementation.map.occupied(position)) return "track_trajectory_collision";
+    if(position.z()<implementation.floor || position.z()>implementation.ceiling || !map->flightFree(position)) return "track_trajectory_collision";
+    if(!latest->flightFree(position) || !map->clearSegment(previous,position) ||
+        !latest->clearSegment(previous,position)) return "track_trajectory_collision";
+    previous=position;
     if(t==duration) break;
   }
+  if (!latest->fresh(sourceNow(),monotonicSeconds())) return "tracking_map_stale";
   {
     std::lock_guard<std::mutex> lock(implementation.commands);
+    implementation.map_until=std::min(latest->source_time,latest->fusion_time)+latest->timeout_s;
+    implementation.wall_map_until=latest->fusion_monotonic+latest->timeout_s;
     implementation.trajectory=std::move(trajectory); implementation.trajectory_stamp=now;
   }
   return "";
@@ -222,7 +231,8 @@ std::optional<Command> Tracking::sampleCommand(double now) {
   if(!implementation.active) return {};
   Command command{}; command.generation=implementation.generation;
   if(!std::isfinite(now) || now>implementation.motion_until ||
-      monotonicSeconds()>implementation.wall_motion_until || implementation.clock_reset) { command.valid=false; return command; }
+      monotonicSeconds()>implementation.wall_motion_until || now>implementation.map_until ||
+      monotonicSeconds()>implementation.wall_map_until || implementation.clock_reset) { command.valid=false; return command; }
   Eigen::Vector3d p=implementation.hold_position;
   if(implementation.trajectory) {
     double t=now-implementation.trajectory_stamp;
