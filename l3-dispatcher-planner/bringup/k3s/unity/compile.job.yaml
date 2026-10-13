@@ -1,0 +1,5 @@
+{
+  "apiVersion": "batch/v1", "kind": "Job",
+  "metadata": {"name": "sim-compile"},
+  "spec": {"backoffLimit": 0, "template": {"spec": {"restartPolicy": "Never", "containers": [{"name": "compile"}]}}}
+}

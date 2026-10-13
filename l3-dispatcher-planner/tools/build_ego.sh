@@ -13,4 +13,8 @@ ln -sfn "$repo_root/ros_packages/planner/ego_planner/plan_manage" "$build_root/s
 ln -sfn "$repo_root/ros_packages/planner/elastic_tracker" "$build_root/src/elastic_tracker"
 ln -sfn "$repo_root/ros_packages/planner/planner_execution" "$build_root/src/planner_execution"
 ln -sfn "$repo_root/ros_packages/dispatcher" "$build_root/src/dispatcher"
+if [[ "${1:-}" == "--with-telemetry" ]]; then
+  ln -sfn "$repo_root/ros_packages/telemetry_bridge" "$build_root/src/telemetry_bridge"
+  shift
+fi
 exec catkin_make -C "$build_root" -j2 -DPYTHON_EXECUTABLE=/usr/bin/python3 -DCMAKE_BUILD_TYPE=Release "$@"

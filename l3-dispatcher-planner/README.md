@@ -1,15 +1,19 @@
 # l3 dispatcher 与 EGO 直连运行
 
-本轮已实现六个 `basic_flight.*` 工具。dispatcher 持有六态任务 FSM，经普通 ROS
-消息直接驱动 EGO，输出到 `/setpoint_cmd`；不启动 mission_executive 或任何 action
-转换节点。cmd 下游处理不属于此处交付范围。
+dispatcher 持有六态任务 FSM，经 planner 原生 `/planner/execute_waypoints` Action
+驱动 EGO，输出到 `/setpoint_cmd`。默认注册六个基础飞行工具和两个 VLA 工具；
+tracking 由独立显式入口装配。当前代码未完成运行验收。
+
+本仓库完整 Unity 仿真入口见[k3s Unity 启动说明](bringup/k3s/unity/README.md)。
+从编排仓库根执行 `make sim-prepare` 编译，`make up` 启动仿真与当前 L4，
+`make status` 查询，`make down` 关闭；首次 L4 依赖用 `make station-setup` 准备。
 
 维护入口见[执行总纲](../doc/l3-dispatcher-planner/iteration/design-dispatcher-migration-execution-order.md)。动作规则归[基础飞行动作契约](../specs/implemented/inner/flight-actions.spec.md)，线上
 信封归[RPC 契约](../specs/implemented/inner/l3-l4-rpc.spec.md)。
 
 ## 环境与构建
 
-需要 ROS Noetic、Python 3.10 或更新的兼容解释器、catkin、Eigen/PCL/OpenCV 及
+需要 ROS Noetic、与实际源码及 ROS 模块兼容的 Python、catkin、Eigen/PCL/OpenCV 及
 EGO 的标准 ROS 依赖。构建脚本使用系统 Python 生成 ROS 消息；运行解释器必须能
 导入该环境生成的消息和 rospy。Python 依赖列在 ros_packages/dispatcher/requirements.txt。
 
@@ -26,9 +30,9 @@ source "$L3_PYTHON_ENV/bin/activate"
 python3 -m pip install -r l3-dispatcher-planner/ros_packages/dispatcher/requirements.txt
 ```
 
-构建只包含 dispatcher、EGO 和所需的最小消息/可视化依赖，不拉入场景图、
-遥测 bridge、mission 或 waypoint action 转发脚本。其他 planner 的代码仍在仓库，
-但本轮只完成 EGO 的构建和六能力验收，不承诺直接切换到其他后端后能力等价。
+构建包含 dispatcher、EGO、planner_execution、Elastic、消息及可视化依赖。
+遥测包由 k3s 编译入口显式纳入，默认 launch 不启动遥测，k3s 以独立 Pod 装配。
+其他 planner 保持原归属，不承诺切换后能力等价。
 
 ## 启动
 
@@ -72,7 +76,6 @@ l4 消费者测试只读加载工作区的 l4-agent 并核验源文件摘要，�
 
 ## 控制职责边界
 
-planner 仅同步去除来源任务编号；当时保留 yaw_low_speed 及附加目标字段；后者已按当前清理决定移除。
-普通取消由 dispatcher 以新批次发送当前位置/当前 yaw 的保持目标，不依赖新增的
-planner/cancel 入口。显式急停保留既有全局信号，并由 dispatcher 编排保持目标。
-位姿失效或发送失败时不假报停止、不放行新动作；本修正尚未做运行验证。
+普通取消立即释放调用资源，独立发送原生 Action 取消与全局急停，由 planner
+接管保持并判定动态停稳。停止未确认时不放行新运动，连接恢复不证明已停止。
+当前以中央执行缝契约为准，历史测试数字不能替代现行实现的运行证据。

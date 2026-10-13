@@ -1,5 +1,13 @@
 # l3 待迁依赖与保留项入口
 
+## k3s Unity 装配（2026-10-12）
+
+[实施方案](../iteration/design-k3s-unity-bringup.md)已接入本工作区启动器、独立
+编译 Job、Unity/动力学/L3 清单、遥测与日志。R03/R05 的部署消费者直接运行
+原生 Action 和同源执行配置；未运行构建、测试或验收，条目不关闭。真实停止、
+恢复、消息 ABI 与站端闭环仍为剩余条件。完整入口见
+[运行说明](../../../l3-dispatcher-planner/bringup/k3s/unity/README.md)。
+
 这里记录 DiffAgent2 新版中因 DiffAgent2 旧版 skill 或共享服务存在真实依赖而暂时保留的内容。它是**持续维护的迁移待办与调查资料**，不是另一份 spec；职责、端口和行为契约仍以 `specs/` 为准。
 
 开始迁移或优化下列能力时，先读[保留项台账](dispatcher-deferred-dependencies.md)中的对应条目。即使只是在清理“没有当前调用方”的字段，也要先检查台账中的旧版消费者。

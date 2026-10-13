@@ -1,5 +1,22 @@
 # dispatcher 待迁依赖与保留项台账
 
+## 2026-10-12 k3s Unity 部署接入（代码交付，未运行）
+
+R03/R05 的本轮消费者为 `l3-dispatcher-planner/tools/station-host-sim.py`、
+`bringup/k3s/unity/` 和独立 `telemetry_bridge`。部署直接运行本仓库
+`basic_flight.launch`，编译当前原生 Action 与同源 planner_execution 参数。
+down/reset 只读核对执行状态和 `connection.status`，本站端仅释放自己的空闲
+租约；未停稳、控制面不可达或被其它 owner 占用时拒绝删除运行中的 L3。
+不会用部署成功替代动作完成，也不恢复 Mission 或单独动力学 reset。
+
+代码证据：统一启动器的 `compile_manifest/up/guard_shutdown/down`、
+`runtime_probe_ros.py` 的执行快照与租约读取、`telemetry_ros.py` 的独立数据
+生产。**本轮未构建、测试、运行探针或部署，没有运行证据。**
+剩余触发条件为镜像/Python 兼容、生成消息 MD5、原 Unity 真实输入、运动中
+取消与停止、租约释放竞态、定位丢失与重启恢复、站端 RGB/深度/点云及日志
+闭环；取得许可后补实际运行证据。R03/R05 不关闭，R01/R02/R04/R06 不裁剪，
+遥测未知电池/模式与无起飞原点不替代真实飞控消费者。
+
 更新日期：2026-10-10。当前 R03/R05 已迁移到原生 action 执行，代码交付但未编译、未验收，详见文末“原生 action 接入”。此前直连 topic 与家族执行器条目保留为迁移历史，不能作为现行接口说明。R01/R02/R04/R06 等无关保留项继续挂账。
 
 用户本轮明确要求清除未接入目标能力的预留，覆盖此前附加目标字段的保留决定。
