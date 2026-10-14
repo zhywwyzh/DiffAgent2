@@ -1,7 +1,9 @@
 # 运行时装配契约
 
-Status: proposed — k3s Unity 代码实施中，未构建与验收
+Status: proposed — 运行时装配要求待评审，尚未采纳
 Contract-ID: runtime
+
+## 范围
 
 运行时装配拥有镜像、制品、配置、资源所有权与生命周期。任务行为仍归现行
 l3-dispatcher，日志归 observability，实体命名归 topology。
@@ -16,10 +18,11 @@ l3-dispatcher，日志归 observability，实体命名归 topology。
 
 ## Inner contracts
 
-| Contract | Authority |
+| 契约路径 | 职责 |
 |----------|-----------|
 | `specs/proposed/inner/unity-k3s-bringup.spec.md` | Unity 仿真编译、装配与启停 |
 | `specs/proposed/inner/station-telemetry.spec.md` | 当前站端遥测消费者的数据格式与生产边界 |
+| `specs/proposed/inner/drone-remote-build.spec.md` | 独立设备工作空间的源码投放、原生编译与 L3 启停 |
 
 ## 边界
 

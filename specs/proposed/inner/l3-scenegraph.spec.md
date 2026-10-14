@@ -1,17 +1,19 @@
 # l3 场景图能力契约
 
-Status: proposed
+Status: proposed — 待评审，尚未采纳
 Contract-ID: l3-dispatcher/scenegraph
 Parent: specs/implemented/l3-dispatcher.spec.md
 
+## 范围与非目标
+
 > 拥有 l3 场景图能力的图模型、坐标与身份规则、canonical 存储的只读加载、
 > 能力端口（跨语言绑定面）与 object 级结果不变量。
-> 工具面的元数据与完成语义归 `l3-dispatcher/tool-plane`；技能身份、端口与
-> 结果暂存归 `l3-dispatcher/skill-contract`；ROS 收发隔离归
+> 场景工具元数据、技能身份和配置提案归本文件 §11–§12；通用完成语义、技能
+> 生命周期和结果暂存仍分别归工具面与技能契约；ROS 收发隔离归
 > `l3-dispatcher/ros-adapter-boundary`；跨语言分层形态归 `l3-dispatcher/execution-seam`。
 > 迁移依据与逐轮验收归当轮方案，不进本契约。
 
-## 1. 范围与角色
+### 1. 范围与角色
 
 > 场景图是一张**世界系自由空间拓扑**（多面体中心拓扑 + 凸边界 + 观测锚点对象）。
 > 本能力**只读**：建图与写图不在本仓库、不属本契约。
@@ -25,11 +27,33 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 - 本能力不含「在线扩张拓扑」的任何入口：不存在构建/冻结/解冻语义。
 - 图的选择（画廊切换）由外部触发；本能力只负责加载与就绪判定。
 
-## 2. 图数据模型
+### 10. 边界
+
+本提案只拥有场景专属的元数据、schema、技能身份与端口扩展；通用完成语义归
+`l3-dispatcher/tool-plane`，通用生命周期与结果暂存归 `l3-dispatcher/skill-contract`。
+本契约不拥有：
+ROS 收发隔离与共享状态规范（归 `l3-dispatcher/ros-adapter-boundary`）；
+跨语言分层与能力端口的执行缝归属（归 `l3-dispatcher/execution-seam`）；
+在线建图与写图（builder 侧，不在本仓库）；planner 的运动规划与后端选择；
+部署、镜像与集群编排；某一轮的具体迁移清单与验收步骤。
+
+## 术语与身份
+
+### 3. 坐标、单位与身份
+
+- 全部几何使用 `frame_id: "world"`、ENU、z 轴向上、米。
+- 每个 `pos` 恰为三个有限浮点 `[x, y, z]` [m]。
+- ID 为整数，在各自声明的集合内唯一。
+- 消费方不得由极值点反推多面体中心、不得由邻近关系推断边、不得选取最近父节点、
+  不得重新解释历史字段。
+
+## 输入、输出与配置
+
+### 2. 图数据模型
 
 > 三层：拓扑层是图，凸边界层是挂在拓扑节点上的几何，对象层是观测锚点。
 
-### 2.1 拓扑层
+#### 2.1 拓扑层
 
 - 一个拓扑节点恰为一个多面体中心；一条拓扑边恰为一对多面体邻接。
 - `topo_nodes[].id` 是多面体稳定身份；`topo_nodes[].pos` 是该多面体中心 [m]。
@@ -38,14 +62,14 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 - 多面体中心是**内部图连接件**，不是可下发的航点——唯一例外见 §5：**对象所挂的
   拓扑节点是对象导航的终态航点**（停靠在所挂节点，绝不停在对象自身质心）。
 
-### 2.2 凸边界层
+#### 2.2 凸边界层
 
 - `extreme_points[]` 为唯一顶点位置 [m]。
 - `poly_boundaries[].poly_id` 引用 `topo_nodes[].id`。
 - `poly_boundaries[].edge_pairs` 形如 `[src0, dst0, src1, dst1, ...]`，长度必为偶数，
   端点必须存在于 `extreme_points`，同一边界内无自环与重复无序对。
 
-### 2.3 对象层
+#### 2.3 对象层
 
 - `objects[].id` 在对象集合内唯一；`objects[].label` 为非空 UTF-8 语义标签。
 - `objects[].pos` 是**观测锚点位置** [m]，不是被测物理表面。
@@ -56,33 +80,7 @@ Parent: specs/implemented/l3-dispatcher.spec.md
   `orientation_xyzw` 是对象**自身朝向**（标记/OBB 展示），**不是**对象导航的
   aim 偏航——aim 偏航是独立量，归 §5（节点→对象 bearing；水平重合时的兜底锚点除外）。
 
-## 3. 坐标、单位与身份
-
-- 全部几何使用 `frame_id: "world"`、ENU、z 轴向上、米。
-- 每个 `pos` 恰为三个有限浮点 `[x, y, z]` [m]。
-- ID 为整数，在各自声明的集合内唯一。
-- 消费方不得由极值点反推多面体中心、不得由邻近关系推断边、不得选取最近父节点、
-  不得重新解释历史字段。
-
-## 4. canonical 存储与只读加载
-
-> 图以目录为单元持久化；本能力只读 `manifest.json` 与主图文件。
-
-```text
-<数据根>/<name>/
-  manifest.json
-  scene_graph.json        # 本能力读取的唯一主图文件
-  objects/                # 对象点云附件（可选，本能力不消费）
-```
-
-- `manifest.json` 携带格式版本与主图文件名；版本不支持即加载失败。
-- 数据根由部署配置提供（参数/环境变量），不写死在代码中；本能力不创建、不重命名、
-  不删除目录与文件。
-- 加载失败保留上一张已激活的图，并上报明确失败原因；不产生半加载状态。
-- 本能力不消费线上快照格式（含 `topo_nodes`/`topo_edges`/`poly_boundaries` 的 v3
-  快照 JSON）：那是 builder 的对外格式，归其自身契约。
-
-## 5. 能力端口
+### 5. 能力端口
 
 > 绑定面即端口面：跨语言暴露的函数集合等同于本能力的端口集合，不得逐个暴露内部方法。
 
@@ -109,7 +107,118 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 - 边界上使用自有数据结构，不传通信框架的消息类型。
 - 本能力不感知工具语义：不出现工具名、任务名或任务编号。
 
-## 6. object 级结果不变量
+### 11. 场景工具面提案
+
+本节定义待采纳的场景工具 schema 与完成元数据，不声明实现、测试或注册状态。
+
+| 工具名 | `inputSchema` 字段 | 完成语义 | 并发语义 |
+|--------|--------------------|----------|----------|
+| `scene.map_search` | `object`（必填，`string`，`minLength=1`） | `workflow_result` | `flight-exclusive` |
+| `scene.navigate` | `object_id`（必填，`integer`） | `workflow_result` | `flight-exclusive` |
+| `scene_nav.graph.list` | 无 | `workflow_result` | `flight-exclusive` |
+| `scene_nav.graph.select` | `graph`（必填，`string`，`minLength=1`） | `workflow_result` | `flight-exclusive` |
+| `scene_nav.graph.save` | `graph`（可选，`string`，`minLength=1`） | `workflow_result` | `flight-exclusive` |
+| `scene_nav.graph.objects` | `graph`（可选，`string`）、`label`（可选，`string`） | `workflow_result` | `flight-exclusive` |
+| `scene_nav.graph.object_pose` | `graph`（可选，`string`）、`object_id`（必填，`integer`）、`pos`（可选，`array[number]` 恰 3 项）、`yaw`（可选，`number`）、`delta_pos_local`（可选，同 `pos`）、`delta_rot_local_xyzw`（可选，`array[number]` 恰 4 项）、`apply`（可选，`boolean`） | `workflow_result` | `flight-exclusive` |
+
+- 上表 `inputSchema` 顶层均为 `type=object`、`additionalProperties=false`；
+  `scene_nav.graph.list` 的 `outputSchema` 为空 object，其余为非空 object
+  （结果字段由本提案 §6、§12 定义）。
+- `scene.navigate` 的终态必须携带对象级结果（对象身份、到达与否、最终位置、
+  最终偏航、失败原因），不得只上报航点完成（`l3-dispatcher/scenegraph` §6）。
+- 编辑与保存类工具的写操作**经 builder 的 HTTP 面**执行，dispatcher 不直接写图
+  （`l3-dispatcher/scenegraph` §8）。
+- 场景工具准入仅使用表中名字；`navigation.scene_graph_nav` 不作为别名。
+  `scene.navigate` 直接携带 `object_id`，对象语义由站端解析；未注册名按
+  `l3-dispatcher/tool-plane` §2 拒绝，不建立兼容路由。
+
+### 12. 场景技能与配置提案
+
+> 场景家族的身份、宿主端口、裁决与配置提案；工具 schema 归本提案 §11。
+> 技能通用机制仍受 `l3-dispatcher/skill-contract` 约束，未采纳前不进入默认注册面。
+
+- **身份**（一个技能一个 `name`，逐项注册；`name` 与调用侧工具名一致）：
+
+| `name` | `requires_perception` | `synchronous` | 领域流程 |
+|--------|----------------------|---------------|----------|
+| `scene.map_search` | `False` | `False` | 图投影与对象清单 |
+| `scene.navigate` | `False` | `False` | `object_id_nav` |
+| `scene_nav.graph.list` | `False` | `True` | 图查询 |
+| `scene_nav.graph.select` | `False` | `True` | 图查询 |
+| `scene_nav.graph.save` | `False` | `True` | 图编辑 |
+| `scene_nav.graph.objects` | `False` | `True` | 图查询 |
+| `scene_nav.graph.object_pose` | `False` | `True` | 图编辑 |
+
+- **同步技能**（`scene_nav.graph.*`）：`synchronous = True`，在调用线程内直接完成，
+  不进感知门、不入队（`l3-dispatcher/skill-contract` §2）；自建端点随 disposer 释放（`l3-dispatcher/skill-contract` §6）。
+- **`scene.navigate` 的 object 级子状态**（技能自有，`l3-dispatcher/skill-contract` §1）：
+  目标对象身份、目标位置 [m]（= 对象所挂多面体中心，`l3-dispatcher/scenegraph` §5）、
+  目标偏航 [rad]（= 该节点到对象的水平 bearing；水平重合时保留对象
+  `orientation_xyzw` 锚点、无锚点则 0）、终态高度（对象派生的观测高度）、
+  到达判据（位置 + 终端偏航双条件；到达半径度量到所挂拓扑节点，不是到对象）、
+  任务级超时与重规划上限、目标所属多面体。
+- **端口**：使用 `l3-dispatcher/skill-contract` §7 通用 SkillHost 端口；图数据经宿主注入的感知数据面端口只读获取
+  （`l3-dispatcher/package-layout` §3 的感知单向流动）；航点塑形（近点跳过、巡航高度
+  统一、限幅、偏航模式脉冲）由技能内联完成（`l3-dispatcher/skill-contract` §5），传输口不做技能专属塑形。
+- **四裁决**：`scene.navigate` 在 `on_action_result` 内按自有状态判定并返回
+  `ADVANCE`（续下一条命令）或 `IDLE`（收敛完成），**不读取宿主
+  `ActionGate.pending_action` 等私有对象**（`l3-dispatcher/skill-contract` §5、G14）；`scene.map_search` 与同步技能
+  在完成门内收敛后返回 `IDLE`。
+- **终态原因词表**（对象级，`scene.navigate`）：`reached`、`unreachable`、`timeout`、
+  `failed`；取消与覆盖的终态归 `l3-dispatcher/tool-plane` §5，技能不另造终态。
+- **结果**：`scene.navigate` 的终态结果至少含对象身份、到达与否、最终位置 [m]、
+  最终偏航 [rad]、原因；`scene.map_search` 的结果为对象清单（id / label / 位置 [m]）。
+  结果经任务结果暂存端口上报、由宿主在终态取走（`l3-dispatcher/skill-contract` §5）。
+- **fail-closed**：图未就绪、对象不存在、无通路、当前位置无法挂载，一律上报对应原因
+  并收敛为失败终态；不得静默成功，不得以「航点批次结束」冒充到达
+  （`l3-dispatcher/scenegraph` §6、§7）。
+- **配置参数**：前缀 `~scene_nav/*`（家族名，规则归 `l3-dispatcher/package-layout` §2），
+  唯一权威、键名不重复前缀、子组嵌套：
+
+| 参数键 | 类型 | 默认 | 消费技能 |
+|--------|------|------|----------|
+| `~scene_nav/graph_json_topic` | `string` | `/scene_graph/json_text` | `scene.map_search` |
+| `~scene_nav/planner_fsm_state_topic` | `string` | `/planner/fsm_state` | `scene.navigate` |
+| `~scene_nav/json_wait_timeout_s` | `double` | `3.0` | `scene.map_search` |
+| `~scene_nav/trigger_timeout_s` | `double` | `5.0` | `scene.navigate` |
+| `~scene_nav/waypoint_skip_xy_distance_m` | `double` | `0.3` | `scene.navigate` |
+| `~scene_nav/task_timeout_s` | `double` | `45.0` | `scene.navigate` |
+| `~scene_nav/task_terminal_timeout_s` | `double` | `15.0` | `scene.navigate` |
+| `~scene_nav/task_max_replans` | `int` | `1` | `scene.navigate` |
+| `~scene_nav/require_final_yaw` | `bool` | `true` | `scene.navigate` |
+| `~scene_nav/final_yaw_tolerance_deg` | `double` | `10.0` | `scene.navigate` |
+| `~scene_nav/final_approach_max_attempts` | `int` | `6` | `scene.navigate` |
+| `~scene_nav/replan/enable` | `bool` | `true` | `scene.navigate` |
+| `~scene_nav/replan/stuck_yaw_rate_threshold_rad_s` | `double` | `0.1` | `scene.navigate` |
+| `~scene_nav/replan/mode2_stuck_fallback_delay_s` | `double` | 装配层显式给出 | `scene.navigate` |
+
+- **承载**：本表由 `tools/scene_nav/scene_nav_ports.py` 的 `SceneNavConfig`
+  （`@dataclass(frozen=True)`）单类承载，字段名即键名；装配层经 `fields()` 批量派生
+  `~scene_nav/<字段名>`，不得留裸关键字参数或第二份同名配置。
+- 激活图名**不作为参数**：经端口/共享状态提供（`l3-dispatcher/ros-adapter-boundary`
+  R3/R5），技能不得直读全局参数。
+
+## 行为规则
+
+### 4. canonical 存储与只读加载
+
+> 图以目录为单元持久化；本能力只读 `manifest.json` 与主图文件。
+
+```text
+<数据根>/<name>/
+  manifest.json
+  scene_graph.json        # 本能力读取的唯一主图文件
+  objects/                # 对象点云附件（可选，本能力不消费）
+```
+
+- `manifest.json` 携带格式版本与主图文件名；版本不支持即加载失败。
+- 数据根由部署配置提供（参数/环境变量），不写死在代码中；本能力不创建、不重命名、
+  不删除目录与文件。
+- 加载失败保留上一张已激活的图，并上报明确失败原因；不产生半加载状态。
+- 本能力不消费线上快照格式（含 `topo_nodes`/`topo_edges`/`poly_boundaries` 的 v3
+  快照 JSON）：那是 builder 的对外格式，归其自身契约。
+
+### 6. object 级结果不变量
 
 > 对象导航的终态必须回答「哪个对象、到没到、最终位姿与偏航、为什么失败」；
 > 只上报「航点走完」不构成对象导航的终态。
@@ -124,7 +233,19 @@ Parent: specs/implemented/l3-dispatcher.spec.md
   失败原因（§7）。
 - 失败与取消必须收敛为明确终态，不得静默成功、不得以「航点批次结束」冒充到达。
 
-## 7. 失败词表
+### 8. 只读与写边界
+
+- 唯一写图者是 builder；本能力（§5 端口）**不含任何文件写入路径**，不创建、
+  不重命名、不删除目录与文件。
+- 图编辑与保存（对象位姿编辑、落盘）**经 builder 的 HTTP 面**执行：调用方技能
+  只做请求转发与结果翻译，写操作由 builder 完成；该 HTTP 面归 builder 侧契约，
+  本契约只声明「dispatcher 不直接写图」这一边界。
+- 画廊的 `select` 只触发加载，不落盘。
+- 任何以「兼容旧调用方」为名的写入口或转发入口都属缺陷。
+
+## 失败、取消与资源生命周期
+
+### 7. 失败词表
 
 > 本能力级失败原因固定为下列五项；工具面的拒绝原因词表归 `l3-dispatcher/tool-plane` §3，
 > 不在此重复。
@@ -139,17 +260,13 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 
 - 对象级终态原因（到达/不可达/超时/失败/取消）归技能契约，本契约不定义。
 
-## 8. 只读与写边界
+## 归属与依赖
 
-- 唯一写图者是 builder；本能力（§5 端口）**不含任何文件写入路径**，不创建、
-  不重命名、不删除目录与文件。
-- 图编辑与保存（对象位姿编辑、落盘）**经 builder 的 HTTP 面**执行：调用方技能
-  只做请求转发与结果翻译，写操作由 builder 完成；该 HTTP 面归 builder 侧契约，
-  本契约只声明「dispatcher 不直接写图」这一边界。
-- 画廊的 `select` 只触发加载，不落盘。
-- 任何以「兼容旧调用方」为名的写入口或转发入口都属缺陷。
+场景图模型和场景家族扩展由本提案拥有；builder 唯一写图，通用技能、工具面和 ROS 边界仍引用生效契约。
 
-## 9. 门禁
+## 条款检查判据
+
+### 9. 门禁
 
 | 门禁 | 检查 |
 |------|------|
@@ -161,14 +278,6 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 | G38 | 对象导航终态携带对象身份、最终位置与偏航、失败原因；无「仅航点完成」终态（§6） |
 | G39 | 失败原因取值 ⊆ §7 五项（§7） |
 
-> G33–G39 为本叶新增，与既有 G1–G32 全局编号不冲突。`specs/tools/*` 门禁引擎
-> 迁移前，以等价命令与既有 pytest 承担判定。
+> G33–G39 是提案的行为判据；结构入口见 `specs/README.md`，不代替行为验收。
 
-## 10. 边界
-
-本契约不拥有：工具元数据、schema 与完成语义（归 `l3-dispatcher/tool-plane`）；
-技能身份、生命周期、端口与结果暂存（归 `l3-dispatcher/skill-contract`）；
-ROS 收发隔离与共享状态规范（归 `l3-dispatcher/ros-adapter-boundary`）；
-跨语言分层与能力端口的执行缝归属（归 `l3-dispatcher/execution-seam`）；
-在线建图与写图（builder 侧，不在本仓库）；planner 的运动规划与后端选择；
-部署、镜像与集群编排；某一轮的具体迁移清单与验收步骤。
+检查执行与证据记录遵循 `specs/README.md` 的统一许可边界；本文件不记录通过结论。

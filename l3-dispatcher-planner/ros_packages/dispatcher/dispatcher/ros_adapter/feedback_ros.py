@@ -1,4 +1,5 @@
 """ROS 仿真重置端口；工具专属反馈链已删除。"""
+from __future__ import annotations
 
 STACK_RESET_SERVICE = "/agent/stack_reset"
 

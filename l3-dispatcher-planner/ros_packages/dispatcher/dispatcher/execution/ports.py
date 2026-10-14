@@ -1,4 +1,5 @@
 """执行缝共享动作端口：意图、状态、进度与配置；不依赖 ROS。"""
+from __future__ import annotations
 import math
 from dataclasses import dataclass
 from typing import Protocol

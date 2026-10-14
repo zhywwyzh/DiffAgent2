@@ -1,4 +1,5 @@
 """Single-worker UETrack HTTP boundary; startup errors prevent readiness."""
+from __future__ import annotations
 
 import base64
 from contextlib import asynccontextmanager

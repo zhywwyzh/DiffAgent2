@@ -1,8 +1,8 @@
 # 现行契约与迁移资料的职责整理
 
 Status: implemented
-
-日期：2026-09-17
+Date: 2026-09-17
+Record-Format: historical
 
 ## 决策与理由
 

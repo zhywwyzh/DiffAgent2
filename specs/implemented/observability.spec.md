@@ -3,6 +3,8 @@
 Status: implemented
 Contract-ID: observability
 
+## 范围
+
 > 拥有系统日志的规范边界、生产与消费职责及可观测性不变量。
 
 ## 不变量
@@ -14,7 +16,7 @@ Contract-ID: observability
 
 ## Inner contracts
 
-| Contract | Authority |
+| 契约路径 | 职责 |
 |----------|-----------|
 | `specs/implemented/inner/observability-log.spec.md` | 日志信封、级别、采集、传输、站端摄入、聚合与验证要求 |
 

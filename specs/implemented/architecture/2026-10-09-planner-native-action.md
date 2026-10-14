@@ -1,8 +1,12 @@
 # planner 原生 action 与动作资源归属决策
 
 Status: implemented
-
-日期：2026-10-09
+Date: 2026-10-09
+Record-Format: historical
+Supersedes: specs/implemented/architecture/2026-09-17-dispatcher-planner-boundary-correction.md
+Supersedes: specs/implemented/architecture/2026-09-21-waypoint-execution-family-ownership.md
+Supersedes: specs/implemented/architecture/2026-10-09-flight-vla-result-convergence.md
+Superseded-by: specs/implemented/architecture/2026-10-10-task-cancel-emergency-hover.md
 
 本记录表示代码已落盘，未编译、未运行或验收。现行接口归
 [执行缝契约](../inner/l3-execution-seam.spec.md)，实施范围见

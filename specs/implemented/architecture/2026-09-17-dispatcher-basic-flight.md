@@ -1,10 +1,10 @@
 # 基础飞行直连 EGO 的交付决策
 
 Status: implemented
-
-日期：2026-09-17
-
+Date: 2026-09-17
+Record-Format: historical
 Superseded-by: specs/implemented/architecture/2026-09-17-dispatcher-planner-boundary-correction.md
+
 
 现行行为归 `l3-execution-seam.spec.md`、`l3-skill-contract.spec.md`、
 `flight-actions.spec.md` 与 `l3-tool-plane.spec.md`。本记录延续 dispatcher 直连

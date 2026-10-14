@@ -4,13 +4,15 @@ Status: implemented
 Contract-ID: observability/log
 Parent: specs/implemented/observability.spec.md
 
+## 范围与非目标
+
 > 整个日志平面的唯一权威：每个 l3 进程发出的规范信封、级别词汇表与语义、
 > 生产者输出纪律、fluent-bit → 中继 → zenoh 的采集流水线、带跨通道去重的
 > 站点摄入，以及 scene-nav 任务聚合。
 > 本规范是已采纳的严格日志要求；能力是否已经交付以迁移台账与验收证据为准。
 > 日志记录、采集和聚合的详细要求保持在本文件内。
 
-## 1. 范围
+### 1. 范围
 
 > 一条流水线、一份 spec：生产者格式 → 传输 → 站点消费者。
 
@@ -18,7 +20,13 @@ Parent: specs/implemented/observability.spec.md
 流水线与站点摄入；§12 拥有 scene-nav 任务聚合；§13–§14 拥有现场经验与
 验证。
 
-## 2. 规范信封
+## 术语与身份
+
+日志事件、node、seq 和分类值不是任务成功信号；级别词汇见 §3，会话聚合身份见 §12.2。
+
+## 输入、输出与配置
+
+### 2. 规范信封
 
 > 每行一个 JSON 对象；核心键顺序固定，事件字段自由形式，可选键置尾。
 
@@ -40,53 +48,7 @@ Parent: specs/implemented/observability.spec.md
 | fields | any | 否 | 事件专属；NaN → `null`，±Inf → `±1e999` |
 | `msg` | string | 否 | 一句人类可读的话 |
 
-## 3. 级别词汇表与语义
-
-> 生产者与消费者共用一套词汇表。
-
-集合为 `debug | info | warning | error | fatal`。生产者不得输出 `warn` 或
-`trace` 级别；级别解析函数 `level_from_string("trace")` 映射为 `debug`。
-
-级别分配语义：
-
-| 级别 | 含义 | 示例 |
-|-------|-------|----------|
-| `info` | **人类可读的状态摘要** —— 一句话、语义化、不倾倒原始数值 | 任务准入、目标设定、状态迁移、结果摘要（`前往 电视机 #5, 距离 12.3 m`） |
-| `debug` | 机器可读 / 进程细节 —— 数值 tick、迭代计数、走廊几何、航点序列、VLM 中间产物 | `nav_tick`、`object_path_topo_sequence`、`topo_path_iteration`、`opt_finish` |
-| `warning` | 异常，降级但继续 | `replan_failed`、`waypoint_batch_aborted`、`nan_cost` |
-| `error`/`fatal` | 失败，终态 | 电池低电量、规划器不可达 |
-
-规则：
-
-- 一行日志只有在人类无需上下文即可读懂时才是 `info`；坐标矩阵、位姿与
-  序列按定义属于 `debug`。
-- `debug` 事件承载机器字段；伴随的人类可读 `info` 事件可以总结同一动作
-  （一行、语义化）。
-- 结构化诊断路径中的裸 `printf`/`std::cout`/`ROS_INFO` 是缺陷 ——
-  迁移到 slog。
-
-建议的 `info` 形态 —— 语义化字段，绝不使用原始矩阵：
-
-```json
-{"event":"object_nav_goal","target_obj_id":5,"target_label":"tv",
- "dist_m":12.3,"path_size":8}
-{"event":"state_transition","from":"OBJECT_APPROACH","to":"OBJECT_REACHED"}
-```
-
-每个动作一条 `info` 摘要（设定目标 / 完成 / 失败）；数值细节位于配对的
-`debug` 事件中。
-
-## 4. seq 与 node 不变量
-
-> seq 是跨通道关联键；node 是聚合键。
-
-- `seq` 只在记录创建时、在规范发射器内部盖一次；每个汇点携带同一个值。
-  发布 `seq` 的通道必须是稠密的（不做策略丢弃），这样站点侧的间隙检查
-  才成立。
-- `node` 在进程初始化时设置（C++ `slog::set_node`，Python 等价物），且
-  每条记录上都非空。无法为自己命名的进程是缺陷。
-
-## 5. 汇点、通道与门控
+### 5. 汇点、通道与门控
 
 > 一条记录扇出到 N 个汇点；信封与通道无关。
 
@@ -102,83 +64,12 @@ Parent: specs/implemented/observability.spec.md
 `agent_log_seq_gap` 警告条目浮现），并按 `(stack, node, seq)` 与 stdout
 通道去重，使一条记录只显示一次（§11）。
 
-## 6. dispatcher 记录与发射
-
-> 记录服务决定记录什么；规范发射器是唯一的记录创建点。
-
-- 过程、动作与停止记录经 `telemetry.emit(level, event, stream=..., **fields)`
-  装配，事件名保持 `process_record` / `action_log` / `stop_log`。
-- 所有汇点复用同一 `record.seq`，不得另建上行计数器或镜像追踪写入路径。
-- 上行采用稠密策略，停止记录与其他记录一样上行，不按退避策略过滤。
-- 任务记录采用 `ts_ns`、`level`、`node`、`stream`；快照 JSON 的 process/action/stop
-  对外形态保持一致，由同一记录服务产生，不能形成另一份事件账本。
-- 技能、中间件与推理客户端通过进程单例发射器记录，进程内共享单调 seq。
-- 记录服务接入状态与会话关联待办见 §9；这些规范不表示服务已在新版接入。
-
-## 7. 生产者输出纪律
-
-> 容器中 glibc 对管道 stdout 做块缓冲 —— 每个输出诊断信息的 ROS 节点都
-> 必须行缓冲，否则 `kubectl logs` 会滞后数分钟。
-
-ROS 节点的 `ROS_INFO` / `ROS_DEBUG` 消息走 **stdout**；
-`ROS_WARN` / `ROS_ERROR` 走 **stderr**。在容器运行时下 stdout 始终是管道，
-于是 glibc **块缓冲**它：只有累积约 4 KiB 后、或进程退出时才刷出。
-
-强制要求 —— 每个打印诊断信息的 roslaunch `<node>`：
-
-| 属性 | 规则 |
-|----------|------|
-| 缓冲 | 通过 `launch-prefix="stdbuf -oL -eL"` 让 stdout **和** stderr 行缓冲 |
-| 控制台 | 保留 `output="screen"`（roslaunch 把节点输出转发到自己的 stdout） |
-| 顺序 | 在**同一个** `<node>` 元素上同时设置 `launch-prefix` 与 `output="screen"` |
-
-```xml
-<node pkg="px4ctrl" type="px4ctrl_node" name="px4ctrl" output="screen"
-      launch-prefix="stdbuf -oL -eL">
-```
-
-适用于 lx-real 容器中运行 ROS 节点的每一层
-（l0-mid360-mavros-realsense、l1-lio、l2-px4ctrl、l3-dispatcher-planner）。
-
-缓冲控制的是**可见性**，不是**量**。日志频率由节流
-（`SLOG_*_THROTTLE` / `ROS_*_THROTTLE` / FSM 循环节流）设定并独立调优：
-
-- 健康的每节点状态 INFO：低频率（5–10 s）—— 正确缓冲后仍可读。
-- 持续性的台架状态警告（安全开关已触发）：高节流周期（约 10 s），
-  使其永不刷屏。
-- 主动保护 ERROR（危险电量）可保持 1 s —— 罕见且时效关键。
-
-## 8. 非规范行的层级策略
-
-> 两层合法；来自 l3 的未结构化裸输出是缺陷。
-
-- **A 层（目标）**：规范信封 —— 所有 l3 组件。
-- **B 层（遗留/第三方）**：rosconsole `ROSCONSOLE_FORMAT`
-  `[/node] [LEVEL]` 前缀 —— roslaunch 自身输出、l0/l1/l2 节点，以及剩余
-  的 l3 待迁残留（接入约束见 §9）。消费者解析见 §11.1。
-- l3 诊断路径中的裸 `cout` / `printf` / `print` / `std::cerr` 是缺陷；
-  接入时须按 §9 验证并消除。
-
-## 9. 生产者归属与接入约束
-
-- 工具流程事件由 dispatcher 的相应工具及工具状态机产生；通用执行事件由
-  dispatcher 内部共享执行模块产生，planner 只记录自身规划行为。
-- 不为日志采集构建或启动 `mission_executive`；旧生产者归属的历史见
-  [迁移记录](../../../doc/l3-dispatcher-planner/rest/spec-history-and-log-migration.md)。
-- §12 是场景导航能力接入时必须满足的完整聚合规范，不代表当前生产集合已注册该能力；
-  生产集合归 [工具面契约](l3-tool-plane.spec.md)。
-- 记录服务、快照、上行与场景工具接入时，须同步验证事件生产、采集标记与站端消费；
-  不以单侧改名或文档更新冒充端到端交付。
-- 当前缺口、接入触发条件与关闭证据由
-  [迁移台账](../../../doc/l3-dispatcher-planner/rest/dispatcher-deferred-dependencies.md)
-  及[日志迁移核对记录](../../../doc/l3-dispatcher-planner/rest/spec-history-and-log-migration.md)维护。
-
-## 10. 采集流水线
+### 10. 采集流水线
 
 > 日志从 pod stdout 经 fluent-bit 与 loopback-TCP 中继流入 zenoh 网络，
 > 最终抵达归属站点的 UI。
 
-### 10.0 实体与角色
+#### 10.0 实体与角色
 
 > 部署位置区分活动站点与产生日志的 drone-host。
 
@@ -219,13 +110,13 @@ ROS 节点的 `ROS_INFO` / `ROS_DEBUG` 消息走 **stdout**；
   `storage.type filesystem` + `Retry_Limit False` 在磁盘上缓冲整个中断
   期间的记录，因此链路端到端保持至少一次。
 
-### 10.1 规范日志路径 —— 载体说明
+#### 10.1 规范日志路径 —— 载体说明
 
 > stack 键把任务、遥测与日志平面绑定到同一个逻辑身份。
 
 stack 键 `lx/<stack-id>/logs` 是绑定任务、遥测与日志平面的逻辑身份；`stack-id` 与 [l3/l4 RPC 契约](l3-l4-rpc.spec.md)中的身份一致。
 
-### 10.2 采集器契约（fluent-bit + relay sidecar）
+#### 10.2 采集器契约（fluent-bit + relay sidecar）
 
 > 一个 pod 两个容器：fluent-bit tail stdout，并通过 loopback TCP 把行
 > 交给中继。
@@ -296,7 +187,112 @@ rollout-restart DaemonSet。
 部署配置须分别验证实际使用的 real/sim 变体；每节点身份经由
 `ROSCONSOLE_FORMAT ${node}` 与规范信封走 stdout 通道，不另建 `/rosout` 采集链。
 
-## 11. 站点摄入（l4-visualizer）
+## 行为规则
+
+### 3. 级别词汇表与语义
+
+> 生产者与消费者共用一套词汇表。
+
+集合为 `debug | info | warning | error | fatal`。生产者不得输出 `warn` 或
+`trace` 级别；级别解析函数 `level_from_string("trace")` 映射为 `debug`。
+
+级别分配语义：
+
+| 级别 | 含义 | 示例 |
+|-------|-------|----------|
+| `info` | **人类可读的状态摘要** —— 一句话、语义化、不倾倒原始数值 | 任务准入、目标设定、状态迁移、结果摘要（`前往 电视机 #5, 距离 12.3 m`） |
+| `debug` | 机器可读 / 进程细节 —— 数值 tick、迭代计数、走廊几何、航点序列、VLM 中间产物 | `nav_tick`、`object_path_topo_sequence`、`topo_path_iteration`、`opt_finish` |
+| `warning` | 异常，降级但继续 | `replan_failed`、`waypoint_batch_aborted`、`nan_cost` |
+| `error`/`fatal` | 失败，终态 | 电池低电量、规划器不可达 |
+
+规则：
+
+- 一行日志只有在人类无需上下文即可读懂时才是 `info`；坐标矩阵、位姿与
+  序列按定义属于 `debug`。
+- `debug` 事件承载机器字段；伴随的人类可读 `info` 事件可以总结同一动作
+  （一行、语义化）。
+- 结构化诊断路径中的裸 `printf`/`std::cout`/`ROS_INFO` 是缺陷 ——
+  迁移到 slog。
+
+建议的 `info` 形态 —— 语义化字段，绝不使用原始矩阵：
+
+```json
+{"event":"object_nav_goal","target_obj_id":5,"target_label":"tv",
+ "dist_m":12.3,"path_size":8}
+{"event":"state_transition","from":"OBJECT_APPROACH","to":"OBJECT_REACHED"}
+```
+
+每个动作一条 `info` 摘要（设定目标 / 完成 / 失败）；数值细节位于配对的
+`debug` 事件中。
+
+### 4. seq 与 node 不变量
+
+> seq 是跨通道关联键；node 是聚合键。
+
+- `seq` 只在记录创建时、在规范发射器内部盖一次；每个汇点携带同一个值。
+  发布 `seq` 的通道必须是稠密的（不做策略丢弃），这样站点侧的间隙检查
+  才成立。
+- `node` 在进程初始化时设置（C++ `slog::set_node`，Python 等价物），且
+  每条记录上都非空。无法为自己命名的进程是缺陷。
+
+### 6. dispatcher 记录与发射
+
+> 记录服务决定记录什么；规范发射器是唯一的记录创建点。
+
+- 过程、动作与停止记录经 `telemetry.emit(level, event, stream=..., **fields)`
+  装配，事件名保持 `process_record` / `action_log` / `stop_log`。
+- 所有汇点复用同一 `record.seq`，不得另建上行计数器或镜像追踪写入路径。
+- 上行采用稠密策略，停止记录与其他记录一样上行，不按退避策略过滤。
+- 任务记录采用 `ts_ns`、`level`、`node`、`stream`；快照 JSON 的 process/action/stop
+  对外形态保持一致，由同一记录服务产生，不能形成另一份事件账本。
+- 技能、中间件与推理客户端通过进程单例发射器记录，进程内共享单调 seq。
+- 记录服务接入状态与会话关联待办见 §9；这些规范不表示服务已在新版接入。
+
+### 7. 生产者输出纪律
+
+> 容器中 glibc 对管道 stdout 做块缓冲 —— 每个输出诊断信息的 ROS 节点都
+> 必须行缓冲，否则 `kubectl logs` 会滞后数分钟。
+
+ROS 节点的 `ROS_INFO` / `ROS_DEBUG` 消息走 **stdout**；
+`ROS_WARN` / `ROS_ERROR` 走 **stderr**。在容器运行时下 stdout 始终是管道，
+于是 glibc **块缓冲**它：只有累积约 4 KiB 后、或进程退出时才刷出。
+
+强制要求 —— 每个打印诊断信息的 roslaunch `<node>`：
+
+| 属性 | 规则 |
+|----------|------|
+| 缓冲 | 通过 `launch-prefix="stdbuf -oL -eL"` 让 stdout **和** stderr 行缓冲 |
+| 控制台 | 保留 `output="screen"`（roslaunch 把节点输出转发到自己的 stdout） |
+| 顺序 | 在**同一个** `<node>` 元素上同时设置 `launch-prefix` 与 `output="screen"` |
+
+```xml
+<node pkg="px4ctrl" type="px4ctrl_node" name="px4ctrl" output="screen"
+      launch-prefix="stdbuf -oL -eL">
+```
+
+适用于 lx-real 容器中运行 ROS 节点的每一层
+（l0-mid360-mavros-realsense、l1-lio、l2-px4ctrl、l3-dispatcher-planner）。
+
+缓冲控制的是**可见性**，不是**量**。日志频率由节流
+（`SLOG_*_THROTTLE` / `ROS_*_THROTTLE` / FSM 循环节流）设定并独立调优：
+
+- 健康的每节点状态 INFO：低频率（5–10 s）—— 正确缓冲后仍可读。
+- 持续性的台架状态警告（安全开关已触发）：高节流周期（约 10 s），
+  使其永不刷屏。
+- 主动保护 ERROR（危险电量）可保持 1 s —— 罕见且时效关键。
+
+### 8. 非规范行的层级策略
+
+> 两层合法；来自 l3 的未结构化裸输出是缺陷。
+
+- **A 层（目标）**：规范信封 —— 所有 l3 组件。
+- **B 层（遗留/第三方）**：rosconsole `ROSCONSOLE_FORMAT`
+  `[/node] [LEVEL]` 前缀 —— roslaunch 自身输出、l0/l1/l2 节点，以及剩余
+  的 l3 待迁残留（接入约束见 §9）。消费者解析见 §11.1。
+- l3 诊断路径中的裸 `cout` / `printf` / `print` / `std::cerr` 是缺陷；
+  接入时须按 §9 验证并消除。
+
+### 11. 站点摄入（l4-visualizer）
 
 > l4-visualizer 服务器拥有自己的 zenoh 会话，订阅其租用的 stack，并通过
 > 一条流水线规范化记录。
@@ -314,7 +310,7 @@ rollout-restart DaemonSet。
 - 无人机侧：`lx-log-relay` 仓库的 `relay.py` 接收 fluent-bit 的 `tcp`
   输出（json_lines），并把每条记录原样发布到 `lx/<stack-id>/logs`。
 
-### 11.1 摄入规范化流水线（每条 fluent-bit 记录）
+#### 11.1 摄入规范化流水线（每条 fluent-bit 记录）
 
 > 四个有序步骤：剥离转义、解析 rosconsole 前缀、解析信封、回退。
 
@@ -346,26 +342,26 @@ rollout-restart DaemonSet。
 filter 的真值；已退役采集器的手工 `NODE_SERVICE_HINTS` 前缀表绝不能
 回来。
 
-### 11.2 可视化交接
+#### 11.2 可视化交接
 
 > 日志渲染由 l4-visualizer 负责，非日志产品行为不在本规范内。
 
 规范化记录由 l4-visualizer 的 Logs 标签页（rerun TextLog）渲染。日志链路端口
 见 §10.0；非日志实体映射与控制标签页行为不由本规范定义。
 
-### 11.3 单一职责
+#### 11.3 单一职责
 
 > 只有 l4-visualizer 渲染日志；第二个呈现面即缺陷。
 
 日志可视化**只**由 l4-visualizer 负责（本节为该职责的规范来源）。
 l4-agent copaw 控制台不渲染日志；重复可视化即缺陷。
 
-## 12. 场景导航任务聚合
+### 12. 场景导航任务聚合
 
 > 完整导航过程记录与聚合契约：一次 scene-graph 导航从触发到结束的
 > 全过程记录，供现场回归、故障回溯和验收取证。
 
-### 12.0 记录范围（一次 scene-nav 任务）
+#### 12.0 记录范围（一次 scene-nav 任务）
 
 > 一次 scene-nav 会话 = 同一 frame_id 关联的一次 navigation.scene_graph_nav 全过程。
 
@@ -391,7 +387,7 @@ l4-agent copaw 控制台不渲染日志；重复可视化即缺陷。
 | **完成** | dispatcher 场景导航工具及其状态机 | `object_id_nav_finish`（`finish_source` = ego_exec_finish / arrival_dwell） | `odom_pos`, `dis_2_aim_2d`, `dis_yaw` |
 | **结束信号** | px4ctrl | `[px4ctrl] State: AUTO_HOVER(2), ...` | `fsm_state` |
 
-### 12.1 事件源与标记规则（fluent-bit）
+#### 12.1 事件源与标记规则（fluent-bit）
 
 > fluent-bit 只做单行识别与打标，聚合归接收端。
 
@@ -416,7 +412,7 @@ fluent-bit 是**单行识别器**，不做跨行聚合。规则：对下列匹�
 - px4ctrl 的 `AUTO_HOVER` 行来自其 stdout，经 fluent-bit 已带 k3s pod
   标识，可直接匹配。
 
-### 12.2 会话关联 key
+#### 12.2 会话关联 key
 
 > frame_id 优先，task_session_id 次之，时间窗兜底。
 
@@ -431,7 +427,7 @@ fluent-bit 是**单行识别器**，不做跨行聚合。规则：对下列匹�
 实际关联以 frame_id 为主；aggregator 须容忍 frame_id 缺失，此时用
 task_session_id + 时间窗合并。
 
-### 12.3 聚合与落盘（owner-station l4-visualizer server）
+#### 12.3 聚合与落盘（owner-station l4-visualizer server）
 
 > 站端按会话聚合 scene_nav 行，四条件之一关闭即落盘 JSON。
 
@@ -472,7 +468,7 @@ task_session_id + 时间窗合并。
 }
 ```
 
-### 12.4 outcome 判定（验收证据）
+#### 12.4 outcome 判定（验收证据）
 
 > outcome 由事件推导，是回归证据而非验收决定。
 
@@ -487,7 +483,7 @@ task_session_id + 时间窗合并。
 | `early_terminated_by` | 终止类事件：`object_force_replan_unreachable_local_goal` / `topo_block_exhausted` / `object_id_nav_replan_exhausted`；无则 `null` |
 | `terminal` | px4ctrl 最终 fsm_state（`auto_hover` / `auto_takeoff` / 超时 `timeout`） |
 
-### 12.5 实现边界与委托
+#### 12.5 实现边界与委托
 
 > 契约在 DiffAgent2 新版，采集标记归部署侧，聚合归 l4-visualizer。
 
@@ -497,7 +493,27 @@ task_session_id + 时间窗合并。
 | `auto_deployer` fluentbit.yaml lua filter | scene-nav 行标记 | station-host（drone_projects/auto_deployer） |
 | l4-visualizer server 聚合 + 落盘 | 会话聚合 + JSON 落盘 | l4-visualizer（station-host owner） |
 
-## 13. 现场诊断规则（长期经验）
+## 失败、取消与资源生命周期
+
+采集重试、缓冲与中继失败按 §10，聚合窗口关闭按 §12.3；日志终止不替代工具终态，任务失败与取消仍归工具面。
+
+## 归属与依赖
+
+### 9. 生产者归属与接入约束
+
+- 工具流程事件由 dispatcher 的相应工具及工具状态机产生；通用执行事件由
+  dispatcher 内部共享执行模块产生，planner 只记录自身规划行为。
+- 不为日志采集构建或启动 `mission_executive`；旧生产者归属的历史见
+  [迁移记录](../../../doc/l3-dispatcher-planner/rest/spec-history-and-log-migration.md)。
+- §12 是场景导航能力接入时必须满足的完整聚合规范，不代表当前生产集合已注册该能力；
+  生产集合归 [工具面契约](l3-tool-plane.spec.md)。
+- 记录服务、快照、上行与场景工具接入时，须同步验证事件生产、采集标记与站端消费；
+  不以单侧改名或文档更新冒充端到端交付。
+- 当前缺口、接入触发条件与关闭证据由
+  [迁移台账](../../../doc/l3-dispatcher-planner/rest/dispatcher-deferred-dependencies.md)
+  及[日志迁移核对记录](../../../doc/l3-dispatcher-planner/rest/spec-history-and-log-migration.md)维护。
+
+### 13. 现场诊断规则（长期经验）
 
 > 现场经验：stdout 无输出意味着卡片静默，pod 元数据需要 hostNetwork 下
 > 可达的 API，诊断自底向上并以真实时间戳推进。
@@ -524,11 +540,13 @@ task_session_id + 时间窗合并。
   进入 `/var/log/containers`；`api/ctl/status` 的 `bound:true` 意味着连接令牌
   有效，而非记录在流动 —— 先对比两次快照再下结论。
 
-## 14. 验证
+## 条款检查判据
+
+### 14. 验证
 
 > 按平面的门禁：契约测试、主机编译门禁、站点侧信封测试、流水线探针。
 
-### 14.1 生产者（信封、级别、缓冲）
+#### 14.1 生产者（信封、级别、缓冲）
 
 > 契约测试、编译门禁与缓冲延迟检查。
 
@@ -540,7 +558,7 @@ task_session_id + 时间窗合并。
 - 默认门禁隐藏 debug 遥测：`kubectl logs --tail=200 | grep -c
   'nav_tick'` → 0；使用 `telemetry/level:=debug` 后事件可见。
 
-### 14.2 流水线（采集器、中继、节点身份）
+#### 14.2 流水线（采集器、中继、节点身份）
 
 > 面向采集器、中继与节点身份的可直接复制的 shell 检查。
 
@@ -555,7 +573,7 @@ sudo -n k3s kubectl logs -n lx-real -l app=fluent-bit -c lx-log-relay --tail=5
 sudo -n k3s kubectl logs -n lx-real deploy/l3-dispatcher-arm64 --tail=5 | grep -o '"node":"[a-z_0-9]*"' | head -2
 ```
 
-### 14.3 站点摄入
+#### 14.3 站点摄入
 
 > 站点侧信封测试与实况抽查。
 
@@ -566,3 +584,5 @@ sudo -n k3s kubectl logs -n lx-real deploy/l3-dispatcher-arm64 --tail=5 | grep -
   fluent-bit lua 的 scene-nav 标记仍命中。
 - 站点存活：`curl -fsS http://127.0.0.1:8391/api/ctl/status` 报告绑定的
   stack；一次日志探针会推进 rerun 时间线。
+
+检查执行与证据记录遵循 `specs/README.md` 的统一许可边界；本文件不记录通过结论。

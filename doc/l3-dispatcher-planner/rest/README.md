@@ -1,5 +1,32 @@
 # l3 待迁依赖与保留项入口
 
+## 2026-10-14 Unity 制品准备通过
+
+用户授权后已完成完整 make sim-prepare，退出码 0；L3/Unity 编译、Python 3.8.10
+真实入口导入及 L2/L3 PositionCommand 消息一致性检查通过。记录见
+[兼容修复方案](../iteration/design-unity-python38-build.md)。业务栈及飞行未验收，
+R03/R05 的停止、恢复、原点及站端闭环等剩余条件仍保持开放。
+
+## 2026-10-14 Unity 启动配置收敛
+
+[配置收敛方案](../iteration/design-unity-startup-config.md)取消全栈地面参数必填，
+统一 PUBLIC_ZENOHD_ROUTER，自动分配工作区身份并发现本机节点。
+R03/R05 的地面起飞判定、原点确认及 VLA 贴地能力仍按需拒绝缺少地面信息；
+不恢复旧协议、不伪造原点。代码证据为启动器 config/manifests 和 basic_flight.launch。
+未运行测试、构建、门禁或启动验收；停止闭环、消息兼容及真实输入等剩余条件不变，条目不关闭。
+
+## 契约编写规范整理（2026-10-14）
+
+编写规则、生命周期及正文模板统一由 [specs 注册表](../../../specs/README.md) 定义。
+场景工具 schema、技能身份及配置集中到[场景提案](../../../specs/proposed/inner/l3-scenegraph.spec.md)
+§11–§12；tracking 的端口、依赖、显式装配与站端消费集中到
+[跟踪提案](../../../specs/proposed/inner/l3-tracking.spec.md) §8–§12。
+现行契约仅保留对应提案指针，未采纳状态和默认生产集合不变。
+文件交付后，使用者已明确授权并执行文档结构及引用检查；结果见实施方案。
+本次没有业务测试或运行证据；R03/R05/R09/R10 及记录服务等保留项的触发条件和
+关闭条件继续有效，条目不因此关闭。
+实施范围见[规范落地方案](../iteration/design-spec-governance.md)。
+
 ## 设备侧 L3 装配（2026-10-13）
 
 [远端方案](../iteration/design-drone-remote-build.md)已接入独立端侧目录的投放、

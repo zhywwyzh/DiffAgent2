@@ -1,5 +1,5 @@
 <launch>
-  <arg name="ground_z" doc="已校准的 world 坐标系地面高度，必须显式指定"/>
+  <arg name="ground_z" default="" doc="可选的 world 地面高度，仅地面相关能力需要"/>
   <arg name="drone_id" default="0"/>
   <arg name="odometry_topic" default="/ekf_quat/ekf_odom"/>
   <arg name="cloud_topic" default="/cloud_registered"/>
@@ -11,7 +11,8 @@
     <arg name="cloud_topic" value="$(arg cloud_topic)"/>
     <arg name="realworld_experiment" value="$(arg realworld_experiment)"/>
   </include>
-  <param name="/planner_execution/ground_z" value="$(arg ground_z)" type="double"/>
+  <param if="$(eval arg('ground_z') != '')" name="/planner_execution/ground_z" value="$(arg ground_z)" type="double"/>
+  <rosparam unless="$(eval arg('ground_z') != '')" command="delete" param="/planner_execution/ground_z"/>
   <node pkg="dispatcher" type="dispatcher_node.py" name="dispatcher" output="screen" required="true"
         launch-prefix="$(arg python_executable)">
     <param name="headless" value="true"/>

@@ -1,5 +1,32 @@
 # dispatcher 待迁依赖与保留项台账
 
+## 2026-10-14 Unity 制品准备通过
+
+用户授权后已完成完整 make sim-prepare，退出码 0；L3/Unity 编译、Python 3.8.10
+真实入口导入及 L2/L3 PositionCommand 消息一致性检查通过。记录见
+[兼容修复方案](../iteration/design-unity-python38-build.md)。业务栈及飞行未验收，
+R03/R05 的停止、恢复、原点及站端闭环等剩余条件仍保持开放。
+
+## 2026-10-14 Unity 启动配置收敛
+
+[配置收敛方案](../iteration/design-unity-startup-config.md)取消全栈地面参数必填，
+统一 PUBLIC_ZENOHD_ROUTER，自动分配工作区身份并发现本机节点。
+R03/R05 的地面起飞判定、原点确认及 VLA 贴地能力仍按需拒绝缺少地面信息；
+不恢复旧协议、不伪造原点。代码证据为启动器 config/manifests 和 basic_flight.launch。
+未运行测试、构建、门禁或启动验收；停止闭环、消息兼容及真实输入等剩余条件不变，条目不关闭。
+
+## 2026-10-14 契约格式与设计归属整理
+
+场景家族的 schema、技能身份及配置设计迁入 `specs/proposed/inner/l3-scenegraph.spec.md`
+§11–§12；tracking 宿主、目录依赖、连续资源与消费约定迁入对应提案 §8–§12。
+原技能、工具面、执行缝、RPC 及目录契约保留指针，原数字节号继续用于定位。
+此处只登记资料归属变化：没有修改业务代码、端口值、默认工具集合或剩余运行条件。
+使用者已明确授权并执行文档结构及引用检查，结果归实施方案；没有新增业务测试、
+编译或运行验收证据，所有保留项继续保持原关闭条件。
+后续 R09/R10 设计先读上述提案；R03/R05、记录服务及历史返航不因规范整理裁剪。
+依据见[规范落地方案](../iteration/design-spec-governance.md)与
+[治理决策](../../../specs/implemented/process/2026-10-14-spec-governance.md)。
+
 ## 2026-10-13 设备侧 L3 部署接入（代码接入，未运行）
 
 R03/R05 的新增部署消费者为 `tools/station-host-drone.py`、

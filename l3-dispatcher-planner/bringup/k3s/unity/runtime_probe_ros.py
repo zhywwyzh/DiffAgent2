@@ -147,7 +147,7 @@ def main(action):
     if action == "dependencies":
         for name in ("rospy", "actionlib", "cv2", "zenoh", "numpy", "yaml", "requests", "telemetry_bridge.encoding",
                      "dispatcher.tool_plane.zenoh_transport", "dispatcher.execution.composition",
-                     "dispatcher.ros_adapter.planner_execution_ros"):
+                     "dispatcher.ros_adapter.planner_action_ros"):
             try:
                 importlib.import_module(name)
             except Exception as error:

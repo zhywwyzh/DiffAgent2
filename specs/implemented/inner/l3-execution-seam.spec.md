@@ -1,13 +1,16 @@
 # 下行执行缝
 
 Status: implemented
-
 Contract-ID: l3-dispatcher/execution-seam
 Parent: specs/implemented/l3-dispatcher.spec.md
 
-> 定义 dispatcher 的动作会话与 planner 原生 ROS1 action。迁移实施中，未验收。
+## 范围与非目标
 
-## 1. 职责
+> 定义 dispatcher 的动作会话与 planner 原生 ROS1 action。交付状态不由契约状态推断。
+
+## 术语与身份
+
+### 1. 职责
 
 技能拥有目标构造、多段顺序与专属完成判据；core 保持六态与四裁决。
 dispatcher 的 execution/ 持有共享 ActionSession、端口、宿主与装配。
@@ -15,7 +18,9 @@ planner_execution 是链接到 planner 进程的领域库和 ROS 外壳，无独
 各后端直接调用领域库并提供规划、停止能力，不通过旧目标 topic 桥接。
 mission_executive 与 /mission/task 不恢复。
 
-## 2. 端口与收发
+## 输入、输出与配置
+
+### 2. 端口与收发
 
 - 默认 action 为 /planner/execute_waypoints，使用 quadrotor_msgs/ExecuteWaypoints。
 - Goal 包含 header 与 WaypointTarget；目标包含 1–3 点窗口、yaw、look_forward、YawPolicy 与 ground_approach。
@@ -33,29 +38,7 @@ mission_executive 与 /mission/task 不恢复。
   独立保持路径是原生输出实现，不桥接退役的目标/进度协议。
 - odometry、轨迹、cmd 保持数据流；起飞、降落及全局急停保留独立命令口。
 
-## 3. 完成门
-
-原始目标独立保存，planner 内部修正不改变成功目标。全部航点消费仅进入停稳阶段。
-位置、速度、差分加速度、偏航角速度和显式终末偏航误差同时合格，并在递增源时戳上持续停稳，才报告 SUCCEEDED。
-重复快照不推进窗口；缺观测、过期、坐标不符、时间倒退或跳点不能成功。
-姿态和速度沿用 odometry 世界系约定，不另行旋转。
-旋转实际有符号累计角仍归技能；VLA 每腿成功才进入下一腿，全部成功才结束工具调用。
-
-## 4. 取消与故障
-
-- 合法任务取消立即失效待发目标与任务归属，并独立尝试全局急停和指定 goal handle 取消；服务端立即关闭旧运动输出并接管保持。
-- 停止确认要求原轨迹失效、保持控制已接管及连续动态停稳，不要求回到原任务目标。
-- 活动目标停止确认后 PREEMPTED；未执行目标撤回为 RECALLED；未准入为 REJECTED。
-- 执行失败为 ABORTED；停止未确认必须 stop_confirmed=false 并闭锁新目标。
-- 同源覆盖可进入已有任务队列，但旧动作释放前不得发送新运动目标。服务端无待执行队列，忙时拒绝。
-- 故障恢复经显式停止/重置重新确认安全状态；连接重建本身不证明安全。
-- 全局急停独立于 action；活动任务失败或取消，不能成功。
-- 客户端断连不自动重发。服务端有限执行期限最终触发停止；不宣称 actionlib 自带即时断连安全停。
-- dispatcher 立即释放被取消任务的 owner、目标与结果引用；仅保留不含任务对象的 StopRecord 跟踪设备停止及传输回执。停止中/故障禁止新运动，不能重新激活旧任务。
-- 停止入口不争用长规划锁；输出发布使用短临界区和执行代次仲裁。停止后旧规划结果不得重新获得输出权。建图、定位、原点与通信端点保持常驻。
-- 原生执行状态增加 execution_generation、motion_enabled；DIFF PolyTraj 增加 execution_boot_id、execution_generation，用于跨进程轨迹输出归属，不作任务身份。
-
-## 5. 配置
+### 5. 配置
 
 共享参数由 /planner_execution 统一持有；服务端与 dispatcher 从同一参数树读取，旧 flight 中对应键显式拒绝。
 
@@ -79,14 +62,7 @@ mission_executive 与 /mission/task 不恢复。
 ground_approach 才允许下界为 ground_z；不能绕过最大高度。
 纯技能参数仍归家族，不在服务端识别具体工具名。
 
-## 6. 客户端与生命周期
-
-回调写不可变事件，绑定发送时捕获的动作代次及句柄。宿主在 engine 节拍消费，不在回调中改任务 FSM。
-owner、任务代次与唯一终态保留；迟到事件不能用当前代次重新标记。
-ActionSession 由飞行与 VLA 共用。任务取消立即释放任务资源；进程关闭才有限等待停止后逆序注销端点，停止未确认不得宣称设备安全。
-等待不得持有 engine 生命周期锁。六态 core 的等待仍须输出原因与输入年龄。
-
-## 7. 后端边界
+### 7. 后端边界
 
 EGO、SUPER、DIFF 使用同一 action 类型，后端不支持的目标组合必须在执行前拒绝。
 规划器算法保持原归属；通用停稳、取消生命周期由 planner_execution 唯一持有。
@@ -96,7 +72,55 @@ DIFF 仅准入沿路径朝向，不接受显式偏航控制。
 
 输出边界为 /setpoint_cmd；取消完成依据领域观测和后端保持接管，不等价于已验收实机跟踪。
 
-## 8. 门禁与验收
+## 行为规则
+
+### 3. 完成门
+
+原始目标独立保存，planner 内部修正不改变成功目标。全部航点消费仅进入停稳阶段。
+位置、速度、差分加速度、偏航角速度和显式终末偏航误差同时合格，并在递增源时戳上持续停稳，才报告 SUCCEEDED。
+重复快照不推进窗口；缺观测、过期、坐标不符、时间倒退或跳点不能成功。
+姿态和速度沿用 odometry 世界系约定，不另行旋转。
+旋转实际有符号累计角仍归技能；VLA 每腿成功才进入下一腿，全部成功才结束工具调用。
+
+### 9. 连续执行扩展
+
+未采纳的连续执行资源扩展见 `specs/proposed/inner/l3-tracking.spec.md` §10。
+
+普通航点动作满足原目标完成门后，也须撤销运动输出、接管保持并确认动态停稳，才返回成功；
+防止普通导航成功后仍占用输出，使连续动作无法准入。保持阶段的取消或安全停止覆盖成功候选。
+`ActionSession.finish` 仅用于技能内部收尾，保留当前 owner 以消费停止结果；外部取消仍立即
+释放 owner 并使用独立 StopRecord。过期轨迹采样只可撤销匹配的输出代次，不能停止后继任务。
+
+## 失败、取消与资源生命周期
+
+### 4. 取消与故障
+
+- 合法任务取消立即失效待发目标与任务归属，并独立尝试全局急停和指定 goal handle 取消；服务端立即关闭旧运动输出并接管保持。
+- 停止确认要求原轨迹失效、保持控制已接管及连续动态停稳，不要求回到原任务目标。
+- 活动目标停止确认后 PREEMPTED；未执行目标撤回为 RECALLED；未准入为 REJECTED。
+- 执行失败为 ABORTED；停止未确认必须 stop_confirmed=false 并闭锁新目标。
+- 同源覆盖可进入已有任务队列，但旧动作释放前不得发送新运动目标。服务端无待执行队列，忙时拒绝。
+- 故障恢复经显式停止/重置重新确认安全状态；连接重建本身不证明安全。
+- 全局急停独立于 action；活动任务失败或取消，不能成功。
+- 客户端断连不自动重发。服务端有限执行期限最终触发停止；不宣称 actionlib 自带即时断连安全停。
+- dispatcher 立即释放被取消任务的 owner、目标与结果引用；仅保留不含任务对象的 StopRecord 跟踪设备停止及传输回执。停止中/故障禁止新运动，不能重新激活旧任务。
+- 停止入口不争用长规划锁；输出发布使用短临界区和执行代次仲裁。停止后旧规划结果不得重新获得输出权。建图、定位、原点与通信端点保持常驻。
+- 原生执行状态增加 execution_generation、motion_enabled；DIFF PolyTraj 增加 execution_boot_id、execution_generation，用于跨进程轨迹输出归属，不作任务身份。
+
+### 6. 客户端与生命周期
+
+回调写不可变事件，绑定发送时捕获的动作代次及句柄。宿主在 engine 节拍消费，不在回调中改任务 FSM。
+owner、任务代次与唯一终态保留；迟到事件不能用当前代次重新标记。
+ActionSession 由飞行与 VLA 共用。任务取消立即释放任务资源；进程关闭才有限等待停止后逆序注销端点，停止未确认不得宣称设备安全。
+等待不得持有 engine 生命周期锁。六态 core 的等待仍须输出原因与输入年龄。
+
+## 归属与依赖
+
+本叶唯一拥有共享动作会话、planner 原生动作生命周期和公共执行参数；技能拥有业务目标与多腿顺序，算法归各 planner 后端。
+
+## 条款检查判据
+
+### 8. 门禁与验收
 
 按 AGENTS.md 的统一声明，未获明确许可不执行测试或验证性验收。
 后续许可后覆盖三后端、停稳、取消竞态、断连、重启、旧结果和多腿单终态。
@@ -106,15 +130,6 @@ DIFF 仅准入沿路径朝向，不接受显式偏航控制。
 | G11 | 共享执行与服务端不按工具名分支 |
 | G12 | 领域执行的完成、取消及跨进程生命周期有对应证据 |
 
-实现记录与剩余条件归 doc/l3-dispatcher-planner/iteration/design-planner-native-action.md；强制取消调整归 design-task-cancel-emergency-hover.md（代码交付，未验收）。
+实现记录与剩余条件归 doc/l3-dispatcher-planner/iteration/design-planner-native-action.md；强制取消调整归 design-task-cancel-emergency-hover.md（交付状态见实施记录）。
 
-## 9. 连续执行扩展
-
-连续目标跟踪按 `specs/proposed/inner/l3-tracking.spec.md` 实施。新增原生 action 与观测数据流，
-不向 WaypointTarget 恢复旧跟随预留。EGO 同进程共用动作资源和输出；普通动作与连续动作
-互斥。连续动作不使用静态航点到达门，只复用定位、期限、停止和动态停稳；业务完成归技能。
-
-普通航点动作满足原目标完成门后，也须撤销运动输出、接管保持并确认动态停稳，才返回成功；
-防止普通导航成功后仍占用输出，使连续动作无法准入。保持阶段的取消或安全停止覆盖成功候选。
-`ActionSession.finish` 仅用于技能内部收尾，保留当前 owner 以消费停止结果；外部取消仍立即
-释放 owner 并使用独立 StopRecord。过期轨迹采样只可撤销匹配的输出代次，不能停止后继任务。
+检查执行与证据记录遵循 `specs/README.md` 的统一许可边界；本文件不记录通过结论。

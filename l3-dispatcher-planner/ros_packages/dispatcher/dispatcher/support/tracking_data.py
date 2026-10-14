@@ -1,4 +1,5 @@
 """跟踪帧数据，不承载流程或 ROS 类型。"""
+from __future__ import annotations
 import numpy as np
 from dataclasses import dataclass
 

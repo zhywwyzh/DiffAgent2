@@ -1,12 +1,15 @@
 # l3 调度与执行契约
 
 Status: implemented
-
 Contract-ID: l3-dispatcher
+
+## 范围
 
 > 拥有 l3 层（任务分发 / 下行执行 / 运动规划）的系统边界、职责划分与不变量。
 > 具体裁剪清单、迁移步骤与每轮验收归 `doc/l3-dispatcher-planner/iteration/` 下的
 > 迭代方案与执行记录所有，不进本契约。
+
+未采纳的连续跟踪设计见 `specs/proposed/inner/l3-tracking.spec.md`。
 
 ## 不变量
 
@@ -34,22 +37,17 @@ Contract-ID: l3-dispatcher
 
 > 叶契约拥有各自聚焦的机制与判据。
 
-| Contract | Authority |
+| 契约路径 | 职责 |
 |----------|-----------|
 | `specs/implemented/inner/l3-core-boundary.spec.md` | dispatcher core 的准入与禁令 |
 | `specs/implemented/inner/l3-ros-adapter-boundary.spec.md` | ROS 收发隔离、端口与内存访问方式 |
 | `specs/implemented/inner/l3-execution-seam.spec.md` | 共享动作会话、家族宿主与装配及 planner 原生 action |
 | `specs/implemented/inner/l3-skill-contract.spec.md` | 技能的身份、生命周期、端口与逆 |
-| `specs/implemented/inner/l3-migration-protocol.spec.md` | 旧库向新库迁移的裁决、准入与禁止事项 |
+| `specs/implemented/inner/l3-migration-protocol.spec.md` | DiffAgent2 旧版向DiffAgent2 新版迁移的裁决、准入与禁止事项 |
 | `specs/implemented/inner/l3-tool-plane.spec.md` | 工具发现/调用/事件/取消与连接租约的对外协议 |
 | `specs/implemented/inner/l3-l4-rpc.spec.md` | l4 线上请求/准入/终态信封、presence 与连接生命周期 |
 | `specs/implemented/inner/flight-actions.spec.md` | 六个基础飞行动作的参数、完成语义和 cmd 输出边界 |
 | `specs/implemented/inner/l3-package-layout.spec.md` | dispatcher 子包平面划分、命名规范与依赖方向 |
-
-## 部分实施的提案
-
-`specs/proposed/inner/l3-tracking.spec.md` 描述连续目标跟踪。本地代码已接入显式
-tracking 装配，尚未编译或验收；不属于默认生产工具集合。采纳后的叶契约再进入上表。
 
 ## 边界
 

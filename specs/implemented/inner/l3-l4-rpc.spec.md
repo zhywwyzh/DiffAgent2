@@ -4,11 +4,15 @@ Status: implemented
 Contract-ID: l3-dispatcher/l4-rpc
 Parent: specs/implemented/l3-dispatcher.spec.md
 
-> 定义站端调用 l3 的线上信封、连接发现和结果投递。通用控制面已由真实站端消费者和隔离传输测试验证；生产飞行能力仍按工具面集合判定。
+## 范围与非目标
+
+> 定义站端调用 l3 的线上信封、连接发现和结果投递。通用控制面不替代生产飞行能力的独立判定，工具集合归工具面契约。
 > 工具集合、准入、租约状态机和终态账本归 `l3-tool-plane.spec.md`；技能和动作
 > 完成语义归对应能力契约。本叶不新增另一套注册表、租约账本或任务身份。
 
-## 1. 单入口与身份
+## 术语与身份
+
+### 1. 单入口与身份
 
 - 请求入口唯一为 `lx/<stack-id>/rpc`，JSON 对象包含 `method` 字符串与
   `params` 对象；这不是另一个标准 JSON-RPC 2.0 接口，不新增 `id`/`jsonrpc` 包装。
@@ -22,7 +26,48 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 - 上游不提供 `flight_session_id`、`step_id`。已有内部诊断字段不得成为额外准入条件、
   RPC 关联键或能力分发依据；它们也不得被当作物理飞行会话或返航原点身份。
 
-## 2. 发现与连接
+## 输入、输出与配置
+
+### 3. 查询回复
+
+- 成功信封为 `{"type":"rpc_result","method":...,"result":...}`。
+- 拒绝信封为 `{"type":"rpc_error","method":...,"reason":...,"message":...}`。
+  reason 使用工具面现行传输词表，不为迁移另建错误系统。
+- 执行准入结果为 `{"accepted":true,"call_id":...}`，只表示准入；其键集不同于
+  进程内 runtime ack。不得用该结果推动“动作已完成”。
+- 每个收到的 query 生成一个完整回复；非法 JSON、非对象顶层、缺失或错误类型的
+  method/params 均回 `invalid_arguments`，不让解析异常逸出并悬挂请求。
+  不可识别的方法回 `method_not_found`；有名称但缺 call_id 的执行请求回
+  `invalid_arguments`。无法读取 method 时错误信封中的 method 使用空串。
+- 同 call_id 重试也必须先经过当前 owner 门：合法同载荷重放返回原准入结果且不重复
+  排队；不同载荷回 `invalid_arguments`；失效租约回 `connection_not_owner`。
+- 未准入调用不产生完成事件。网络无回复属于站端传输失败，不伪造成服务端已完成。
+
+## 行为规则
+
+### 4. 终态投递
+
+- 唯一任务结果频道为 `lx/<stack-id>/rpc_outcome`；承载终态，不承载 running 相位。
+- 信封固定为 `{"type":"rpc_outcome","method":...,"call_id":...,"outcome":...}`。
+  method 和 call_id 与准入请求一致，不产生额外关联编号。
+- 成功 outcome 含 `ok=true` 和对象类型的 `result`；result 至少含
+  `completion`，值采用该工具的 `lx.completion`。能力结果字段由能力契约定义。
+- 失败 outcome 含 `ok=false`、`reason`、`message`；租约丢失映射为
+  `connection_not_owner`，取消、抢占及执行失败使用 `wrong_state`，message 保留
+  可诊断原因。进程内更细的错误码不因 wire 投影而丢失。
+- outcome 从同一个 runtime 终态记录产生，不设独立的业务终态写入方；一次准入只提交
+  一个终态。快速同步完成、抢占、租约丢失和重复回调均不能丢失关联或重复提交。
+- 必须在执行可产生终态前建立关联；不以“admit 返回后再记 method”的顺序依赖线程调度。
+  拒绝请求不留下关联；同载荷重放不重新建立已经消费的映射。
+- 站端在发送调用前订阅结果，且可接收早于查询回复的 outcome；服务端不应依赖网络
+  对两个通道的先后排序。测试必须覆盖 outcome 先于 ack 到达。
+- “终态唯一”约束业务提交，不承诺 pub/sub 跨断线恰好一次送达。发布失败必须留诊断，
+  不能变更已经提交的动作终态或重复执行动作。上游当前没有结果游标恢复接口；
+  控制面不提供无人消费的补发路由，也不声称断线重连能够自动恢复漏收结果。
+
+## 失败、取消与资源生命周期
+
+### 2. 发现与连接
 
 - l3 在 RPC 接口准备好后声明 `lx/<stack-id>/presence/task/<instance-id>` 的
   liveliness token；实例标识每次运行独立。关闭或启动失败时释放已获取的资源。
@@ -49,52 +94,25 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 - 租约丢失停止准入，取消当前调用，再请求核心安全停止；失败时保持取消中。
   成功发出安全停请求不等于飞机已经悬停。
 
-## 3. 查询回复
+## 归属与依赖
 
-- 成功信封为 `{"type":"rpc_result","method":...,"result":...}`。
-- 拒绝信封为 `{"type":"rpc_error","method":...,"reason":...,"message":...}`。
-  reason 使用工具面现行传输词表，不为迁移另建错误系统。
-- 执行准入结果为 `{"accepted":true,"call_id":...}`，只表示准入；其键集不同于
-  进程内 runtime ack。不得用该结果推动“动作已完成”。
-- 每个收到的 query 生成一个完整回复；非法 JSON、非对象顶层、缺失或错误类型的
-  method/params 均回 `invalid_arguments`，不让解析异常逸出并悬挂请求。
-  不可识别的方法回 `method_not_found`；有名称但缺 call_id 的执行请求回
-  `invalid_arguments`。无法读取 method 时错误信封中的 method 使用空串。
-- 同 call_id 重试也必须先经过当前 owner 门：合法同载荷重放返回原准入结果且不重复
-  排队；不同载荷回 `invalid_arguments`；失效租约回 `connection_not_owner`。
-- 未准入调用不产生完成事件。网络无回复属于站端传输失败，不伪造成服务端已完成。
-
-## 4. 终态投递
-
-- 唯一任务结果频道为 `lx/<stack-id>/rpc_outcome`；承载终态，不承载 running 相位。
-- 信封固定为 `{"type":"rpc_outcome","method":...,"call_id":...,"outcome":...}`。
-  method 和 call_id 与准入请求一致，不产生额外关联编号。
-- 成功 outcome 含 `ok=true` 和对象类型的 `result`；result 至少含
-  `completion`，值采用该工具的 `lx.completion`。能力结果字段由能力契约定义。
-- 失败 outcome 含 `ok=false`、`reason`、`message`；租约丢失映射为
-  `connection_not_owner`，取消、抢占及执行失败使用 `wrong_state`，message 保留
-  可诊断原因。进程内更细的错误码不因 wire 投影而丢失。
-- outcome 从同一个 runtime 终态记录产生，不设独立的业务终态写入方；一次准入只提交
-  一个终态。快速同步完成、抢占、租约丢失和重复回调均不能丢失关联或重复提交。
-- 必须在执行可产生终态前建立关联；不以“admit 返回后再记 method”的顺序依赖线程调度。
-  拒绝请求不留下关联；同载荷重放不重新建立已经消费的映射。
-- 站端在发送调用前订阅结果，且可接收早于查询回复的 outcome；服务端不应依赖网络
-  对两个通道的先后排序。测试必须覆盖 outcome 先于 ack 到达。
-- “终态唯一”约束业务提交，不承诺 pub/sub 跨断线恰好一次送达。发布失败必须留诊断，
-  不能变更已经提交的动作终态或重复执行动作。上游当前没有结果游标恢复接口；
-  本轮不设计无人消费的补发路由，也不声称断线重连能够自动恢复漏收结果。
-
-## 5. 操作面边界
+### 5. 操作面边界
 
 - 当前站端采用静态工具词汇，不调用工具发现、游标 events 或通用 cancel 的 wire 方法。
   runtime 的注册表、revision、事件重放和取消仍按工具面契约保留并验证。
-- 本轮不新增 `tools/*`、发现/轮询/取消 RPC 方法，也不恢复已删除的资源入口。
+- 控制面不提供 `tools/*`、发现/轮询/取消 RPC 方法，也不恢复已删除的资源入口。
   站端取消批次会提交一个独立 `basic_flight.emergency_stop` 调用；这不等同于
   进程内 cancel 的传输入口；两者执行侧均强制停止当前导航并悬停，任务释放与物理停稳分开记账。
 - 生产工具集合以 l3-tool-plane 契约为准。测试能力只能使用测试注册表，不能以
   “联调探针”名义开放生产空实现。
 
-## 6. 验收
+### tracking 显式装配的消费约定
+
+未采纳的 tracking 消费约定见 `specs/proposed/inner/l3-tracking.spec.md` §12。
+
+## 条款检查判据
+
+### 6. 验收
 
 > **统一声明**：除非使用者明确许可，否则跳过验收测试工作（`AGENTS.md` 硬性约束 §9）。
 
@@ -108,10 +126,4 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 | RPC6 | 生产集合与工具面契约一致；不新增别名、任务编号或站端代码改动 |
 | RPC7 | 关闭/启动失败逆序释放 queryable、publisher、presence、watch 与线程；真实传输验证与进程内测试分别留证 |
 
-## tracking 显式装配的消费约定
-
-默认生产集合不变；显式 tracking 入口的能力与状态见 `l3-tool-plane.spec.md` §1。
-站端须按发现结果处理 `navigation.track`，传入原始像素框、精确图像时戳和视觉会话身份。
-其 `workflow_result` 只在业务稳定和执行停止确认后由 dispatcher 产生；内部连续 action
-取消回执不是 RPC 成功或外部取消事件。站端不得沿用旧版 `action_result` 元数据推导成功。
-外部站端代码不在本轮修改范围，端到端消费尚未验收。
+检查执行与证据记录遵循 `specs/README.md` 的统一许可边界；本文件不记录通过结论。

@@ -1,9 +1,10 @@
 # l3 工具面契约
 
 Status: implemented
-
 Contract-ID: l3-dispatcher/tool-plane
 Parent: specs/implemented/l3-dispatcher.spec.md
+
+## 范围与非目标
 
 > 拥有 l3 工具控制面（发现、调用、事件、取消与连接租约）的对外协议不变量。
 > 覆盖：工具发现面、按名分发与准入、飞行独占与同源抢占、取消、事件账本、
@@ -12,7 +13,13 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 > `l3-core-boundary`；ROS 收发隔离归 `l3-ros-adapter-boundary`；本契约不
 > 涉及 ROS 概念。
 
-## 1. 工具发现面
+## 术语与身份
+
+工具名是分发身份，call_id 仅关联调用；租约身份三元组见 §6，事件身份见 §7，不引入任务编号。
+
+## 输入、输出与配置
+
+### 1. 工具发现面
 
 - 注册面恰为已实现、已测试的工具集合；每项携带 `name`、`title`、
   `description`、`inputSchema`、`outputSchema`、`annotations` 与 `_meta`。
@@ -31,12 +38,7 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 `navigation.vla_nav` 与 `navigation.vla_rotate` 的元数据见下。测试自有能力
 不注册到生产默认集合；后续能力同样须有完整实现与测试。
 
-**显式 tracking 装配（2026-10-10）**：`tracking.launch` 以 `dispatcher_node.py --tracking-profile` 在组合根注入
-上述八项加 `navigation.track` 的独立注册表；普通入口仍为八项。此入口用于后续获许可的
-联调，代码已接入、未编译及验收，不能据此认定生产能力。它不是 RPC 启停开关，列表
-不随模型或传感器就绪状态变化；revision 由该入口实际元数据计算，不复用八项记录值。
-`navigation.track` 的 schema 与生命周期归 `specs/proposed/inner/l3-tracking.spec.md`，
-完成元数据为 `workflow_result`，并发语义为 `flight-exclusive`。
+未采纳的 tracking 显式装配及元数据见 `specs/proposed/inner/l3-tracking.spec.md` §11。
 
 **`navigation.vla_nav`**：station 解算航点的执行载体——站端以「累积点云（最新，
 世界系）+ 位姿按帧时戳插值 + VLM bbox」解算 `waypoint_world` 后下发，机上为
@@ -62,10 +64,6 @@ leg.`；`outputSchema` 为空 object（`type=object`、`properties={}`、
 > 编号（`l3-core-boundary` B2/B7/B8；migration-protocol G23）。原 grounded 字段
 > （`bbox_1000`/`image_stamp`/`image_width`/`image_height`/`visible`/`finish`/
 > `provider`/`side`/`distance_m`）由站端消费，不再下行。
->
-> 站端几何注记（2026-09-25 起）：left/right 接近不再走机上移植的密集窗链，改走
-> VLA-Diff 云链；`vla_nav` 意图参数收敛为 `{object, bearing}`，wire 仍带 `prompt`
-> （由站端从 `object` 合成）——**l3 schema 不变**。
 
 **`navigation.vla_rotate`**：VLA 搜索旋转腿——站端在目标 `visible=false` 时下发，
 按机体偏航增量原地旋转，重扫后重新接地（站端编排、`ground_` 前缀内部命令）。
@@ -76,51 +74,13 @@ leg.`；`outputSchema` 为空 object（`type=object`、`properties={}`、
 
 | 字段 | 必填 | 规则 |
 |------|------|------|
-| `yaw_delta_deg` | 是 | `number`，`exclusiveMinimum=-360`、`maximum=360`（与旧库 `tools/registry.py` 一致） |
+| `yaw_delta_deg` | 是 | `number`，`exclusiveMinimum=-360`、`maximum=360`（与DiffAgent2 旧版 `tools/registry.py` 一致） |
 
 **`revision` 记录值（现行）**：`sha256:32b34a601073402fdef66c6f097bc4073f7fb1ad595beeea296305b05cde1228`
 
-**目标集合（未注册，2026-09-20 登记）**：`scene.map_search`、`scene.navigate`、
-`scene_nav.graph.list`、`scene_nav.graph.select`、`scene_nav.graph.save`、
-`scene_nav.graph.objects`、`scene_nav.graph.object_pose`。这七项**尚未实现、
-未测试、未注册**，不进入现行发现面，现行 `revision` 不变；实现与测试同批交付后
-才并入现行集合并重算 `revision`（`l3-dispatcher/migration-protocol` §1、§2-⑦：
-文档登记不构成生产能力，不豁免「不留桩」）。
+未采纳的场景工具 schema 与元数据见 `specs/proposed/inner/l3-scenegraph.spec.md` §11。
 
-| 工具名 | `inputSchema` 字段 | 完成语义 | 并发语义 |
-|--------|--------------------|----------|----------|
-| `scene.map_search` | `object`（必填，`string`，`minLength=1`） | `workflow_result` | `flight-exclusive` |
-| `scene.navigate` | `object_id`（必填，`integer`） | `workflow_result` | `flight-exclusive` |
-| `scene_nav.graph.list` | 无 | `workflow_result` | `flight-exclusive` |
-| `scene_nav.graph.select` | `graph`（必填，`string`，`minLength=1`） | `workflow_result` | `flight-exclusive` |
-| `scene_nav.graph.save` | `graph`（可选，`string`，`minLength=1`） | `workflow_result` | `flight-exclusive` |
-| `scene_nav.graph.objects` | `graph`（可选，`string`）、`label`（可选，`string`） | `workflow_result` | `flight-exclusive` |
-| `scene_nav.graph.object_pose` | `graph`（可选，`string`）、`object_id`（必填，`integer`）、`pos`（可选，`array[number]` 恰 3 项）、`yaw`（可选，`number`）、`delta_pos_local`（可选，同 `pos`）、`delta_rot_local_xyzw`（可选，`array[number]` 恰 4 项）、`apply`（可选，`boolean`） | `workflow_result` | `flight-exclusive` |
-
-- 上表 `inputSchema` 顶层均为 `type=object`、`additionalProperties=false`；
-  `scene_nav.graph.list` 的 `outputSchema` 为空 object，其余为非空 object
-  （结果字段由 `l3-dispatcher/skill-contract` 的家族条目与该能力叶契约定义）。
-- `scene.navigate` 的终态必须携带对象级结果（对象身份、到达与否、最终位置、
-  最终偏航、失败原因），不得只上报航点完成（`l3-dispatcher/scenegraph` §6）。
-- 编辑与保存类工具的写操作**经 builder 的 HTTP 面**执行，dispatcher 不直接写图
-  （`l3-dispatcher/scenegraph` §8）。
-- **有意变更登记**：旧库 wire 别名 `navigation.scene_graph_nav`（本地把 `object`
-  解析为 `object_id`）**不恢复**——按 §2 未注册名一律拒绝，且
-  `l3-dispatcher/migration-protocol` §4 禁止遗留垫片；旧调用方须改用
-  `scene.navigate` 并直接携带 `object_id`（对象语义在站端解析）。
-
-## 2. 按名分发与准入
-
-- `name` 是分发、查找与重放关联的唯一键；任务识别到能力归属之间不存在
-  任何编号或枚举映射层（`l3-core-boundary` B8）。
-- 未注册名一律拒绝，准入子原因为 `tool_not_registered`。
-- 执行方法请求必带调用关联键 `call_id`；缺失即拒绝为 `invalid_arguments`。
-- `arguments` 按该工具 schema 严格校验：未知键、缺键、类型不符、非有限数
-  与错误元数一律拒绝；失败属 `invalid_arguments`，子原因区分
-  `unknown_argument`、`missing_required_argument`、`argument_out_of_range`。
-- 注册表是 schema 校验与工具发现的唯一来源。
-
-## 3. 承载传输与拒绝信封
+### 3. 承载传输与拒绝信封
 
 线上 admission/outcome、task presence 与连接监听的精确信封和生命周期归
 [l4 RPC 契约](l3-l4-rpc.spec.md)。本叶的 runtime ack/event、发现、事件游标和取消
@@ -140,7 +100,20 @@ leg.`；`outputSchema` 为空 object（`type=object`、`properties={}`、
 - wire 名的归一只作用于名字解析，不产生第二注册面。
 - 每个 queryable 必须以完整语义应答，不半途留挂。
 
-## 4. 飞行独占与同源抢占
+## 行为规则
+
+### 2. 按名分发与准入
+
+- `name` 是分发、查找与重放关联的唯一键；任务识别到能力归属之间不存在
+  任何编号或枚举映射层（`l3-core-boundary` B8）。
+- 未注册名一律拒绝，准入子原因为 `tool_not_registered`。
+- 执行方法请求必带调用关联键 `call_id`；缺失即拒绝为 `invalid_arguments`。
+- `arguments` 按该工具 schema 严格校验：未知键、缺键、类型不符、非有限数
+  与错误元数一律拒绝；失败属 `invalid_arguments`，子原因区分
+  `unknown_argument`、`missing_required_argument`、`argument_out_of_range`。
+- 注册表是 schema 校验与工具发现的唯一来源。
+
+### 4. 飞行独占与同源抢占
 
 - 飞行独占槽唯一：每个 stack 至多一个持有飞行槽的非终态调用。
 - 存在持槽调用时，来自异源（不同 station 实例）的新普通调用拒绝为
@@ -148,7 +121,37 @@ leg.`；`outputSchema` 为空 object（`type=object`、`properties={}`、
   并保证收敛为恰好一个 `fail` 终态（异步），新调用随即接管槽位。
 - 当前无豁免同源约束的工具；所有已注册调用均经过同一 owner 门。
 
-## 5. 取消
+### 7. 事件账本与调用关联
+
+- 事件仅按调用关联键 `call_id` 关联，不引入其他关联维度。
+- 事件账本有界重放：游标轮询（`after_seq` + `limit`）；`seq` 在单运行时内
+  单调递增；`event_id` 跨重启全局唯一。
+- 只返回该租约的事件；对其他租约的事件，游标直接越过。
+- 游标过期或超前时给出确定性复位原因（`event_history_expired`、
+  `client_cursor_ahead`）。
+- 事件可见性按租约过滤；同一调用的事件序列不得跨租约泄漏。
+
+### 8. 终态唯一
+
+- 事件 status 恰为 `running`、`done`、`fail` 三值。
+- 事件 phase 词表固定为：`accepted`、`perceiving`、`planning`、
+  `dispatching`、`executing`、`result_ready`、`done`、`fail`；映射层对
+  词表外的 phase 一律按 `running` 归一。
+- 每个已准入调用恰好一个终态事件（`done` 或 `fail`）；迟到或重复的终态
+  被忽略。
+- ack 只表示已准入，绝不表示完成；完成只由终态事件表达。
+
+### 9. 并发、重放与完成语义
+
+- 同一 `call_id` 同载荷重放：返回原 ack，不二次执行。
+- 同一 `call_id` 异载荷：拒绝为 `call_id_conflict`。
+- 完成语义恰为三值：`forwarded`（已转交下游）、`action_result`（以下游
+  动作结果为准）、`workflow_result`（以工作流结果为准）；生产能力在注册元数据中声明完成语义。
+- 传输超时、进程存活、容器就绪绝不算成功完成。
+
+## 失败、取消与资源生命周期
+
+### 5. 取消
 
 - 取消幂等。
 - 未知调用 → `call_not_found`；已终态调用 → `already_terminal`（不重复
@@ -157,7 +160,7 @@ leg.`；`outputSchema` 为空 object（`type=object`、`properties={}`、
 - 合法取消立即使当前调用及派生指令失效，释放任务归属并强制请求制动后悬停；停止确认由设备状态独立跟踪，不保留任务占用。
 - 取消与急停优先于普通指令队列，保留租约与调用归属检查。清理不影响地图、建图、定位、常驻通信或有效返航原点。
 
-## 6. 连接租约与 owner 门
+### 6. 连接租约与 owner 门
 
 - 连接身份三元组：`station_id` + `station_instance_id` + `lease_id`；
   `stack_id` 即 key 前缀，不作为 payload 字段。
@@ -173,35 +176,13 @@ leg.`；`outputSchema` 为空 object（`type=object`、`properties={}`、
   无主），安全停失败即 fail-closed 停在取消中；活动调用收敛为一个
   `fail` 终态，错误码 `connection_lost`，随后经注入的核心全局停止端口执行安全停。端口缺失或执行失败时保持取消中，不得释放为无主。
 
-## 7. 事件账本与调用关联
+## 归属与依赖
 
-- 事件仅按调用关联键 `call_id` 关联，不引入其他关联维度。
-- 事件账本有界重放：游标轮询（`after_seq` + `limit`）；`seq` 在单运行时内
-  单调递增；`event_id` 跨重启全局唯一。
-- 只返回该租约的事件；对其他租约的事件，游标直接越过。
-- 游标过期或超前时给出确定性复位原因（`event_history_expired`、
-  `client_cursor_ahead`）。
-- 事件可见性按租约过滤；同一调用的事件序列不得跨租约泄漏。
+工具面语义由本叶唯一拥有，线上信封归 l4-rpc，业务动作归 flight-actions 与技能契约；未采纳家族只按 §1 的提案指针导航。
 
-## 8. 终态唯一
+## 条款检查判据
 
-- 事件 status 恰为 `running`、`done`、`fail` 三值。
-- 事件 phase 词表固定为：`accepted`、`perceiving`、`planning`、
-  `dispatching`、`executing`、`result_ready`、`done`、`fail`；映射层对
-  词表外的 phase 一律按 `running` 归一。
-- 每个已准入调用恰好一个终态事件（`done` 或 `fail`）；迟到或重复的终态
-  被忽略。
-- ack 只表示已准入，绝不表示完成；完成只由终态事件表达。
-
-## 9. 并发、重放与完成语义
-
-- 同一 `call_id` 同载荷重放：返回原 ack，不二次执行。
-- 同一 `call_id` 异载荷：拒绝为 `call_id_conflict`。
-- 完成语义恰为三值：`forwarded`（已转交下游）、`action_result`（以下游
-  动作结果为准）、`workflow_result`（以工作流结果为准）；生产能力在注册元数据中声明完成语义。
-- 传输超时、进程存活、容器就绪绝不算成功完成。
-
-## 10. 门禁
+### 10. 门禁
 
 | 门禁 | 检查 |
 |------|------|
@@ -211,7 +192,8 @@ leg.`；`outputSchema` 为空 object（`type=object`、`properties={}`、
 | G27 | 负例判定：未注册名 → `tool_not_registered`；异源占用 → `flight_busy`；非 owner→ `connection_not_owner` |
 | G28 | 每个已准入调用恰有一个终态事件；同 `call_id` 同载荷重放返回原 ack |
 
-> G24–G28 为本叶新增，与既有 G1–G23 全局编号不冲突。`specs/tools/*` 门禁
-> 引擎迁移前，以等价命令与既有 pytest 承担判定。
+> G24–G28 是行为判据；结构入口见 `specs/README.md`，不代替行为验收。
 >
 > **统一声明**：除非使用者明确许可，否则跳过验收测试工作（`AGENTS.md` 硬性约束 §9）。
+
+检查执行与证据记录遵循 `specs/README.md` 的统一许可边界；本文件不记录通过结论。

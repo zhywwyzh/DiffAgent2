@@ -1,13 +1,16 @@
 # VLA 机上收窄为航点执行器的交付决策
 
 Status: implemented
-
-日期：2026-09-20
+Date: 2026-09-20
+Record-Format: historical
+Supersedes: specs/implemented/architecture/2026-09-17-dispatcher-vla-migration.md
+Superseded-by: specs/implemented/architecture/2026-09-21-waypoint-execution-family-ownership.md
+Superseded-by: specs/implemented/architecture/2026-10-09-flight-vla-result-convergence.md
 
 现行行为归 `l3-skill-contract.spec.md` §7/§10、`l3-tool-plane.spec.md` §1 与
-`l3-execution-seam.spec.md` §7。本记录登记本轮实现选择：对齐 DiffAgent2 旧库
+`l3-execution-seam.spec.md` §7。本记录登记本轮实现选择：对齐 DiffAgent2 旧版
 2026-09-19 的「几何上移 station」机上形态，**只动机上，不改 `l4-agent`**。方案全文见
-[dispatcher VLA 机上收窄方案](../../doc/l3-dispatcher-planner/iteration/design-dispatcher-vla-waypoint-executor-migration.md)。
+[dispatcher VLA 机上收窄方案](../../../doc/l3-dispatcher-planner/iteration/design-dispatcher-vla-waypoint-executor-migration.md)。
 
 载荷：`navigation.vla_nav` `inputSchema` 改为 `object`/`prompt`/`waypoint_world`
 （恰 3 项，world/ENU）必填 + `yaw`/`look_forward` 可选；`completion=action_result`；
@@ -22,7 +25,7 @@ Status: implemented
 `depth_match_ok` 随几何上移一并退役）。fail-closed 唯一结构原因
 `invalid_station_waypoint`，并经 `tool_plane/methods.py::_FAIL_REASONS` 贯通到
 `rpc_outcome.reason`。`wait_action_tick` 保留 `host.poll_result()` 轮询驱动
-（FlightMotion 同构；不可照搬旧库空钩）。landing 贴地腿保留；headless 无帧时
+（FlightMotion 同构；不可照搬DiffAgent2 旧版空钩）。landing 贴地腿保留；headless 无帧时
 不发贴地腿、按队列推进收敛（不空武装）。
 
 删除项（零残留，过期必删）：`tools/vla/vla_geometry.py` 整模块；
@@ -36,8 +39,8 @@ Status: implemented
 `support/config.py` 的 `geometry_agree`/`geometry_mismatch`/`stable_height`
 死默认值；`import pdb`/`Marker`/`replace` 残留导入。
 
-保留项（对齐旧库留壳，不因引用计数裁剪）：`base_policy` 的 `mission_type`/
-`MISSION_TYPE`（旧库保留为共享层留壳）、`is_stable`/`behind_dist`；通用帧同步
+保留项（对齐DiffAgent2 旧版留壳，不因引用计数裁剪）：`base_policy` 的 `mission_type`/
+`MISSION_TYPE`（DiffAgent2 旧版保留为共享层留壳）、`is_stable`/`behind_dist`；通用帧同步
 机制（`build_frame_from_latest_cache`、fast-RGB 私有缓存、`cloud_history`、
 `OdometryBuffer`/`SensorBuffer`、`_compute_cloud_ranges`/`_cloud_to_xyz_array`）。
 `core` 的 `PendingAction.replan_cmd`/`is_far_push` 与 `SkillVerdict.REPLAN`

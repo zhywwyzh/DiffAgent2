@@ -24,7 +24,7 @@ EGO 的标准 ROS 依赖。构建脚本使用系统 Python 生成 ROS 消息；�
 
 从编排仓库根执行。先在被忽略的本地配置中设置 ROS_SETUP（ROS 环境脚本）、
 L3_BUILD_DIR（源码树之外的构建目录）、L3_PYTHON_ENV（运行虚拟环境目录），以及
-LX_STACK_ID、ZENOH_ROUTER 和 GROUND_Z；不要将机器路径、实际连接信息写入文档。
+LX_STACK_ID、ZENOH_ROUTER；地面相关能力可额外设置 GROUND_Z。不要将机器路径、实际连接信息写入文档。
 
 ```bash
 source "$ROS_SETUP"
@@ -41,12 +41,13 @@ python3 -m pip install -r l3-dispatcher-planner/ros_packages/dispatcher/requirem
 
 ## 启动
 
-确认 LX_STACK_ID、ZENOH_ROUTER 已导出到进程环境。GROUND_Z 必须是输入 world
-坐标系中已校准的地面高度；未知时不要填猜测值。默认 odometry/cloud 输入分别为
+确认 LX_STACK_ID、ZENOH_ROUTER 已导出到进程环境。地面参数为可选项，普通启动不要求；
+起飞会话及贴地能力需要时再通过 ground_z 指定输入 world 系中的已知地面高度。
+默认 odometry/cloud 输入分别为
 `/ekf_quat/ekf_odom` 和 `/cloud_registered`，可通过同名 launch 参数覆盖。
 
 ```bash
-roslaunch l3-dispatcher-planner/bringup/launch/basic_flight.launch ground_z:="$GROUND_Z"
+roslaunch l3-dispatcher-planner/bringup/launch/basic_flight.launch
 ```
 
 该入口启用 headless dispatcher，不要求视觉感知配置；飞行仍要求新鲜、有限、坐标系

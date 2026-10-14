@@ -1,17 +1,19 @@
 # dispatcher 目录架构与命名
 
 Status: implemented
-
 Contract-ID: l3-dispatcher/package-layout
-
 Parent: specs/implemented/l3-dispatcher.spec.md
+
+## 范围与非目标
 
 > 定义 dispatcher Python 子包的平面划分、命名规范、依赖方向与
 > `__init__` 自述规范。本契约只约束目录与命名形态；各平面的行为契约
 > 归各自叶契约。C++ 编码规范归 `development-workflow/l3-coding-style`，
 > 与本契约互不重叠。
 
-## 1. 平面划分
+## 术语与身份
+
+### 1. 平面划分
 
 > 子包与 l3 职责词汇一对一；不设 `utils`/`services` 等无归属目录。
 > `tools` 是开发组协定的技能层目录名，长期有效，不得改名。
@@ -33,7 +35,13 @@ Parent: specs/implemented/l3-dispatcher.spec.md
   后者是承接这些工具调用的**面**（传输/协议/准入/租约）；`tool_plane/`
   不含技能实现，`tools/` 不含调用面基础设施。
 
-## 2. 命名规范
+## 输入、输出与配置
+
+参数前缀、单位后缀及唯一配置归属见 §2；本叶不定义业务载荷或重复保存家族参数默认值。
+
+## 行为规则
+
+### 2. 命名规范
 
 | 类型 | 规范 | 示例 |
 |------|------|------|
@@ -66,7 +74,28 @@ Parent: specs/implemented/l3-dispatcher.spec.md
   `l3-dispatcher/ros-adapter-boundary` R6）：改名须登记为有意变更并给出兼容处置。
 - 参数装载不得经白名单静默丢弃：缺失或未声明即显式失败或留痕，不得「存在但读不到」。
 
-## 3. 依赖方向
+### 4. `__init__` 自述规范
+
+- 每个子包 `__init__.py` 必须有 docstring 声明本平面职责与契约归属；
+  禁止两个子包共用同一条泛描述。
+- 平面自述必须包含**一行定义**，使目录名与内容可被独立判读。
+- 导出面用 `__all__` 显式声明；`tools/__init__.py` 不导出家族，
+  避免技能被隐式 import。
+
+### 5. 旧路径处置
+
+`dispatcher.utils.*`、`dispatcher.services.*`、`dispatcher.toolplane.*`、
+`dispatcher.skills.*`、`dispatcher.rpc.*` 为退役前缀，不得以转发模块、
+`__getattr__` 或别名形式回流；`dispatcher.tools.*` 为开发组协定的技能层
+前缀，长期有效。
+
+## 失败、取消与资源生命周期
+
+非法目录、命名或依赖属于静态缺陷；本叶不创建运行资源，动作取消与资源释放归 execution-seam 和 skill-contract。
+
+## 归属与依赖
+
+### 3. 依赖方向
 
 | 平面 | 允许 import | 禁止 import |
 |------|------------|------------|
@@ -89,26 +118,17 @@ Parent: specs/implemented/l3-dispatcher.spec.md
   import `perception/`，`perception/` 不 import 任何平面，读写均遵守
   `l3-dispatcher/ros-adapter-boundary` §3 的共享状态规则（S1/S2/S3）。
 - `tool_plane/registry.py::ToolRegistry.default()` 是生产工具集合的装配
-  便捷入口（`l3-dispatcher/tool-plane` §1 的七项目标集合），允许 import
+  便捷入口（`l3-dispatcher/tool-plane` §1 的八项现行集合），允许 import
   家族 catalog（`tools/<family>/catalog.py`）；除此之外 tool_plane 不
   import 技能家族。
 
-## 4. `__init__` 自述规范
+### 7. tracking 领域依赖
 
-- 每个子包 `__init__.py` 必须有 docstring 声明本平面职责与契约归属；
-  禁止两个子包共用同一条泛描述。
-- 平面自述必须包含**一行定义**，使目录名与内容可被独立判读。
-- 导出面用 `__all__` 显式声明；`tools/__init__.py` 不导出家族，
-  避免技能被隐式 import。
+未采纳的跟踪目录与依赖扩展见 `specs/proposed/inner/l3-tracking.spec.md` §9。
 
-## 5. 旧路径处置
+## 条款检查判据
 
-`dispatcher.utils.*`、`dispatcher.services.*`、`dispatcher.toolplane.*`、
-`dispatcher.skills.*`、`dispatcher.rpc.*` 为退役前缀，不得以转发模块、
-`__getattr__` 或别名形式回流；`dispatcher.tools.*` 为开发组协定的技能层
-前缀，长期有效。
-
-## 6. 门禁
+### 6. 门禁
 
 | 门禁 | 检查 |
 |------|------|
@@ -117,11 +137,6 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 | G31 | 每个子包 `__init__.py` 有区分性 docstring 与一行定义 |
 | G32 | 退役模块前缀（§5）在全仓 Python 零命中 |
 
-> `specs/tools/*` 门禁引擎迁移前，以等价 grep 与既有 pytest 承担判定。
+> G29–G32 是实现判据；结构入口见 `specs/README.md`，不代替实现验收。
 
-## 7. tracking 领域依赖
-
-tracking 按叶提案实施。`execution/skill_host.py` 读取感知缓存并通过 TrackHost 暴露只读端口，
-`tools/track/` 不导入 perception 或 ROS。推理服务及 HTTP 客户端归 track 家族。
-ROS 适配层可导入 `tools/track/ports.py` 的纯数据协议，不能导入技能流程实现。
-Elastic 的地图读取由 EGO 装配根直接注入；领域数据协议 MapView 归 Elastic，EGO 小图所有者生产一致快照。Elastic 不反向依赖 EGO 包，领域算法不依赖 ROS 消息或参数树。
+检查执行与证据记录遵循 `specs/README.md` 的统一许可边界；本文件不记录通过结论。

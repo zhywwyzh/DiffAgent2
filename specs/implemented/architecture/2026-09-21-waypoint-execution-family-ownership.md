@@ -1,8 +1,10 @@
 # 航点下发执行按家族归属
 
 Status: implemented
-
-日期：2026-09-21
+Date: 2026-09-21
+Record-Format: historical
+Supersedes: specs/implemented/architecture/2026-09-20-vla-waypoint-executor.md
+Superseded-by: specs/implemented/architecture/2026-10-09-planner-native-action.md
 
 现行行为归 `l3-execution-seam.spec.md` §1/§4/§6/§7 与 `l3-package-layout.spec.md`
 §1–§3。本记录登记本轮结构性决策：把单目标航点下发执行（`WaypointExecution`：
@@ -14,7 +16,7 @@ Status: implemented
 动作发送……归 dispatcher 内部执行模块」条文冲突，已按 `AGENTS.md` §6 停下
 引用双方原文请用户裁决，用户裁决为执行迁移；契约先行落地后改实现。
 
-改动（方案：[航点下发执行按家族归属方案](../../doc/l3-dispatcher-planner/iteration/design-dispatcher-waypoint-execution-family-ownership.md)）：
+改动（方案：[航点下发执行按家族归属方案](../../../doc/l3-dispatcher-planner/iteration/design-dispatcher-waypoint-execution-family-ownership.md)）：
 
 - 删除 `dispatcher/execution/waypoint.py`（不留转接器、别名或注释桩）；
 - 新增 `dispatcher/tools/flight/flight_waypoint.py`（类 `FlightWaypointExecution`）

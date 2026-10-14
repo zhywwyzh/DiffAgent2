@@ -3,6 +3,8 @@
 Status: implemented
 Contract-ID: development-workflow
 
+## 范围
+
 > 拥有整个工作区内的源码撰写与仓库工作流。它定义客观的 Git 与
 > worktree 边界，而不维护人类或 agent 执行角色的中央登记表。
 
@@ -19,7 +21,7 @@ Contract-ID: development-workflow
 
 > 叶契约承载仓库特定的机制与开发实践。
 
-| Contract | Authority |
+| 契约路径 | 职责 |
 |----------|-----------|
 | `specs/implemented/inner/l3-coding-style.spec.md` | l3 源码约定 |
 

@@ -1,8 +1,9 @@
 # 当前任务强制取消与独立停止确认决策
 
 Status: implemented
-
-日期：2026-10-10
+Date: 2026-10-10
+Record-Format: historical
+Supersedes: specs/implemented/architecture/2026-10-09-planner-native-action.md
 
 代码已落盘，未编译、未运行验收。权威行为归执行缝、工具面、技能和基础飞行动作契约；
 实施记录见[优化方案](../../../doc/l3-dispatcher-planner/iteration/design-task-cancel-emergency-hover.md)。

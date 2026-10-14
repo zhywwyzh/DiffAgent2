@@ -1,10 +1,11 @@
 # mission-executive 控制职责上行到 dispatcher 的边界修正
 
 Status: implemented
-
-日期：2026-09-17
-
+Date: 2026-09-17
+Record-Format: historical
 Supersedes: specs/implemented/architecture/2026-09-17-dispatcher-basic-flight.md
+Superseded-by: specs/implemented/architecture/2026-10-09-planner-native-action.md
+
 
 本记录依据用户的边界纠正，取代前次交付决策中新增 EGO 取消接口、修改后端停止
 行为和裁剪额外消息字段的选择。前次记录与当时的测试结果保留，不改写为本次证据。
@@ -25,5 +26,3 @@ dispatcher 管理取消待处理状态、动作批次和迟到结果，保持批
 本轮只修正接口和职责归属，并同步已有测试断言；按用户要求不新增或运行测试、
 不执行构建。此前 EGO 专属接口版本的 115 项通过记录不覆盖本修正版，也不能证明
 所有后端行为等价。l4-agent 与 DiffAgent2 旧版保持只读；cmd 下游仍不在任务范围。
-
-当前状态补充（2026-10-10）：当时保留的附加目标字段已按用户明确要求移除；该历史保留决定不再适用于现行接口。

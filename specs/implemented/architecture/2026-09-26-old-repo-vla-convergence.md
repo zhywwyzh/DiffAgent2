@@ -1,25 +1,25 @@
-# 旧库 VLA 变动向新库收敛的交付决策
+# DiffAgent2 旧版 VLA 变动向DiffAgent2 新版收敛的交付决策
 
 Status: implemented
+Date: 2026-09-26
+Record-Format: historical
 
-日期：2026-09-26
-
-本记录登记本轮两个决策：① 补注册 `navigation.vla_rotate`（旧库站端重扫腿的机上解析）；
-② 对象导航终态语义按 DiffAgent2 旧版 2026-09-24 裁决同步进新库契约。
+本记录登记本轮两个决策：① 补注册 `navigation.vla_rotate`（DiffAgent2 旧版站端重扫腿的机上解析）；
+② 对象导航终态语义按 DiffAgent2 旧版 2026-09-24 裁决同步进DiffAgent2 新版契约。
 评估与方案全文（过程材料）见
-[旧库 VLA 变动评估](../../../doc/l3-dispatcher-planner/iteration/design-dispatcher-vla-old-repo-drift.md) 与
-[旧库 VLA 变动向新库迁移方案](../../../doc/l3-dispatcher-planner/iteration/design-dispatcher-old-repo-vla-convergence.md)。
+[DiffAgent2 旧版 VLA 变动评估](../../../doc/l3-dispatcher-planner/iteration/design-dispatcher-vla-old-repo-drift.md) 与
+[DiffAgent2 旧版 VLA 变动向DiffAgent2 新版迁移方案](../../../doc/l3-dispatcher-planner/iteration/design-dispatcher-old-repo-vla-convergence.md)。
 
 ## 决策 1：`navigation.vla_rotate` 补注册（候选 B）
 
 **背景**：站端在目标 `visible=false` 时下发 `navigation.vla_rotate`（`yaw_delta_deg`）作为
 有界重扫腿；DiffAgent2 旧版机上以同一 `FlightSkill` 实例双名注册（`flight.rotate` +
-`navigation.vla_rotate`，`engine._skills`），而新库此前未注册该名（工具面仅 7 项），
-站端重扫腿在新库会 `tool_not_registered`。
+`navigation.vla_rotate`，`engine._skills`），而DiffAgent2 新版此前未注册该名（工具面仅 7 项），
+站端重扫腿在DiffAgent2 新版会 `tool_not_registered`。
 
 **决策**：取**候选 B**——在本库补注册，而非要求站端改用 `basic_flight.rotate`（候选 A）。
 理由：① 站端现状即发该名，候选 B 不改跨仓接口；② 该名是 VLA 家族名，语义为
-「站端编排的搜索旋转腿」，独立于基础飞行的 `basic_flight.rotate`；③ 保留旧库的
+「站端编排的搜索旋转腿」，独立于基础飞行的 `basic_flight.rotate`；③ 保留DiffAgent2 旧版的
 `(-360, 360]` 范围约束（`basic_flight.rotate` 无范围）。被替代的候选 A 记录在方案 §4.3。
 
 **落地**：`tools/vla/catalog.py::vla_specs()` 增 `navigation.vla_rotate` ToolSpec；
@@ -32,7 +32,7 @@ Status: implemented
 改为「停靠对象所挂拓扑节点 + 节点→对象水平 bearing」（`orientation_xyzw` 仅对象自身朝向，
 水平重合时作兜底锚点）。
 
-**决策**：新库 `l3-scenegraph`（proposed）§2.1/§2.3/§5/G37 与 `l3-skill-contract` §11 按此
+**决策**：DiffAgent2 新版 `l3-scenegraph`（proposed）§2.1/§2.3/§5/G37 与 `l3-skill-contract` §11 按此
 改写；**不改 `scene_nav` 家族实现**（归[场景图迁移方案](../../../doc/l3-dispatcher-planner/iteration/design-dispatcher-scenegraph-migration.md)
 P1–P3）。
 

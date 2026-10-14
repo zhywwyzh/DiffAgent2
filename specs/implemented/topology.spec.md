@@ -3,6 +3,8 @@
 Status: implemented
 Contract-ID: topology
 
+## 范围
+
 > 拥有操作者、部署脚本与服务仓库共享的稳定系统身份与配置边界。
 > 运行时状态从其所有者处探测，绝不复制进本根契约。
 
@@ -17,7 +19,7 @@ Contract-ID: topology
 
 > 叶契约拥有详细的词汇与命名规则。
 
-| Contract | Authority |
+| 契约路径 | 职责 |
 |----------|-----------|
 | `specs/implemented/inner/entity-naming.spec.md` | 执行实体词汇与脚本命名 |
 

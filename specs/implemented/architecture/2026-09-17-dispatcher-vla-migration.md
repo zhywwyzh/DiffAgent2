@@ -1,8 +1,9 @@
 # VLA 技能迁移的交付决策
 
 Status: implemented
-
-日期：2026-09-17
+Date: 2026-09-17
+Record-Format: historical
+Superseded-by: specs/implemented/architecture/2026-09-20-vla-waypoint-executor.md
 
 现行行为归 `l3-skill-contract.spec.md`（§10 VLA 导航技能语义）、
 `l3-tool-plane.spec.md`（§1 七工具生产集合）与 `l3-execution-seam.spec.md`。
@@ -25,11 +26,11 @@ fail 终态，无静默回落。远推进（far_push 5 m 沿机头）、0.3 m �
 `wait_action_tick` 逐主循环节拍驱动 `poll_result`（与 FlightMotion 同构；
 评审发现的空钩断链已修复并以引擎节拍仿真端到端锁定）。
 
-`~vla/*` 参数为 VLA 几何/阈值唯一权威（11 项默认值与旧库逐项一致），
+`~vla/*` 参数为 VLA 几何/阈值唯一权威（11 项默认值与DiffAgent2 旧版逐项一致），
 perception 同名属性属 perception 自有。`publish_mode_burst` 以受控空实现
 接入（新 EGO 直连栈无 trigger 通道，装配留痕
 `vla_planner_mode_channel_absent`，不静默吞错）。`mission_type=NAVIGATION`
-由装配侧置位、disposer 恢复；`if_safe_mode` 为旧库孤儿留壳，不迁。
+由装配侧置位、disposer 恢复；`if_safe_mode` 为DiffAgent2 旧版孤儿留壳，不迁。
 
 删除项：first 首帧系列（不迁）；`thinking_debug_dir`/`last_thinking_debug_dir`
 双侧孤儿字段（台账 R07 关门）；记录消费 `host.recording._record_process_event`

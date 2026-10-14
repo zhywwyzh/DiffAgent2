@@ -63,7 +63,9 @@ def config():
     if unknown:
         raise ValueError("未知仿真配置键: " + ", ".join(unknown))
     c.update({key: value for key, value in local.items() if key in c})
-    required = ("SIM_NODE", "LX_STACK_ID", "ZENOH_ROUTER", "SIM_GROUND_Z",
+    c["LX_STACK_ID"] = c["LX_STACK_ID"] or "sim/unity-" + OWNER
+    c["SIM_NAMESPACE"] = c["SIM_NAMESPACE"] or "sim-unity-" + OWNER
+    required = ("PUBLIC_ZENOHD_ROUTER",
                 "SIM_L2_IMAGE", "SIM_L3_IMAGE", "SIM_FLUENT_IMAGE", "SIM_RELAY_IMAGE")
     missing = [key for key in required if not c[key]]
     if missing:
@@ -75,14 +77,16 @@ def config():
                 raise ValueError("请在根 .local.env 配置 SIM_REGISTRY 为参考镜像仓库的主机及端口")
             c[key] = registry + c[key][len("image-registry"):]
     for key in ("SIM_NODE", "SIM_NAMESPACE"):
+        if key == "SIM_NODE" and not c[key]:
+            continue
         if len(c[key]) > 63 or not re.fullmatch(r"[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?", c[key]):
             raise ValueError(f"{key}: 非法 Kubernetes 名称")
     if c["SIM_NAMESPACE"] in ("default", "kube-system", "kube-public", "kube-node-lease"):
         raise ValueError("SIM_NAMESPACE 必须为专用 namespace")
     if not re.fullmatch(r"sim/[A-Za-z0-9_.-]+", c["LX_STACK_ID"]):
         raise ValueError("LX_STACK_ID 必须为独立的 sim/<instance>")
-    if not re.fullmatch(r"tcp/[A-Za-z0-9_.:\[\]-]+:[0-9]+", c["ZENOH_ROUTER"]):
-        raise ValueError("ZENOH_ROUTER 必须为 tcp/<router>:<port>")
+    if not re.fullmatch(r"tcp/[A-Za-z0-9_.:\[\]-]+:[0-9]+", c["PUBLIC_ZENOHD_ROUTER"]):
+        raise ValueError("PUBLIC_ZENOHD_ROUTER 必须为 tcp/<router>:<port>")
     for key in ("SIM_L2_IMAGE", "SIM_L3_IMAGE", "SIM_FLUENT_IMAGE", "SIM_RELAY_IMAGE"):
         if not re.fullmatch(r"[A-Za-z0-9_./:@-]+", c[key]) or "/" not in c[key] or "://" in c[key]:
             raise ValueError(f"{key}: 请提供不带凭据的完整镜像引用")
@@ -92,7 +96,8 @@ def config():
         if c[key] != "127.0.0.1":
             raise ValueError(f"{key}: 首期仅支持同机回环连接")
     for key in ("SIM_ROS_MASTER_PORT", "SIM_UNITY_TCP_PORT", "SIM_READY_TIMEOUT_S", "SIM_BUILD_TIMEOUT_S",
-                "SIM_UNITY_CAMERA_WIDTH", "SIM_UNITY_CAMERA_HEIGHT", "SIM_CLOUD_MAX_POINTS"):
+                "SIM_UNITY_CAMERA_WIDTH", "SIM_UNITY_CAMERA_HEIGHT", "SIM_CLOUD_MAX_POINTS",
+                "SIM_BUILD_MEMORY_MIB", "SIM_BUILD_JOBS"):
         value = int(c[key])
         maximum = 65535 if "PORT" in key else 100000
         if not 1 <= value <= maximum:
@@ -108,6 +113,8 @@ def config():
     for key in ("SIM_GROUND_Z", "SIM_INITIAL_X", "SIM_INITIAL_Y", "SIM_INITIAL_Z", "SIM_UNITY_DEPTH_RANGE_M",
                 "SIM_UNITY_CAMERA_VERTICAL_FOV", "SIM_CAMERA_MAX_HZ", "SIM_DEPTH_MAX_HZ", "SIM_CLOUD_MAX_HZ",
                 "SIM_ODOM_MAX_HZ", "SIM_TELEMETRY_MBIT", "SIM_CLOUD_LEAF_M"):
+        if key == "SIM_GROUND_Z" and not c[key]:
+            continue
         value = float(c[key])
         if not math.isfinite(value) or (key not in ("SIM_GROUND_Z", "SIM_INITIAL_X", "SIM_INITIAL_Y", "SIM_INITIAL_Z") and value <= 0):
             raise ValueError(f"{key}: 非法有限数值")
@@ -129,7 +136,22 @@ def config():
         c["SIM_UNITY_PLAYER_PATH"] = str(path)
     if not c["SIM_PYTHON_EXECUTABLE"].startswith("/"):
         raise ValueError("SIM_PYTHON_EXECUTABLE 必须为镜像内绝对路径")
+    if not c["SIM_NODE"]:
+        nodes = Stack(c).get("nodes", namespaced=False).get("items", [])
+        local_addresses = local_node_addresses()
+        candidates = [node["metadata"]["name"] for node in nodes
+                      if node["metadata"].get("labels", {}).get("kubernetes.io/arch") == "amd64"
+                      and any(item["address"] in local_addresses
+                              for item in node.get("status", {}).get("addresses", []))]
+        if len(candidates) != 1:
+            raise RuntimeError("无法唯一识别本机 amd64 节点，请在根 .local.env 显式配置 SIM_NODE")
+        c["SIM_NODE"] = candidates[0]
     return c
+
+
+def local_node_addresses():
+    addresses = set(run(["hostname", "-I"], capture_output=True, text=True).stdout.split())
+    return addresses | {socket.gethostname(), socket.getfqdn()}
 
 
 def digest(data):
@@ -213,8 +235,7 @@ class Stack:
         if not node or node["metadata"].get("labels", {}).get("kubernetes.io/arch") != "amd64":
             raise RuntimeError("SIM_NODE 必须为当前主机上的 amd64 k3s 节点")
         addresses = {item["address"] for item in node.get("status", {}).get("addresses", [])}
-        local_ips = set(run(["hostname", "-I"], capture_output=True, text=True).stdout.split())
-        if not (addresses & (local_ips | {socket.gethostname(), "127.0.0.1"})):
+        if not (addresses & local_node_addresses()):
             raise RuntimeError("目标节点不是当前主机；hostPath 仅支持同机部署")
         ns = self.get("namespace", self.ns, namespaced=False)
         if ns is None:
@@ -271,7 +292,7 @@ class Stack:
         c = self.c
         values = {"ROS_MASTER_URI": f"http://127.0.0.1:{c['SIM_ROS_MASTER_PORT']}",
                   "ROS_IP": "127.0.0.1", "ROS_HOSTNAME": "localhost", "LX_ROSCORE_OWNER": "false",
-                  "LX_STACK_ID": c["LX_STACK_ID"], "ZENOH_ROUTER": c["ZENOH_ROUTER"],
+                  "LX_STACK_ID": c["LX_STACK_ID"], "ZENOH_ROUTER": c["PUBLIC_ZENOHD_ROUTER"],
                   "PYTHONUNBUFFERED": "1", "ROSCONSOLE_FORMAT": "[${node}] [${severity}] [${time}]: ${message}"}
         mounts = [(L3, "/source/l3", True), (Path(c["SIM_L2_ROOT"]), "/source/l2", True),
                   (ARTIFACTS / "l3", "/work/l3", work != "compile"),
@@ -322,6 +343,7 @@ class Stack:
         sensors = "exec roslaunch unity_simulator unity_simulator.launch " + " ".join(
             f"{arg}:={shlex.quote(c[key])}" for arg, key in (("tcp_ip", "SIM_UNITY_TCP_BIND"), ("tcp_port", "SIM_UNITY_TCP_PORT"),
                     ("sensor_source", "SIM_UNITY_SENSOR_SOURCE"), ("depth_range_m", "SIM_UNITY_DEPTH_RANGE_M")))
+        ground_arg = f"ground_z:={shlex.quote(c['SIM_GROUND_Z'])} " if c["SIM_GROUND_Z"] else ""
         return [
             self.manifest("roscore.deployment.yaml", f"exec roscore -p {c['SIM_ROS_MASTER_PORT']}", "ros", "SIM_L2_IMAGE",
                           "python3 /source/l3/bringup/k3s/unity/runtime_probe_ros.py master"),
@@ -329,7 +351,7 @@ class Stack:
                           "python3 /source/l3/bringup/k3s/unity/runtime_probe_ros.py odom"),
             self.manifest("sensors.deployment.yaml", sensors, "unity", probe="rosnode ping -c 1 /unity_endpoint >/dev/null"),
             self.manifest("l3.deployment.yaml", "exec roslaunch /source/l3/bringup/launch/basic_flight.launch "
-                          f"ground_z:={shlex.quote(c['SIM_GROUND_Z'])} python_executable:={py}", probe=probe + " planner"),
+                          + ground_arg + f"python_executable:={py}", probe=probe + " planner"),
             self.manifest("telemetry.deployment.yaml", "exec roslaunch telemetry_bridge telemetry.launch "
                           f"python_executable:={py}", probe=probe + " telemetry"),
         ]
@@ -340,7 +362,7 @@ class Stack:
             atomic_json(target / f"{obj['metadata']['name']}.yaml", obj)
         for component in ("l3", "unity", "l2-wire"):
             atomic_json(target / f"compile-{component}.yaml", self.compile_manifest(component))
-        print(f"清单已生成: {target}（未访问集群）", flush=True)
+        print(f"清单已生成: {target}（仅生成清单，不部署资源）", flush=True)
 
     def write_config(self):
         c = self.c
@@ -362,19 +384,21 @@ class Stack:
         obj = json.loads((ASSETS / "compile.job.yaml").read_text())
         obj["metadata"] = self.metadata("sim-compile-" + component)
         if component == "l3":
-            command = "bash /source/l3/tools/build_ego.sh /work/l3 --with-telemetry && "
+            command = f"L3_BUILD_JOBS={self.c['SIM_BUILD_JOBS']} bash /source/l3/tools/build_ego.sh /work/l3 --with-telemetry && "
             py = shlex.quote(self.c["SIM_PYTHON_EXECUTABLE"])
             command += f"source /work/l3/devel/setup.bash && {py} /source/l3/bringup/k3s/unity/runtime_probe_ros.py dependencies"
         elif component == "unity":
             command = "mkdir -p /work/unity/src && "
             command += "ln -sfn /source/l2/projects/unity-simulator/ros_packages/ros_tcp_endpoint /work/unity/src/ros_tcp_endpoint && "
             command += "ln -sfn /source/l2/projects/unity-simulator/bringup /work/unity/src/unity_simulator && "
-            command += "catkin_make -C /work/unity -j2 -DPYTHON_EXECUTABLE=/usr/bin/python3 && "
+            command += f"catkin_make -C /work/unity -j{self.c['SIM_BUILD_JOBS']} -DPYTHON_EXECUTABLE=/usr/bin/python3 && "
             command += "python3 -c 'import cv2, cv_bridge, rospy'"
         else:
             command = "python3 -c 'from quadrotor_msgs.msg import PositionCommand; print(\"POSITION_COMMAND_MD5=\" + PositionCommand._md5sum)'"
         container = {"name": "compile", "command": self.shell(command, "dynamics" if component == "l2-wire" else "ros"),
-                     "image": self.image("SIM_L2_IMAGE" if component == "l2-wire" else "SIM_L3_IMAGE")}
+                     "image": self.image("SIM_L2_IMAGE" if component == "l2-wire" else "SIM_L3_IMAGE"),
+                     "resources": {"requests": {"cpu": "1", "memory": "1Gi"},
+                                   "limits": {"cpu": "4", "memory": self.c["SIM_BUILD_MEMORY_MIB"] + "Mi"}}}
         obj["spec"]["activeDeadlineSeconds"] = int(self.c["SIM_BUILD_TIMEOUT_S"])
         obj["spec"]["template"] = {"metadata": {"labels": {OWNER_KEY: OWNER}}, "spec": self.pod([container], "compile")}
         obj["spec"]["template"]["spec"]["restartPolicy"] = "Never"
@@ -438,7 +462,16 @@ class Stack:
                     result = self.kube("-n", self.ns, "logs", "job/" + name, capture_output=True, text=True, timeout=20)
                     (ARTIFACTS / f"compile-{component}.log").write_text(result.stdout + result.stderr)
                     if not status.get("succeeded"):
-                        raise RuntimeError(f"{name} 编译失败，见 .artifacts/k3s-unity/compile-{component}.log")
+                        pods = self.kube("-n", self.ns, "get", "pods", "-l", "job-name=" + name,
+                                         "-o", "json", capture_output=True, text=True, timeout=10)
+                        endings = []
+                        for pod in json.loads(pods.stdout).get("items", []):
+                            for item in pod.get("status", {}).get("containerStatuses", []):
+                                end = item.get("state", {}).get("terminated", {})
+                                if end:
+                                    endings.append(f"{item['name']}: {end.get('reason', 'unknown')} exit={end.get('exitCode')}")
+                        detail = "; ".join(endings) or "Job failed"
+                        raise RuntimeError(f"{name} 编译失败（{detail}），见 .artifacts/k3s-unity/compile-{component}.log")
                     if component == "l2-wire":
                         generated = ARTIFACTS / "l3/devel/lib/python3/dist-packages/quadrotor_msgs/msg/_PositionCommand.py"
                         match = re.search(r'_md5sum\s*=\s*[\"\x27]([0-9a-f]{32})', generated.read_text())
@@ -626,8 +659,8 @@ class Stack:
                 raise RuntimeError("站端依赖缺失，请先显式 make -C l4-agent setup")
         router = run([root / ".venv/bin/copaw", "kv", "get", "lx_zenoh_router"], cwd=root,
                      capture_output=True, text=True, timeout=15).stdout.strip()
-        if router != self.c["ZENOH_ROUTER"]:
-            raise RuntimeError("L4 config-db 的 lx_zenoh_router 与仿真 ZENOH_ROUTER 不一致；请先在配置库统一")
+        if router != self.c["PUBLIC_ZENOHD_ROUTER"]:
+            raise RuntimeError("L4 config-db 的 lx_zenoh_router 与仿真 PUBLIC_ZENOHD_ROUTER 不一致；请先在配置库统一")
         station_id = run([root / ".venv/bin/copaw", "kv", "get", "lx_station_id"], cwd=root,
                          capture_output=True, text=True, timeout=15).stdout.strip()
         if not station_id:
@@ -806,7 +839,7 @@ end
                                      {"name": "config", "mountPath": "/fluent-bit/etc", "readOnly": True},
                                      {"name": "buffer", "mountPath": "/buffer"}]},
                    {"name": "lx-log-relay", "image": self.image("SIM_RELAY_IMAGE"),
-                    "env": env_list({"LX_STACK_ID": self.c["LX_STACK_ID"], "ZENOH_ROUTER": self.c["ZENOH_ROUTER"]}),
+                    "env": env_list({"LX_STACK_ID": self.c["LX_STACK_ID"], "ZENOH_ROUTER": self.c["PUBLIC_ZENOHD_ROUTER"]}),
                     "volumeMounts": [{"name": "relay-state", "mountPath": "/run/lx-log-relay"}]}],
                "volumes": [{"name": "logs", "hostPath": {"path": "/var/log", "type": "Directory"}},
                            {"name": "config", "configMap": {"name": "sim-log-config"}},

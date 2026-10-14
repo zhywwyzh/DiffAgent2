@@ -1,7 +1,8 @@
 # 本仓库的 k3s Unity 仿真启动
 
-从 DiffAgent2 新版根执行。当前为代码交付，尚未构建、部署或运行验收；以下命令
-是实际入口，不是本轮已执行记录。
+从 DiffAgent2 新版根执行。2026-10-14 已完成完整 sim-prepare：L3、Unity bridge
+编译、Python 3.8.10 导入和 L2/L3 消息一致性检查通过；尚未启动业务栈或运行验收。
+构建修复记录见 doc/l3-dispatcher-planner/iteration/design-unity-python38-build.md。
 
 ## 本地配置
 
@@ -9,13 +10,17 @@
 实际值，不写回已跟踪文件。配置作为数据解析，不执行 shell 展开。
 
 ```dotenv
-SIM_NODE=<当前主机的amd64节点名>
-SIM_NAMESPACE=sim
-LX_STACK_ID=sim/<新版独立实例名>
-ZENOH_ROUTER=tcp/<router>:<port>
+PUBLIC_ZENOHD_ROUTER=tcp/<router>:<port>
 SIM_REGISTRY=<参考镜像仓库的主机及端口>
-SIM_GROUND_Z=<场景world系地面高度>
 ```
+
+`LX_STACK_ID` 默认按工作区生成稳定的 `sim/unity-<owner>`，namespace 默认
+`sim-unity-<owner>`，不复用其它工作区的 `sim`。两者可显式覆盖。
+`SIM_NODE` 缺省时从 k3s 节点地址识别本机唯一的 amd64 节点；保留同机挂载约束，
+不需要人工填写。自动发现需要集群读取权限；显式指定节点时 render 可离线执行。
+`SIM_GROUND_Z` 可省略，普通启动和普通航点不依赖地面标定；起飞会话、返回原点
+及 VLA 贴地能力仍按各自现行契约检查，不用出生高度伪造地面或原点。
+Router 的配置键统一为 `PUBLIC_ZENOHD_ROUTER`，容器内部仍注入 `ZENOH_ROUTER`。
 
 L2、L4 默认取编排仓库根下的独立 `l2-simulator-amd64/`、`l4-agent/` 检出；
 `SIM_L2_ROOT`、`SIM_L4_ROOT` 可覆盖，相对路径从编排仓库根解析。
@@ -25,7 +30,8 @@ L2、L4 默认取编排仓库根下的独立 `l2-simulator-amd64/`、`l4-agent/`
 原场景默认 `SIM_UNITY_SENSOR_SOURCE=original`、`SIM_UNITY_MODE=editor`。
 `SIM_UNITY_DEPTH_RANGE_M` 必须匹配原场景 farClipPlane，
 `SIM_UNITY_CAMERA_TRANSLATION_FLU` 必须匹配真实相机挂载。内参取 CameraInfo，
-相机外参由本入口以 systemd drop-in 同步到本站端；默认参考值不是标定证据。
+相机外参由本入口以 systemd drop-in 同步到本站端。当前默认值沿用用户确认已实验验证的
+Exploration 原场景配置；更换场景时需同步对应参数。
 
 namespace 若属于参考工作区，须由原工作区停止原栈后再启动新版，或者为新版
 配置独立 namespace 和空闲端口。Unity 必须连接相同配置端口。固定站端服务
@@ -71,6 +77,11 @@ SIM_L3_IMAGE、SIM_FLUENT_IMAGE、SIM_RELAY_IMAGE。prepare 固定实际 digest�
 ROS、catkin、Python 和已有依赖沿用镜像；默认解释器 `/usr/bin/python3`。
 不要求预先构建新镜像或另装 Python 3.10。prepare 编译本仓库源码并导入实际
 headless dispatcher、飞行/VLA 装配、生成消息和遥测模块，缺失时报告具体错误。
+编译 Job 默认单任务、内存上限 8192 MiB，与业务容器资源独立。可在根 .local.env
+用 SIM_BUILD_JOBS、SIM_BUILD_MEMORY_MIB 调整正整数值；OOMKilled/退出码 137
+表示编译容器遭内存终止。重新 prepare 保留 catkin 缓存并重建失败 Job；主机需有
+足够空闲内存。
+
 实际依赖兼容性仍需获准构建后确认，不能将参考栈可运行直接视为新版已验收。
 源码和 devel 挂载指向本工作区，不运行镜像内旧 L3，不复用参考工作区产物。
 

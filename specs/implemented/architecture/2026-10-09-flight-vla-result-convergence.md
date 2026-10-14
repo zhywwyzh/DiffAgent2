@@ -1,8 +1,10 @@
 # 飞行与 VLA 直连任务结果收敛决策
 
 Status: implemented
-
-日期：2026-10-09
+Date: 2026-10-09
+Record-Format: historical
+Supersedes: specs/implemented/architecture/2026-09-20-vla-waypoint-executor.md
+Superseded-by: specs/implemented/architecture/2026-10-09-planner-native-action.md
 
 现行职责归 `l3-execution-seam` §8、`l3-skill-contract` §10 和
 `flight-actions` §8；过程方案见

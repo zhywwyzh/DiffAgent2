@@ -1,8 +1,8 @@
 # dispatcher 直接向 planner 下发动作的决策
 
 Status: implemented
-
-日期：2026-09-16
+Date: 2026-09-16
+Record-Format: historical
 
 依据：用户明确裁定退役 dispatcher 与 mission_executive 间的 `/mission/task`
 中间转换层；现行行为约束归 `specs/implemented/inner/l3-execution-seam.spec.md`。

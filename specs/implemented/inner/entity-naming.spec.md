@@ -1,17 +1,21 @@
-# Entity Naming Spec
+# 执行实体命名契约
 
 Status: implemented
 Contract-ID: topology/entity-naming
 Parent: specs/implemented/topology.spec.md
 
+## 范围与非目标
+
 > 定义运维脚本的执行实体词汇。执行实体只回答一个问题：
 > **这个脚本在哪里运行。**
 
-## 1. Entity vocabulary
+## 术语与身份
+
+### 1. 执行实体词汇
 
 > 执行实体词汇；每个名字说明该类脚本运行在何处。
 
-| Entity | Plane | Execution place | Typical scripts |
+| 实体 | 平面 | 执行位置 | 典型脚本 |
 |--------|-------|-----------------|-----------------|
 | `station-host` | station | 操作者站点上的裸机 | 编排、spec-lint、k3s/kubectl 驱动、镜像仓库检查 |
 | `drone-host` | drone | Jetson 上的裸机 | 部署、硬件探测、就地编译 |
@@ -28,7 +32,13 @@ Parent: specs/implemented/topology.spec.md
 - **双端工具**（两个平面上运行方式相同，如 manifest 渲染）：
   `# Entity: shared`，无文件名前缀。
 
-## 2. Script marking rules
+## 输入、输出与配置
+
+Entity 与 Invoked 是脚本头字段，含义与允许实体见 §1、§2；本契约不定义业务载荷或机器配置值。
+
+## 行为规则
+
+### 2. 脚本标记规则
 
 > 脚本在头注释里声明其实体，顶层目录也带实体文件名前缀。
 
@@ -42,20 +52,32 @@ Parent: specs/implemented/topology.spec.md
    `specs/tools/`、`drone_projects/auto_deployer/`、skill `scripts/`）。
    主机本地运维脚本遵循同一约定。
 4. 容器侧 bringup 脚本（`bringup/*/scripts/ctr-*.sh`）暂保留其
-   功能导向命名；目标词汇是 `drone-container-*`（§3，deferred batch）。
+   功能导向命名；目标词汇是 `drone-container-*`（§3，待迁批次）。
 
-## 3. Pending marker migration
+### 3. 保留标记边界
 
 > 表里将每个待迁移实体标记映射到其后继。
 
-| Retired marker | Successor | Status |
+| 旧标记 | 后继实体 | 保留条件 |
 |----------------|-----------|--------|
-| `ctr-real`（bringup 探测） | `drone-container` | deferred batch |
+| `ctr-real`（bringup 探测） | `drone-container` | 待迁批次 |
 
-## 4. Enforcement
+## 失败、取消与资源生命周期
+
+命名失败属于静态契约缺陷；本契约不获取运行资源，脚本自身的取消和释放由其能力契约定义。
+
+## 归属与依赖
+
+实体词汇由本叶唯一拥有，稳定身份与隐私边界归父根 topology。
+
+## 条款检查判据
+
+### 4. 约束判据
 
 > 命名规则由本 spec 强制；具体 lint 门禁尚未迁移到本仓库。
 
 执行实体的头标记与文件名前缀规则是硬性契约：每个纳入版本控制的顶层
-运维脚本必须带 `# Entity:` 头，`ctr-*` 标记在 deferred batch 落地前不强制
+运维脚本必须带 `# Entity:` 头，`ctr-*` 标记在 待迁批次 落地前不强制
 改名为 `drone-container-*`。门禁脚本迁移后由它承担自动检查。
+
+检查执行与证据记录遵循 `specs/README.md` 的统一许可边界；本文件不记录通过结论。
