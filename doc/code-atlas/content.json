@@ -1,0 +1,3953 @@
+{
+  "title": "DiffAgent2 新版完整运行源码图谱",
+  "sources": {
+    "root": {
+      "label": "根 Makefile",
+      "path": "Makefile",
+      "count": 110,
+      "line": 1
+    },
+    "sim-manifests": {
+      "label": "仿真进程装配",
+      "path": "l3-dispatcher-planner/tools/station-host-sim.py",
+      "count": 27,
+      "line": 316
+    },
+    "sim-prepare": {
+      "label": "仿真制品准备",
+      "path": "l3-dispatcher-planner/tools/station-host-sim.py",
+      "count": 59,
+      "line": 413
+    },
+    "sim-up": {
+      "label": "仿真启动顺序",
+      "path": "l3-dispatcher-planner/tools/station-host-sim.py",
+      "count": 52,
+      "line": 502
+    },
+    "sim-down": {
+      "label": "仿真关闭门",
+      "path": "l3-dispatcher-planner/tools/station-host-sim.py",
+      "count": 29,
+      "line": 554
+    },
+    "sim-station": {
+      "label": "站端归属与启动",
+      "path": "l3-dispatcher-planner/tools/station-host-sim.py",
+      "count": 58,
+      "line": 607
+    },
+    "sim-main": {
+      "label": "启动器命令分发",
+      "path": "l3-dispatcher-planner/tools/station-host-sim.py",
+      "count": 45,
+      "line": 840
+    },
+    "build": {
+      "label": "EGO 构建选包",
+      "path": "l3-dispatcher-planner/tools/build_ego.sh",
+      "count": 50,
+      "line": 1
+    },
+    "launch": {
+      "label": "默认飞行 launch",
+      "path": "l3-dispatcher-planner/bringup/launch/basic_flight.launch",
+      "count": 50,
+      "line": 1
+    },
+    "ego-launch": {
+      "label": "EGO launch 接线",
+      "path": "l3-dispatcher-planner/bringup/launch/ego.launch",
+      "count": 60,
+      "line": 1
+    },
+    "config": {
+      "label": "共享执行配置",
+      "path": "l3-dispatcher-planner/bringup/config/planner_execution.yaml",
+      "count": 40,
+      "line": 1
+    },
+    "l4-start": {
+      "label": "站端原生服务脚本",
+      "path": "l4-agent/bringup/ground-station-native/l4-app.sh",
+      "count": 110,
+      "line": 30
+    },
+    "l4-app": {
+      "label": "应用生命周期",
+      "path": "l4-agent/src/copaw/app/_app.py",
+      "count": 85,
+      "line": 66
+    },
+    "agent-tools": {
+      "label": "模型飞行工具入口",
+      "path": "l4-agent/src/copaw/agents/tools/flight_actions.py",
+      "count": 90,
+      "line": 67
+    },
+    "batch": {
+      "label": "批次创建与确认",
+      "path": "l4-agent/src/copaw/station_sidecar/flight/service.py",
+      "count": 74,
+      "line": 380
+    },
+    "batch-dispatch": {
+      "label": "步骤接地与下发",
+      "path": "l4-agent/src/copaw/station_sidecar/flight/service.py",
+      "count": 145,
+      "line": 627
+    },
+    "batch-outcome": {
+      "label": "站端结果推进",
+      "path": "l4-agent/src/copaw/station_sidecar/flight/service.py",
+      "count": 68,
+      "line": 555
+    },
+    "batch-cancel": {
+      "label": "站端取消批次",
+      "path": "l4-agent/src/copaw/station_sidecar/flight/service.py",
+      "count": 54,
+      "line": 458
+    },
+    "fleet": {
+      "label": "连接获取与 token",
+      "path": "l4-agent/src/copaw/station_sidecar/fleet.py",
+      "count": 92,
+      "line": 415
+    },
+    "fleet-renew": {
+      "label": "站端租约续期",
+      "path": "l4-agent/src/copaw/station_sidecar/fleet.py",
+      "count": 73,
+      "line": 584
+    },
+    "rpc-bind": {
+      "label": "先订阅结果再调用",
+      "path": "l4-agent/src/copaw/station_sidecar/flight/rpc_bridge.py",
+      "count": 34,
+      "line": 77
+    },
+    "rpc-publish": {
+      "label": "站端发送准入门",
+      "path": "l4-agent/src/copaw/station_sidecar/flight/rpc_bridge.py",
+      "count": 66,
+      "line": 211
+    },
+    "rpc-client": {
+      "label": "RPC 发送与结果订阅",
+      "path": "l4-agent/src/copaw/station_sidecar/rpc_plane.py",
+      "count": 72,
+      "line": 173
+    },
+    "rpc-methods": {
+      "label": "L3 RPC 查询与准入",
+      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/methods.py",
+      "count": 136,
+      "line": 156
+    },
+    "rpc-outcome": {
+      "label": "L3 终态信封",
+      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/methods.py",
+      "count": 52,
+      "line": 89
+    },
+    "registry": {
+      "label": "实际默认注册表",
+      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/registry.py",
+      "count": 44,
+      "line": 29
+    },
+    "schema": {
+      "label": "参数严格校验",
+      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/registry.py",
+      "count": 115,
+      "line": 156
+    },
+    "runtime": {
+      "label": "准入、重放与抢占",
+      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/runtime.py",
+      "count": 39,
+      "line": 103
+    },
+    "terminal": {
+      "label": "终态唯一账本",
+      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/runtime.py",
+      "count": 59,
+      "line": 187
+    },
+    "lease-loss": {
+      "label": "租约失效顺序",
+      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/connection_lease.py",
+      "count": 66,
+      "line": 284
+    },
+    "plane": {
+      "label": "控制面优先中断",
+      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/control_plane.py",
+      "count": 88,
+      "line": 73
+    },
+    "node": {
+      "label": "L3 组合根",
+      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher_node.py",
+      "count": 58,
+      "line": 250
+    },
+    "node-vla": {
+      "label": "VLA 模式通道现状",
+      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher_node.py",
+      "count": 39,
+      "line": 155
+    },
+    "composition": {
+      "label": "技能实例装配",
+      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/execution/composition.py",
+      "count": 65,
+      "line": 1
+    },
+    "fsm": {
+      "label": "dispatcher 六态循环",
+      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py",
+      "count": 145,
+      "line": 213
+    },
+    "verdict": {
+      "label": "四裁决与结果代次",
+      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/core/action_gate.py",
+      "count": 93,
+      "line": 69
+    },
+    "flight-catalog": {
+      "label": "基础飞行工具元数据",
+      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/flight/catalog.py",
+      "count": 40,
+      "line": 1
+    },
+    "vla-catalog": {
+      "label": "VLA 工具元数据",
+      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/vla/catalog.py",
+      "count": 70,
+      "line": 29
+    },
+    "translate": {
+      "label": "平移目标计算",
+      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/flight/translate_skill.py",
+      "count": 40,
+      "line": 1
+    },
+    "rotate": {
+      "label": "分段旋转与角度核对",
+      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/flight/rotate_skill.py",
+      "count": 100,
+      "line": 1
+    },
+    "return": {
+      "label": "返航实际目标",
+      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/flight/return_skill.py",
+      "count": 35,
+      "line": 1
+    },
+    "origin": {
+      "label": "原点会话生命周期",
+      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/flight/session.py",
+      "count": 75,
+      "line": 1
+    },
+    "commands": {
+      "label": "起降与急停 ROS 出口",
+      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/ros_adapter/flight_commands_ros.py",
+      "count": 50,
+      "line": 1
+    },
+    "takeoff": {
+      "label": "起飞同步终态",
+      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/flight/takeoff_skill.py",
+      "count": 30,
+      "line": 1
+    },
+    "action-start": {
+      "label": "ActionSession 校验与待发",
+      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/execution/action_session.py",
+      "count": 52,
+      "line": 27
+    },
+    "action-stop": {
+      "label": "ActionSession 停止请求",
+      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/execution/action_session.py",
+      "count": 51,
+      "line": 94
+    },
+    "action-pump": {
+      "label": "ActionSession 状态与事件泵",
+      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/execution/action_session.py",
+      "count": 103,
+      "line": 145
+    },
+    "action-msg": {
+      "label": "航点 action 消息",
+      "path": "l3-dispatcher-planner/ros_packages/utils/quadrotor_msgs/action/ExecuteWaypoints.action",
+      "count": 30,
+      "line": 1
+    },
+    "server": {
+      "label": "原生 ActionServer 接线",
+      "path": "l3-dispatcher-planner/ros_packages/planner/planner_execution/src/action_server_ros.cpp",
+      "count": 25,
+      "line": 24
+    },
+    "server-result": {
+      "label": "ROS action 结果产生",
+      "path": "l3-dispatcher-planner/ros_packages/planner/planner_execution/src/action_server_ros.cpp",
+      "count": 92,
+      "line": 204
+    },
+    "execution": {
+      "label": "服务端执行生命周期",
+      "path": "l3-dispatcher-planner/ros_packages/planner/planner_execution/src/execution.cpp",
+      "count": 110,
+      "line": 18
+    },
+    "settle": {
+      "label": "动态停稳判定",
+      "path": "l3-dispatcher-planner/ros_packages/planner/planner_execution/src/settle_monitor.cpp",
+      "count": 50,
+      "line": 1
+    },
+    "output": {
+      "label": "命令输出与保持仲裁",
+      "path": "l3-dispatcher-planner/ros_packages/planner/planner_execution/src/command_output_ros.cpp",
+      "count": 103,
+      "line": 30
+    },
+    "ego-backend": {
+      "label": "EGO 动作后端与 tracking 装配",
+      "path": "l3-dispatcher-planner/ros_packages/planner/ego_planner/plan_manage/src/execution_backend_ros.cpp",
+      "count": 55,
+      "line": 1
+    },
+    "ego-goal": {
+      "label": "EGO 目标与停止",
+      "path": "l3-dispatcher-planner/ros_packages/planner/ego_planner/plan_manage/src/execution_backend.cpp",
+      "count": 65,
+      "line": 1
+    },
+    "ego-fsm": {
+      "label": "EGO 规划状态机",
+      "path": "l3-dispatcher-planner/ros_packages/planner/ego_planner/plan_manage/src/ego_replan_fsm.cpp",
+      "count": 180,
+      "line": 139
+    },
+    "ego-opt": {
+      "label": "EGO 轨迹优化管线",
+      "path": "l3-dispatcher-planner/ros_packages/planner/ego_planner/plan_manage/src/planner_manager.cpp",
+      "count": 246,
+      "line": 67
+    },
+    "super": {
+      "label": "SUPER 后端限制",
+      "path": "l3-dispatcher-planner/ros_packages/planner/super_planner/planner/src/ros_interface/execution_backend_ros.cpp",
+      "count": 70,
+      "line": 1
+    },
+    "diff": {
+      "label": "DIFF 后端限制",
+      "path": "l3-dispatcher-planner/ros_packages/planner/diff_planner/src/execution_backend_ros.cpp",
+      "count": 45,
+      "line": 1
+    },
+    "l2-launch": {
+      "label": "L2 控制器与动力学装配",
+      "path": "l2-simulator-amd64/projects/uav-simulator/bringup/launch/uav_simulator.launch",
+      "count": 101,
+      "line": 192
+    },
+    "unity-launch": {
+      "label": "Unity 传感器入口",
+      "path": "l2-simulator-amd64/projects/unity-simulator/bringup/launch/unity_simulator.launch",
+      "count": 35,
+      "line": 1
+    },
+    "unity-bridge": {
+      "label": "原 Unity 传感器翻译",
+      "path": "l2-simulator-amd64/projects/unity-simulator/bringup/scripts/original_sensor_bridge.py",
+      "count": 60,
+      "line": 13
+    },
+    "telemetry": {
+      "label": "ROS 遥测取样与编码",
+      "path": "l3-dispatcher-planner/ros_packages/telemetry_bridge/scripts/telemetry_ros.py",
+      "count": 95,
+      "line": 18
+    },
+    "uplink": {
+      "label": "独立遥测上行",
+      "path": "l3-dispatcher-planner/ros_packages/telemetry_bridge/src/telemetry_bridge/uplink.py",
+      "count": 103,
+      "line": 12
+    },
+    "bridge-bind": {
+      "label": "站端遥测绑定",
+      "path": "l4-agent/src/copaw/station_sidecar/bridge.py",
+      "count": 114,
+      "line": 321
+    },
+    "vla-ground": {
+      "label": "VLA 可见性与重扫",
+      "path": "l4-agent/src/copaw/station_sidecar/flight/service.py",
+      "count": 205,
+      "line": 805
+    },
+    "vla-resolve": {
+      "label": "VLA 几何接地调用",
+      "path": "l4-agent/src/copaw/station_sidecar/flight/service.py",
+      "count": 98,
+      "line": 1010
+    },
+    "geometry": {
+      "label": "相机时戳位姿与点云输入",
+      "path": "l4-agent/src/copaw/station_sidecar/vla/geometry.py",
+      "count": 46,
+      "line": 1651
+    },
+    "vla-skill": {
+      "label": "机上 VLA 多腿执行",
+      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/vla/vla_skill.py",
+      "count": 117,
+      "line": 21
+    },
+    "tracking-launch": {
+      "label": "显式 tracking 入口",
+      "path": "l3-dispatcher-planner/bringup/launch/tracking.launch",
+      "count": 60,
+      "line": 1
+    },
+    "track": {
+      "label": "tracking 领域状态机",
+      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/track/track_skill.py",
+      "count": 180,
+      "line": 32
+    },
+    "producer": {
+      "label": "视觉跟踪独立线程",
+      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/track/producer.py",
+      "count": 90,
+      "line": 1
+    },
+    "elastic": {
+      "label": "Elastic 接线与命令采样",
+      "path": "l3-dispatcher-planner/ros_packages/planner/elastic_tracker/src/tracking_ros.cpp",
+      "count": 95,
+      "line": 1
+    },
+    "drone-station": {
+      "label": "站端冻结、同步与提交",
+      "path": "l3-dispatcher-planner/tools/station-host-drone.py",
+      "count": 110,
+      "line": 117
+    },
+    "drone-build": {
+      "label": "端侧编译制品",
+      "path": "l3-dispatcher-planner/tools/drone-host-runtime.py",
+      "count": 76,
+      "line": 279
+    },
+    "drone-runtime": {
+      "label": "端侧启停与操作顺序",
+      "path": "l3-dispatcher-planner/tools/drone-host-runtime.py",
+      "count": 91,
+      "line": 355
+    },
+    "drone-status": {
+      "label": "端侧持久化操作查询",
+      "path": "l3-dispatcher-planner/tools/drone-host-runtime.py",
+      "count": 49,
+      "line": 445
+    },
+    "logs": {
+      "label": "仿真日志汇集装配",
+      "path": "l3-dispatcher-planner/tools/station-host-sim.py",
+      "count": 94,
+      "line": 725
+    },
+    "geometry-algorithm": {
+      "label": "站端 bbox 到航点分支",
+      "path": "l4-agent/src/copaw/station_sidecar/vla/geometry.py",
+      "count": 297,
+      "line": 1129
+    },
+    "elastic-algorithm": {
+      "label": "Elastic 连续规划与交付检查",
+      "path": "l3-dispatcher-planner/ros_packages/planner/elastic_tracker/src/tracking.cpp",
+      "count": 150,
+      "line": 120
+    },
+    "drone-probe": {
+      "label": "真机维护与输入门的代码",
+      "path": "l3-dispatcher-planner/bringup/k3s/real/runtime_probe_ros.py",
+      "count": 103,
+      "line": 39
+    },
+    "vla-search-budget": {
+      "label": "VLA 搜索预算常量",
+      "path": "l4-agent/src/copaw/station_sidecar/flight/service.py",
+      "line": 62,
+      "count": 4
+    },
+    "vla-rotate": {
+      "label": "VLA 旋转下发与结果等待",
+      "path": "l4-agent/src/copaw/station_sidecar/flight/service.py",
+      "line": 1263,
+      "count": 66
+    }
+  },
+  "sections": [
+    {
+      "id": "overview",
+      "title": "全局：系统怎样闭环",
+      "group": "系统导读",
+      "lead": "站端决定做什么，L3 把工具调用变成可执行动作，planner 生成运动命令；下游控制与定位反馈构成闭环。",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "这份图谱说明 DiffAgent2 新版当前工作区的主要运行链路。默认运行入口由根 `Makefile` 驱动，站端、L3 与仿真代码分处三棵树。阅读时先区分三条并行路径：控制下行负责请求与动作，状态反馈负责结果与停稳，遥测上行负责图像、点云、位姿及可视化。它们共享设备身份，但不共享同一种“完成”含义。",
+          "refs": [
+            "root",
+            "sim-manifests",
+            "rpc-outcome",
+            "telemetry"
+          ]
+        },
+        {
+          "type": "diagram",
+          "title": "运行总图：控制向下，观测与结果返回",
+          "nodes": [
+            {
+              "id": "human",
+              "label": "控制台 / 对话",
+              "detail": "用户提出目标并确认计划",
+              "target": "station",
+              "col": 0,
+              "row": 0,
+              "tone": "accent"
+            },
+            {
+              "id": "station",
+              "label": "L4 FlightService",
+              "detail": "批次、接地、逐步下发",
+              "target": "station",
+              "col": 1,
+              "row": 0,
+              "tone": ""
+            },
+            {
+              "id": "rpc",
+              "label": "Zenoh RPC",
+              "detail": "租约身份 + method + params",
+              "target": "rpc",
+              "col": 2,
+              "row": 0,
+              "tone": ""
+            },
+            {
+              "id": "skill",
+              "label": "技能与 ActionSession",
+              "detail": "构造动作；绑定归属与代次",
+              "target": "skills",
+              "col": 0,
+              "row": 1,
+              "tone": ""
+            },
+            {
+              "id": "core",
+              "label": "L3 dispatcher",
+              "detail": "准入、队列、六态分发",
+              "target": "dispatcher",
+              "col": 1,
+              "row": 1,
+              "tone": ""
+            },
+            {
+              "id": "lease",
+              "label": "工具控制面",
+              "detail": "身份、去重、终态账本",
+              "target": "lease",
+              "col": 2,
+              "row": 1,
+              "tone": ""
+            },
+            {
+              "id": "planner",
+              "label": "planner_execution + EGO",
+              "detail": "目标、规划、停稳与输出仲裁",
+              "target": "planner",
+              "col": 0,
+              "row": 2,
+              "tone": "accent"
+            },
+            {
+              "id": "l2",
+              "label": "L2 控制 / 动力学",
+              "detail": "消费 /setpoint_cmd",
+              "target": "simulation",
+              "col": 1,
+              "row": 2,
+              "tone": ""
+            },
+            {
+              "id": "sensors",
+              "label": "定位 / 图像 / 点云",
+              "detail": "odom 回授；环境观测",
+              "target": "telemetry",
+              "col": 2,
+              "row": 2,
+              "tone": ""
+            },
+            {
+              "id": "result",
+              "label": "动作结果 → 调用终态",
+              "detail": "唯一结果回到 L4 批次",
+              "target": "completion",
+              "col": 0,
+              "row": 3,
+              "tone": ""
+            },
+            {
+              "id": "view",
+              "label": "站端可视化与接地",
+              "detail": "最新遥测、位姿序列、累积云",
+              "target": "vla",
+              "col": 1,
+              "row": 3,
+              "tone": ""
+            },
+            {
+              "id": "uplink",
+              "label": "独立 telemetry_bridge",
+              "detail": "限频、最新值、带宽约束",
+              "target": "telemetry",
+              "col": 2,
+              "row": 3,
+              "tone": ""
+            }
+          ],
+          "edges": [
+            [
+              "human",
+              "station",
+              "计划"
+            ],
+            [
+              "station",
+              "rpc",
+              "调用"
+            ],
+            [
+              "rpc",
+              "lease",
+              "接收"
+            ],
+            [
+              "lease",
+              "core",
+              "准入"
+            ],
+            [
+              "core",
+              "skill",
+              "按名分发"
+            ],
+            [
+              "skill",
+              "planner",
+              "原生 action"
+            ],
+            [
+              "planner",
+              "l2",
+              "cmd"
+            ],
+            [
+              "l2",
+              "sensors",
+              "状态"
+            ],
+            [
+              "planner",
+              "result",
+              "终态"
+            ],
+            [
+              "sensors",
+              "uplink",
+              "遥测"
+            ],
+            [
+              "uplink",
+              "view",
+              "数据"
+            ]
+          ],
+          "refs": [
+            "root",
+            "node",
+            "server",
+            "l2-launch",
+            "uplink"
+          ],
+          "description": "控制台经站端和 Zenoh 进入 L3，技能通过 action 驱动 EGO 与 L2。定位回授用于执行判定，遥测返回站端。动作结果经 RPC outcome 回到批次。"
+        },
+        {
+          "type": "callout",
+          "title": "范围与证据",
+          "text": "本页是源码静态解读，不是系统已成功启动、飞行或通过验收的证明。包含生成时工作区的未提交内容；外部路由器、模型服务、飞控、传感器与实际配置是否就绪，不能仅凭仓库代码判断。用户提到的原 `doc/code-atlas` 在开始阅读时未找到，因此本版从源码建立图谱。",
+          "refs": []
+        },
+        {
+          "type": "ul",
+          "items": [
+            "想先了解整机：阅读 [启动顺序](#startup) → [完整调用](#journey) → [仿真闭环](#simulation)。",
+            "关注源码设计：阅读 [dispatcher](#dispatcher) → [共享执行](#execution) → [停稳判定](#completion)。",
+            "关注视觉任务：阅读 [VLA 导航](#vla) 与 [连续跟踪](#tracking)，再看 [当前接线边界](#boundaries)。",
+            "每段“源码依据”都打开离线摘录页；行号链接定位原始行，摘录页提供回到解释章节的链接。"
+          ],
+          "refs": []
+        }
+      ],
+      "related": [
+        "layout",
+        "journey"
+      ],
+      "nav_title": "系统全局闭环"
+    },
+    {
+      "id": "layout",
+      "title": "目录与运行角色",
+      "group": "系统导读",
+      "lead": "目录存在不等于被默认入口装配。沿 Makefile、launch、组合根和注册表，可以确认哪些代码实际进入本次运行路径。",
+      "blocks": [
+        {
+          "type": "table",
+          "title": "当前源码的主要职责",
+          "headers": [
+            "路径",
+            "运行职责",
+            "从哪里进入"
+          ],
+          "rows": [
+            [
+              "`Makefile`",
+              "组合站端、仿真与真机操作命令",
+              "`make up`、`make drone-*`"
+            ],
+            [
+              "`l4-agent/`",
+              "对话工具、计划确认、任务批次、连接管理、接地和可视化",
+              "原生服务脚本与 `app/_app.py`"
+            ],
+            [
+              "`l3-dispatcher-planner/bringup/`",
+              "ROS 接线、共享参数与 k3s 清单骨架",
+              "`basic_flight.launch` / `tracking.launch`"
+            ],
+            [
+              "`l3-dispatcher-planner/ros_packages/dispatcher/`",
+              "Python 技能调度、工具 RPC、执行会话",
+              "`dispatcher_node.py`"
+            ],
+            [
+              "`ros_packages/planner/planner_execution/`",
+              "C++ 动作生命周期、停稳与命令仲裁库",
+              "链接到规划器进程；不是独立任务节点"
+            ],
+            [
+              "`ros_packages/planner/ego_planner/`",
+              "默认航点规划和轨迹输出",
+              "`ego.launch` 中的 `ego_planner_node`"
+            ],
+            [
+              "`ros_packages/telemetry_bridge/`",
+              "ROS 数据编码并上传 Zenoh",
+              "独立遥测 Deployment"
+            ],
+            [
+              "`l2-simulator-amd64/projects/`",
+              "动力学、Unity 传感器及可选 3DGS 仿真",
+              "默认编排选 UAV 动力学 + Unity"
+            ],
+            [
+              "`specs/`、`doc/`、`.trae/skills/`",
+              "契约、过程资料及 agent 操作资料",
+              "不代替实际运行入口或工具注册表"
+            ]
+          ],
+          "refs": [
+            "root",
+            "sim-manifests",
+            "node",
+            "build",
+            "l4-app"
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "dispatcher 内部按职责划分"
+        },
+        {
+          "type": "p",
+          "text": "`tool_plane/` 管传输、连接与准入；`core/` 管队列、状态和机械裁决；`tools/flight`、`tools/vla`、`tools/track` 持有业务过程；`execution/` 持有跨技能动作会话和宿主；`ros_adapter/` 把端口接到 ROS；`perception/` 保存感知数据；`support/` 提供配置、日志和状态定义。组合根显式创建这些对象，不应把一个文件名中的“服务”“桥”误认成独立进程。",
+          "refs": [
+            "node",
+            "composition",
+            "plane"
+          ]
+        },
+        {
+          "type": "callout",
+          "title": "构建选择比源码目录更能说明默认运行",
+          "text": "`build_ego.sh` 将 EGO、Elastic、planner_execution、dispatcher 和消息工具包链接到外部构建目录；只有 `--with-telemetry` 才加入遥测包。SUPER 与 DIFF 虽有源码和原生 action 接口，未被这份默认构建脚本选择。",
+          "refs": [
+            "build"
+          ]
+        }
+      ],
+      "related": [
+        "startup",
+        "backends"
+      ],
+      "nav_title": "目录与运行角色"
+    },
+    {
+      "id": "journey",
+      "title": "跟读：一次向前平移的完整旅程",
+      "group": "系统导读",
+      "lead": "以 basic_flight.translate 为例，沿真实函数入口跟踪一次调用从批准到终态。下面是说明性情境，不是本次运行记录。",
+      "blocks": [
+        {
+          "type": "ol",
+          "items": [
+            "站端计划中有“向前平移 1 米”。`create_batch` 登记步骤和记录，`approve_batch` 放行此 call_id，`_dispatch_step` 开始当前步骤。",
+            "`publish_call` 携带 direction、distance_m 和当前租约，经 `RpcPlaneClient.execution` 发给 `lx/<stack>/rpc`。",
+            "`RpcMethods._execution_call` 按 method 查注册表；runtime 校验、占槽并记录 accepted。普通调用进入控制面队列，由 ToolIntake 交给 engine 的工作流入口。",
+            "dispatcher 从 WAIT_FOR_MISSION 转到 DISPATCH，按 `call.name` 找到 TranslateSkill，调用 `plan_tick`。",
+            "TranslateSkill 读取新鲜 odometry，以当时机体水平 yaw 将 forward/left 方向变换到 world，生成位置与 yaw 目标。不会把“前方”当成固定世界 x 轴。",
+            "共享宿主提交给 ActionSession；待执行资源新鲜、ready、stop_confirmed 且 action 连接成立，才发送 ExecuteWaypoints goal。",
+            "服务端检查坐标、点数、高度、yaw 策略与后端能力，然后 EGO 建立航点窗口，规划/重规划并向下游输出轨迹采样命令。",
+            "L2 控制器消费 `/setpoint_cmd`，动力学更新并发布 odometry。planner 消费进度加上新鲜观测触发原目标停稳检查；成功候选还要经过保持接管与再次动态停稳。",
+            "ActionServer 返回 SUCCEEDED；客户端事件泵按发送 token、启动标识和 owner/generation 归属接收结果。技能据结果作裁决，工具 runtime 只提交一次 done。",
+            "`RpcMethods.on_event` 把终态投到 rpc_outcome；L4 按 call_id 完成当前记录，再推进下一步骤或结束批次。"
+          ],
+          "refs": [
+            "batch",
+            "rpc-client",
+            "rpc-methods",
+            "runtime",
+            "plane",
+            "fsm",
+            "translate",
+            "action-pump",
+            "execution",
+            "l2-launch",
+            "server-result",
+            "batch-outcome"
+          ]
+        },
+        {
+          "type": "diagram",
+          "title": "一次调用的因果顺序",
+          "nodes": [
+            {
+              "id": "a",
+              "label": "计划获准",
+              "detail": "L4 approved",
+              "target": "station",
+              "col": 0,
+              "row": 0,
+              "tone": ""
+            },
+            {
+              "id": "b",
+              "label": "RPC accepted",
+              "detail": "只表示被接收",
+              "target": "rpc",
+              "col": 1,
+              "row": 0,
+              "tone": ""
+            },
+            {
+              "id": "c",
+              "label": "技能构造 Goal",
+              "detail": "目标来自当前姿态",
+              "target": "skills",
+              "col": 2,
+              "row": 0,
+              "tone": ""
+            },
+            {
+              "id": "f",
+              "label": "观测满足完成门",
+              "detail": "到达 + 停稳 + 保持",
+              "target": "completion",
+              "col": 0,
+              "row": 1,
+              "tone": "accent"
+            },
+            {
+              "id": "e",
+              "label": "规划与运动",
+              "detail": "cmd → L2 → odom",
+              "target": "planner",
+              "col": 1,
+              "row": 1,
+              "tone": ""
+            },
+            {
+              "id": "d",
+              "label": "原生 action",
+              "detail": "服务端准入后开始执行",
+              "target": "execution",
+              "col": 2,
+              "row": 1,
+              "tone": ""
+            },
+            {
+              "id": "g",
+              "label": "动作 Result",
+              "detail": "成功 / 取消 / 失败",
+              "target": "completion",
+              "col": 0,
+              "row": 2,
+              "tone": ""
+            },
+            {
+              "id": "h",
+              "label": "RPC outcome",
+              "detail": "单调用终态",
+              "target": "rpc",
+              "col": 1,
+              "row": 2,
+              "tone": ""
+            },
+            {
+              "id": "i",
+              "label": "批次推进",
+              "detail": "下一步骤或结束",
+              "target": "station",
+              "col": 2,
+              "row": 2,
+              "tone": "accent"
+            }
+          ],
+          "edges": [
+            [
+              "a",
+              "b",
+              "请求"
+            ],
+            [
+              "b",
+              "c",
+              "调度"
+            ],
+            [
+              "c",
+              "d",
+              "发送"
+            ],
+            [
+              "d",
+              "e",
+              "执行"
+            ],
+            [
+              "e",
+              "f",
+              "反馈"
+            ],
+            [
+              "f",
+              "g",
+              "结果"
+            ],
+            [
+              "g",
+              "h",
+              "收敛"
+            ],
+            [
+              "h",
+              "i",
+              "推进"
+            ]
+          ],
+          "refs": [
+            "translate",
+            "execution",
+            "server-result",
+            "rpc-outcome"
+          ],
+          "description": ""
+        },
+        {
+          "type": "callout",
+          "title": "数学例子",
+          "text": "若当前位置为 (2, 3, 1)，yaw 为 +90°，forward 1 米得到 (2, 4, 1)。这是 TranslateSkill 三角变换的示例计算；不是读取的实时位姿。",
+          "refs": [
+            "translate"
+          ]
+        }
+      ],
+      "related": [
+        "skills",
+        "execution",
+        "completion"
+      ],
+      "nav_title": "跟读一次飞行调用"
+    },
+    {
+      "id": "skills",
+      "title": "工具：默认八项各自怎样完成",
+      "group": "按任务阅读",
+      "lead": "生产入口实际装配六项基础飞行能力，加 VLA 导航与搜索旋转。工具名决定路由，技能实例决定动作归属。",
+      "blocks": [
+        {
+          "type": "table",
+          "title": "默认工具、参数及完成含义",
+          "headers": [
+            "工具",
+            "业务参数",
+            "主要行为 / completion"
+          ],
+          "rows": [
+            [
+              "`basic_flight.takeoff`",
+              "空对象",
+              "采样候选原点并转交起飞请求；forwarded"
+            ],
+            [
+              "`basic_flight.land`",
+              "空对象",
+              "转交当前位置降落请求；forwarded"
+            ],
+            [
+              "`basic_flight.translate`",
+              "direction、distance_m > 0",
+              "机体水平相对方向转 world 目标；action_result"
+            ],
+            [
+              "`basic_flight.rotate`",
+              "yaw_delta_deg",
+              "分段执行有符号累计偏航；action_result"
+            ],
+            [
+              "`basic_flight.return`",
+              "空对象",
+              "回到原点 x/y，保持当前 z 与 yaw；action_result"
+            ],
+            [
+              "`basic_flight.emergency_stop`",
+              "空对象",
+              "请求停止与保持；forwarded"
+            ],
+            [
+              "`navigation.vla_nav`",
+              "object、prompt、waypoint_world；可选 yaw/look_forward",
+              "执行站端解算目标与可选后续腿；action_result"
+            ],
+            [
+              "`navigation.vla_rotate`",
+              "yaw_delta_deg ∈ (−360, 360]",
+              "与基础旋转共用实例，供站端视觉重扫；action_result"
+            ]
+          ],
+          "refs": [
+            "flight-catalog",
+            "vla-catalog",
+            "composition",
+            "return",
+            "origin"
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "平移与旋转有各自的领域判据"
+        },
+        {
+          "type": "p",
+          "text": "平移按新鲜状态中的 yaw 计算 world 位移，目标保留当前高度与朝向。旋转先检查部署预算，再按每段不超过 90° 分段；等待期间对相邻 yaw 做 atan2(sin Δ, cos Δ) 解缠，累计实际转角。时间倒退、观测间断、缺 yaw_rate 或采样不足以分辨旋向时失败；每段成功结果还要与累计期望角核对。",
+          "refs": [
+            "translate",
+            "rotate"
+          ]
+        },
+        {
+          "type": "callout",
+          "title": "零度旋转也按当前源码解释",
+          "text": "当前 RotateSkill 使用 `max(1, ceil(abs(degrees)/90))`，所以 0° 仍会构造一个零增量目标。不能仅凭设计描述把它写成必然“无需动作直接完成”。",
+          "refs": [
+            "rotate"
+          ]
+        },
+        {
+          "type": "p",
+          "text": "起飞、降落、急停是同步技能，完成表示出站端口完成转交。`RosFlightCommands` 在起降或停止发布前检查订阅连接数，没有消费者时明确抛错。其余异步技能通过 action 结果完成，不能拿“已发布”替代物理执行。",
+          "refs": [
+            "takeoff",
+            "commands"
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "返航原点来自飞行会话"
+        },
+        {
+          "type": "p",
+          "text": "FlightSession 在地面高度配置存在且当前地面状态合格时记录候选位置；后续观测达到 airborne_height 才转为有效原点。回到地面附近并低速时清除原点；frame 改变、源时戳倒退、显式 reset 也使会话失效。return 读取有效原点的水平位置，目标高度直接取当前 state.z，最终仍受执行高度边界约束。它既不是回到上一任务点，也不自动降落。",
+          "refs": [
+            "origin",
+            "return"
+          ]
+        }
+      ],
+      "related": [
+        "vla",
+        "tracking",
+        "completion"
+      ],
+      "nav_title": "基础飞行与工具"
+    },
+    {
+      "id": "vla",
+      "title": "VLA：站端接地，机端逐腿执行",
+      "group": "按任务阅读",
+      "lead": "自然语言目标先变成图像中的目标框，再结合相机标定、图像时刻的位姿与世界点云，生成机端可消费的 waypoint_world。",
+      "blocks": [
+        {
+          "type": "diagram",
+          "title": "VLA 两侧分工：不可见时旋转搜索，再回到同一目标取帧",
+          "description": "同一 object 反复取帧推理；可见才接地导航。不可见时先检查预算，再旋转并等待结果，成功绕左侧回到取帧，异常或预算耗尽终止。",
+          "nodes": [
+            {
+              "id": "capture",
+              "label": "同一目标：取新帧并推理",
+              "detail": "task_text 来自 object，每轮保持不变",
+              "target": "vla",
+              "col": 0,
+              "row": 0,
+              "tone": "",
+              "href": "sources.html#vla-ground-L839"
+            },
+            {
+              "id": "visible",
+              "label": "本轮目标可见？",
+              "detail": "visible is True",
+              "target": "vla",
+              "col": 1,
+              "row": 0,
+              "tone": "",
+              "href": "sources.html#vla-ground-L897"
+            },
+            {
+              "id": "geometry",
+              "label": "站端几何接地",
+              "detail": "bbox + 位姿 + 点云 → 航点",
+              "target": "vla",
+              "col": 2,
+              "row": 0,
+              "tone": "accent",
+              "href": "sources.html#vla-resolve-L1010"
+            },
+            {
+              "id": "budget",
+              "label": "还有旋转搜索预算？",
+              "detail": "旋转腿数 < 9 且尚未到截止时间",
+              "target": "vla",
+              "col": 1,
+              "row": 1,
+              "tone": "",
+              "href": "sources.html#vla-ground-L900"
+            },
+            {
+              "id": "exhausted",
+              "label": "终止：目标仍不可见",
+              "detail": "target_not_visible",
+              "target": "vla",
+              "col": 0,
+              "row": 1,
+              "tone": "warn",
+              "href": "sources.html#vla-ground-L907"
+            },
+            {
+              "id": "rotate",
+              "label": "下发搜索旋转并等待",
+              "detail": "navigation.vla_rotate / 等 rpc_outcome",
+              "target": "vla",
+              "col": 1,
+              "row": 2,
+              "tone": "",
+              "href": "sources.html#vla-rotate-L1268"
+            },
+            {
+              "id": "result",
+              "label": "本腿旋转成功？",
+              "detail": "准入拒绝、20 秒超时、结果失败均退出",
+              "target": "vla",
+              "col": 1,
+              "row": 3,
+              "tone": "",
+              "href": "sources.html#vla-ground-L960"
+            },
+            {
+              "id": "failed",
+              "label": "终止：旋转异常",
+              "detail": "admission_failed / rotate_timeout 等",
+              "target": "vla",
+              "col": 0,
+              "row": 3,
+              "tone": "warn",
+              "href": "sources.html#vla-ground-L960"
+            },
+            {
+              "id": "nav",
+              "label": "下发 navigation.vla_nav",
+              "detail": "接地成功后组装 object / waypoint_world",
+              "target": "vla",
+              "col": 2,
+              "row": 1,
+              "tone": "",
+              "href": "sources.html#vla-resolve-L1010"
+            },
+            {
+              "id": "execute",
+              "label": "机端逐腿执行",
+              "detail": "位置 → 可选偏航 → 可选贴地",
+              "target": "vla",
+              "col": 2,
+              "row": 2,
+              "tone": "",
+              "href": "sources.html#vla-skill-L21"
+            },
+            {
+              "id": "finish",
+              "label": "按执行结果收敛",
+              "detail": "全部腿成功完成；任一腿失败结束",
+              "target": "vla",
+              "col": 2,
+              "row": 3,
+              "tone": "accent",
+              "href": "sources.html#vla-skill-L79"
+            }
+          ],
+          "edges": [
+            [
+              "capture",
+              "visible",
+              "推理"
+            ],
+            [
+              "visible",
+              "geometry",
+              "可见"
+            ],
+            [
+              "visible",
+              "budget",
+              "不可见"
+            ],
+            [
+              "budget",
+              "exhausted",
+              "耗尽"
+            ],
+            [
+              "budget",
+              "rotate",
+              "有余量"
+            ],
+            [
+              "rotate",
+              "result",
+              "返回"
+            ],
+            [
+              "result",
+              "failed",
+              "异常"
+            ],
+            [
+              "result",
+              "capture",
+              "成功 → 返回循环顶部，检查取消，再取新帧",
+              {
+                "points": [
+                  [
+                    474,
+                    476
+                  ],
+                  [
+                    474,
+                    510
+                  ],
+                  [
+                    8,
+                    510
+                  ],
+                  [
+                    8,
+                    58
+                  ],
+                  [
+                    20,
+                    58
+                  ]
+                ],
+                "label_pos": [
+                  250,
+                  506
+                ]
+              }
+            ],
+            [
+              "geometry",
+              "nav",
+              "成功"
+            ],
+            [
+              "nav",
+              "execute",
+              "准入后"
+            ],
+            [
+              "execute",
+              "finish",
+              "逐腿结果"
+            ]
+          ],
+          "refs": [
+            "vla-ground",
+            "vla-search-budget",
+            "vla-rotate",
+            "vla-resolve",
+            "vla-skill"
+          ]
+        },
+        {
+          "type": "callout",
+          "title": "回边属于站端重扫循环，搜索的始终是同一个 object",
+          "text": "左侧回边明确回到“同一目标：取新帧并推理”，不是进入 vla_nav，也不是直接完成任务。源码在 while True 内等待每腿旋转结果，成功后自然进入下一轮；只有 visible 为真才 break，进入右侧几何接地。原图漏画这条回边，并把不可见分支穿过导航节点，属于图谱错误。",
+          "refs": [
+            "vla-ground",
+            "vla-rotate"
+          ]
+        },
+        {
+          "type": "p",
+          "text": "边界说明：首次不可见时设置 120 秒截止时间；每次推理仍不可见时才检查截止时间及已旋转腿数，因此这不是 120 秒强制中断整个函数的计时器。预算允许最多下发 9 腿搜索旋转；每腿最多等待 20 秒结果。循环顶部与旋转下发前都会检查批次是否仍在执行。取帧、推理或几何失败也会提前结束，不会沿图中成功支路继续导航。",
+          "refs": [
+            "vla-search-budget",
+            "vla-ground",
+            "vla-rotate",
+            "vla-resolve"
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "站端：从“看见了”到“能执行”"
+        },
+        {
+          "type": "ol",
+          "items": [
+            "捕获本轮图像并调用 VLA 推理服务，检查 visible；不可见时发内部搜索旋转，等待其结果后用新帧重试。代码对旋转腿数和搜索总时间都有预算，失败会结束本次调用。",
+            "可见后检查 bbox_1000 四元组，再在工作线程调用 `VlaGeometryService.compute_waypoint`。位姿必须能按 image_stamp 在 odom 序列内插值；没有括住该时刻的观测会产生 odom_out_of_range，空累积云产生 cloud_unavailable。",
+            "几何把 0–1000 框转换为像素框，按相机外参组成 optical 到 world 变换，从点云得到区域三维候选，随后按 bearing 分支计算目标。基本接近、左右接近、上方与前方具有不同的偏置与终末朝向处理。",
+            "站端输出只保留 object、prompt、waypoint_world，以及有必要时的 yaw/look_forward。bearing、bbox、图像尺寸和几何诊断不作为 L3 vla_nav 的未知参数继续下发。"
+          ],
+          "refs": [
+            "vla-ground",
+            "geometry",
+            "geometry-algorithm",
+            "vla-resolve",
+            "batch-dispatch"
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "机端：一个 RPC 调用可以含多次 action"
+        },
+        {
+          "type": "p",
+          "text": "VlaSkill 先验证 waypoint 和 yaw 的有限性，读取新鲜状态，并把目标高度限制在共享高度界内。先执行位置腿；有显式终末 yaw 时，在位置成功之后追加原地低速偏航腿；如果原始命令文本匹配独立单词 land，再追加当前水平位置上的贴地腿，目标高度为 ground_z 加 final_approach_height_m。每腿必须真正成功才能进入下一腿。",
+          "refs": [
+            "vla-skill"
+          ]
+        },
+        {
+          "type": "p",
+          "text": "机端在后续腿之间返回 NEW_ACTION，最后才暂存 completion=action_result 并 ADVANCE。任意一腿失败都收敛失败，不把第一段位置到达当作整个 VLA 完成。贴地腿只是受控的低高度航点，不额外发送起降命令，也不能等同真正着陆。",
+          "refs": [
+            "vla-skill"
+          ]
+        },
+        {
+          "type": "callout",
+          "title": "不能把名称当成实现",
+          "text": "VlaSkill 的 searching 相位并不意味着机上正在运行 VLM；当前机端只消费站端航点。组合根中的 planner_mode_sink_no_channel 是明确的空输出，代码留痕说明 EGO 直连栈没有模式触发通道；图谱不会把这个调用写成真实模式切换。",
+          "refs": [
+            "vla-skill",
+            "node-vla"
+          ]
+        }
+      ],
+      "related": [
+        "tracking",
+        "telemetry",
+        "skills"
+      ],
+      "nav_title": "VLA 视觉目标导航"
+    },
+    {
+      "id": "tracking",
+      "title": "tracking：持续观测与连续规划",
+      "group": "按任务阅读",
+      "lead": "tracking.launch 同时启用 L3 TrackSkill 和 EGO 内的 Elastic。普通 basic_flight.launch 不装配第九项工具。",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "入口要求显式 ground_z、相机旋转矩阵与平移向量；传给 dispatcher 的 `--tracking-profile` 创建包含 navigation.track 的独立注册表。EGO 的 tracking_enabled=true 分支启用小图跟踪快照，构造 MapReader 并注入 TrackingRos。权重服务、相机标定和传感器输入需要在部署中满足；代码入口存在不代表已验收。",
+          "refs": [
+            "tracking-launch",
+            "node",
+            "ego-backend"
+          ]
+        },
+        {
+          "type": "diagram",
+          "title": "连续跟踪的两种节拍",
+          "nodes": [
+            {
+              "id": "a",
+              "label": "站端种子",
+              "detail": "bbox + 精确图像时戳 + session",
+              "target": "station",
+              "col": 0,
+              "row": 0,
+              "tone": ""
+            },
+            {
+              "id": "b",
+              "label": "TrackingProducer",
+              "detail": "独立线程：start / update / reset",
+              "target": "tracking",
+              "col": 1,
+              "row": 0,
+              "tone": ""
+            },
+            {
+              "id": "c",
+              "label": "最新视觉观测",
+              "detail": "序号、框、原图与新鲜度",
+              "target": "tracking",
+              "col": 2,
+              "row": 0,
+              "tone": ""
+            },
+            {
+              "id": "f",
+              "label": "TrackTarget / Elastic",
+              "detail": "3D 估计、预测、可见路径",
+              "target": "tracking",
+              "col": 0,
+              "row": 1,
+              "tone": "accent"
+            },
+            {
+              "id": "e",
+              "label": "TrackSkill",
+              "detail": "业务稳定 / 丢失 / 停止",
+              "target": "tracking",
+              "col": 1,
+              "row": 1,
+              "tone": ""
+            },
+            {
+              "id": "d",
+              "label": "dispatcher tick",
+              "detail": "消费最新值，不驱动推理帧率",
+              "target": "dispatcher",
+              "col": 2,
+              "row": 1,
+              "tone": ""
+            },
+            {
+              "id": "g",
+              "label": "cmd 采样与反馈",
+              "detail": "共享 CommandOutput",
+              "target": "planner",
+              "col": 0,
+              "row": 2,
+              "tone": ""
+            },
+            {
+              "id": "h",
+              "label": "workflow_result",
+              "detail": "业务稳定 + 停止确认",
+              "target": "completion",
+              "col": 1,
+              "row": 2,
+              "tone": "accent"
+            }
+          ],
+          "edges": [
+            [
+              "a",
+              "b",
+              "初始化"
+            ],
+            [
+              "b",
+              "c",
+              "连续推理"
+            ],
+            [
+              "c",
+              "d",
+              "最新值"
+            ],
+            [
+              "d",
+              "e",
+              "推进"
+            ],
+            [
+              "e",
+              "f",
+              "持续 action"
+            ],
+            [
+              "f",
+              "g",
+              "轨迹"
+            ],
+            [
+              "e",
+              "h",
+              "确认停止后"
+            ]
+          ],
+          "refs": [
+            "producer",
+            "track",
+            "elastic"
+          ],
+          "description": ""
+        },
+        {
+          "type": "h3",
+          "text": "视觉、几何与规划各做什么"
+        },
+        {
+          "type": "ul",
+          "items": [
+            "视觉线程先对种子帧 start，再逐新 RGB 帧 update。它检查帧世代与尺寸，在 finally 调 reset；取消后不再发布新回调。dispatcher tick 不决定视觉推理节拍。",
+            "TrackSkill 检查 seed 时效和像素框范围，在新鲜有效观测到来且共享资源 idle 后创建一个 TrackingGoal。session_id 标识视觉会话，execution_id 区分连续执行腿；两者不是 RPC 工具路由编号。",
+            "Elastic 把观测时刻对齐到位姿，寻找尺寸相同、时间接近的深度帧，从框内深度投影得到三维目标，估计目标位置与速度。",
+            "持续规划读取 EGO MapReader 的一致快照，检查 frame、新鲜度和 reset_epoch；预测目标运动，求可见路径与走廊，再优化轨迹。交付前在原地图和最新地图上检查速度、加速度、高度和碰撞，地图过期或代次变化会失败。",
+            "TrackingRos 的 0.01 秒采样回调把轨迹采样写成 PositionCommand，经共享输出代次门发送。普通航点与连续跟踪争用同一个原生执行资源。"
+          ],
+          "refs": [
+            "producer",
+            "track",
+            "elastic-algorithm",
+            "elastic",
+            "ego-backend"
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "丢失、恢复和业务完成"
+        },
+        {
+          "type": "p",
+          "text": "TrackSkill 有 STARTING、ACTIVE、HOLD、STOPPING 等自身阶段。观测丢失触发停止并等待 stop_confirmed；可恢复时从 HOLD 在共享资源 idle 后开启新执行腿，持续丢失超过预算则失败。业务稳定条件同时看跟随距离误差、目标相对 yaw、飞机速度、目标速度和持续时间，满足后主动 finish_tracking 请求 action 取消。只有收到对应 cancelled 结果且 stop_confirmed，才发 workflow_result=track_reached。",
+          "refs": [
+            "track"
+          ]
+        },
+        {
+          "type": "callout",
+          "title": "取消回执在这里不是自动成功",
+          "text": "TrackTarget 服务端对连续动作返回 cancelled / aborted，业务成功由 TrackSkill 的 finished 候选与停止结果汇合。操作员取消与技能内部完成收尾走不同语义，不能仅按一个 ROS PREEMPTED 状态决定 UI 成功。",
+          "refs": [
+            "server-result",
+            "track"
+          ]
+        }
+      ],
+      "related": [
+        "completion",
+        "cancel",
+        "boundaries"
+      ],
+      "nav_title": "Tracking 持续跟随"
+    },
+    {
+      "id": "station",
+      "title": "站端：从自然语言到获准计划",
+      "group": "站端与通信",
+      "lead": "模型生成的飞行动作先进入待确认批次。实际下发由 FlightService 与操作员确认入口推进。",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "应用 `lifespan` 启动 runner、渠道、cron 和聊天存储，再构造 FlightService 与 FleetController。后者在应用进程内维护设备连接，并通过回调把租约交给 FlightService。原生脚本另外启动 telemetry bridge、visualizer 和 VLA 服务；它们不是 dispatcher 的子线程。",
+          "refs": [
+            "l4-app",
+            "l4-start"
+          ]
+        },
+        {
+          "type": "ol",
+          "items": [
+            "`build_flight_action_tools` 从 `plan_tools.json` 构造工具。每次工具调用产生步骤与 ExecutionRecord，加入本轮累积列表，再提交完整计划。",
+            "`submit_from_tool` 要求存在活跃聊天；`create_batch` 要求已经绑定 stack，逐项核对步骤与记录的 `call_id`，然后存储待确认批次。",
+            "控制台确认调用 `approve_batch`，把该批次的调用逐项标为 approved，再寻找第一个待执行步骤。",
+            "`_dispatch_step` 先检查批次/连接门；VLA、tracking 等需要接地的步骤先取得可执行参数，接地结束后再次检查批次仍在 executing，避免取消后继续下发。",
+            "`RpcFlightBridge.publish_call` 检查记录存在、已批准、未完成且连接存在，携带租约身份发送请求。查询 accepted 只会把 entry 推到 running。",
+            "终态回到 `_handle_outcome`：成功推进下一步，失败把批次标为 failed；已经 cancelled、finished 或 failed 的批次不再被迟到结果推动。"
+          ],
+          "refs": [
+            "agent-tools",
+            "batch",
+            "batch-dispatch",
+            "rpc-publish",
+            "batch-outcome"
+          ]
+        },
+        {
+          "type": "table",
+          "title": "站端运行对象不是同一个概念",
+          "headers": [
+            "对象",
+            "拥有者",
+            "作用"
+          ],
+          "rows": [
+            [
+              "聊天 / 批次",
+              "FlightService",
+              "组织 UI 步骤和确认；批次绑定创建时的 stack"
+            ],
+            [
+              "ExecutionRecord",
+              "RpcFlightBridge",
+              "保存一次调用的批准状态、phase 与结果"
+            ],
+            [
+              "租约",
+              "FleetController / L3 ConnectionLease",
+              "决定当前哪个 station 实例可以控制 stack"
+            ],
+            [
+              "技能实例",
+              "L3 SkillRouter",
+              "拥有该技能业务流程及动作完成裁决"
+            ]
+          ],
+          "refs": [
+            "batch",
+            "rpc-publish",
+            "fleet",
+            "composition"
+          ]
+        },
+        {
+          "type": "callout",
+          "title": "源码中真实存在的批准流程",
+          "text": "这里描述的是仓库产品本身的执行确认机制。网页的搜索、流程图和代码链接只供阅读，不会发送飞行请求，也不会连接正在运行的站端。",
+          "refs": []
+        }
+      ],
+      "related": [
+        "lease",
+        "rpc",
+        "journey"
+      ],
+      "nav_title": "意图、计划与确认"
+    },
+    {
+      "id": "lease",
+      "title": "连接：发现、租约与失联",
+      "group": "站端与通信",
+      "lead": "发现设备在线只是第一步。每次工具调用都需要当前 station、station 实例与 lease 三项身份。",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "L4 获取连接后创建 connection liveliness token，并开始续租；RpcFlightBridge 绑定同一 stack 时先订阅 `rpc_outcome`。服务端 owner 门在重放判断之前执行，因此拿着旧 call_id 也不能绕过已失效的租约。",
+          "refs": [
+            "fleet",
+            "fleet-renew",
+            "rpc-bind",
+            "runtime"
+          ]
+        },
+        {
+          "type": "table",
+          "title": "连接方法及作用",
+          "headers": [
+            "方法 / 信号",
+            "发生什么",
+            "不能据此推断什么"
+          ],
+          "rows": [
+            [
+              "`connection.acquire`",
+              "向唯一控制入口申请身份对应的租约",
+              "不是飞行指令"
+            ],
+            [
+              "`connection.renew`",
+              "刷新有效期；站端续期线程维持控制权",
+              "不是动作进度"
+            ],
+            [
+              "`connection.status`",
+              "查询连接归属状态",
+              "不证明传感器或控制器就绪"
+            ],
+            [
+              "`connection.release`",
+              "请求释放连接；活动调用阻止正常释放",
+              "不等于取消物理运动"
+            ],
+            [
+              "owner token 丢失 / TTL 到期",
+              "停止准入并启动失联清理流程",
+              "不等于已经悬停"
+            ]
+          ],
+          "refs": [
+            "rpc-methods",
+            "fleet-renew",
+            "lease-loss"
+          ]
+        },
+        {
+          "type": "diagram",
+          "title": "租约丢失后的有序处理",
+          "nodes": [
+            {
+              "id": "a",
+              "label": "OWNED",
+              "detail": "当前 station 持有控制权",
+              "target": "lease",
+              "col": 0,
+              "row": 0,
+              "tone": ""
+            },
+            {
+              "id": "b",
+              "label": "LEASE_LOST",
+              "detail": "撤销租约；拒绝后续调用",
+              "target": "lease",
+              "col": 1,
+              "row": 0,
+              "tone": "warn"
+            },
+            {
+              "id": "c",
+              "label": "CANCELLING",
+              "detail": "终结旧调用；请求中断",
+              "target": "cancel",
+              "col": 2,
+              "row": 0,
+              "tone": "warn"
+            },
+            {
+              "id": "d",
+              "label": "UNOWNED",
+              "detail": "安全停请求成功发出后释放",
+              "target": "lease",
+              "col": 0,
+              "row": 1,
+              "tone": ""
+            },
+            {
+              "id": "e",
+              "label": "SAFETY_REQUESTED",
+              "detail": "调用注入的安全停止端口",
+              "target": "cancel",
+              "col": 1,
+              "row": 1,
+              "tone": ""
+            },
+            {
+              "id": "f",
+              "label": "停止失败留在取消中",
+              "detail": "等待后续重试；不释放控制权",
+              "target": "cancel",
+              "col": 2,
+              "row": 1,
+              "tone": "warn"
+            }
+          ],
+          "edges": [
+            [
+              "a",
+              "b",
+              "失联"
+            ],
+            [
+              "b",
+              "c",
+              "失效"
+            ],
+            [
+              "c",
+              "e",
+              "发安全停"
+            ],
+            [
+              "e",
+              "d",
+              "发送成功"
+            ],
+            [
+              "e",
+              "f",
+              "发送失败"
+            ]
+          ],
+          "refs": [
+            "lease-loss"
+          ],
+          "description": ""
+        },
+        {
+          "type": "p",
+          "text": "租约状态机和设备停止状态机是两套不同的账。`_complete_loss` 在安全停请求发出后可以进入 unowned；设备是否完成保持接管与动态停稳，还要由 ActionSession 和 planner_execution 独立确认。新租约并不能让闭锁中的设备立即接收新运动目标。",
+          "refs": [
+            "lease-loss",
+            "action-pump"
+          ]
+        }
+      ],
+      "related": [
+        "rpc",
+        "cancel",
+        "execution"
+      ],
+      "nav_title": "发现、租约与失联"
+    },
+    {
+      "id": "rpc",
+      "title": "RPC：准入与终态是两条通道",
+      "group": "站端与通信",
+      "lead": "单入口 lx/<stack>/rpc 接收 method 与 params。一次 query 的回复表达准入，真实结果从 rpc_outcome 返回。",
+      "blocks": [
+        {
+          "type": "code",
+          "title": "示意请求：身份均为占位符，不能直接用于控制",
+          "text": "{\n  \"method\": \"basic_flight.translate\",\n  \"params\": {\n    \"direction\": \"forward\",\n    \"distance_m\": 1.0,\n    \"call_id\": \"示意调用关联键\",\n    \"context\": {\n      \"station_id\": \"示意站端角色\",\n      \"station_instance_id\": \"示意实例\",\n      \"lease_id\": \"示意租约\"\n    }\n  }\n}",
+          "refs": [
+            "rpc-client",
+            "rpc-methods"
+          ]
+        },
+        {
+          "type": "p",
+          "text": "传输层从 params 剥离 `call_id` 与 `context`，其余字段作为业务 arguments，经注册表 schema 校验，再交给 runtime。这里没有额外的 `jsonrpc` 或 `id` 包装，也不是把工具名藏在 params 内。线上无需提供内部 flight_session_id / step_id；服务端会给内部诊断上下文补值，调用关联仍使用上游 call_id。",
+          "refs": [
+            "rpc-methods"
+          ]
+        },
+        {
+          "type": "table",
+          "title": "一次调用会出现的消息",
+          "headers": [
+            "通道",
+            "内容",
+            "消费者含义"
+          ],
+          "rows": [
+            [
+              "`lx/<stack>/rpc` 查询回复",
+              "`rpc_result.result = {accepted: true, call_id: ...}`",
+              "任务被准入，尚不能当作到达"
+            ],
+            [
+              "同一查询的拒绝",
+              "`rpc_error` 带 method、reason、message",
+              "准入失败；不产生对应执行终态"
+            ],
+            [
+              "`lx/<stack>/rpc_outcome`",
+              "method + call_id + outcome",
+              "原调用唯一终态"
+            ],
+            [
+              "成功 outcome",
+              "`ok=true`，result 内有 completion",
+              "必须结合具体 completion 理解成功"
+            ],
+            [
+              "失败 outcome",
+              "`ok=false`，reason、message",
+              "站端终结当前步骤，不推进成功"
+            ]
+          ],
+          "refs": [
+            "rpc-methods",
+            "rpc-outcome",
+            "batch-outcome"
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "幂等与乱序如何处理"
+        },
+        {
+          "type": "ul",
+          "items": [
+            "runtime 对规范调用载荷计算指纹：同 call_id、同载荷返回原 ack；同 call_id、不同载荷拒绝，不再执行第二次。",
+            "schema、owner、独占与队列限制分别负责不同问题；急停仍经过归属检查，只是在通过准入后走优先中断通路。",
+            "L4 在发送前已经订阅结果；accepted 到达时仅把 entry 改为 running，因此不会把已经收到终态的记录退回 running。",
+            "runtime 只接受第一次 done/fail 提交。其进程内事件历史不等于线上有可用的断线结果补发接口；`RpcMethods` 的终态发布异常只记录失败，不重新执行动作。"
+          ],
+          "refs": [
+            "runtime",
+            "terminal",
+            "rpc-bind",
+            "rpc-publish",
+            "rpc-outcome"
+          ]
+        }
+      ],
+      "related": [
+        "journey",
+        "dispatcher",
+        "completion"
+      ],
+      "nav_title": "RPC 准入与结果"
+    },
+    {
+      "id": "dispatcher",
+      "title": "dispatcher：六态只负责分发",
+      "group": "机端执行",
+      "lead": "业务步骤归技能，core 只管理何时分发、何时等待，以及机械执行技能返回的四种裁决。",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "控制面启动普通命令消费者、优先中断消费者和 Zenoh 服务线程；engine 的 inference 另有线程。普通调用不会在 Zenoh 回调里直接执行完整技能流程。优先中断先请求共享执行停止，再把任务清理交给中断消费者，减少普通队列或 engine 生命周期锁对停止信号的影响。",
+          "refs": [
+            "plane",
+            "node"
+          ]
+        },
+        {
+          "type": "diagram",
+          "title": "六态主循环",
+          "nodes": [
+            {
+              "id": "a",
+              "label": "INIT",
+              "detail": "初始化与感知条件检查",
+              "target": "dispatcher",
+              "col": 0,
+              "row": 0,
+              "tone": ""
+            },
+            {
+              "id": "b",
+              "label": "WAIT_FOR_MISSION",
+              "detail": "等待命令及动作释放",
+              "target": "dispatcher",
+              "col": 1,
+              "row": 0,
+              "tone": ""
+            },
+            {
+              "id": "c",
+              "label": "DISPATCH",
+              "detail": "按名调用 plan_tick",
+              "target": "skills",
+              "col": 2,
+              "row": 0,
+              "tone": "accent"
+            },
+            {
+              "id": "f",
+              "label": "STOP",
+              "detail": "请求进程关闭",
+              "target": "cancel",
+              "col": 0,
+              "row": 1,
+              "tone": "warn"
+            },
+            {
+              "id": "e",
+              "label": "POST_ACTION",
+              "detail": "执行技能四裁决",
+              "target": "dispatcher",
+              "col": 1,
+              "row": 1,
+              "tone": ""
+            },
+            {
+              "id": "d",
+              "label": "WAIT_ACTION_FINISH",
+              "detail": "tick 技能；检查完成门",
+              "target": "completion",
+              "col": 2,
+              "row": 1,
+              "tone": ""
+            }
+          ],
+          "edges": [
+            [
+              "a",
+              "b",
+              "就绪"
+            ],
+            [
+              "b",
+              "c",
+              "if_plan"
+            ],
+            [
+              "c",
+              "d",
+              "动作已武装"
+            ],
+            [
+              "d",
+              "e",
+              "完成门通过"
+            ]
+          ],
+          "refs": [
+            "fsm"
+          ],
+          "description": "正常路径 INIT → WAIT_FOR_MISSION → DISPATCH → WAIT_ACTION_FINISH → POST_ACTION；裁决决定返回分发、等待或新动作。硬停止从任意运行态进入 STOP。"
+        },
+        {
+          "type": "table",
+          "title": "状态及其推进条件",
+          "headers": [
+            "状态",
+            "处理",
+            "离开条件"
+          ],
+          "rows": [
+            [
+              "INIT",
+              "headless 或无需感知的待调用可跳过通用视觉门",
+              "初始化完成进入等待；缺感知继续等待"
+            ],
+            [
+              "WAIT_FOR_MISSION",
+              "检查 if_plan 与 action_in_progress",
+              "有任务且无活动动作 → DISPATCH"
+            ],
+            [
+              "DISPATCH",
+              "验证当前工具、找技能、调用 plan_tick",
+              "动作已武装 → 等待；缺工具 → fail 并回空闲"
+            ],
+            [
+              "WAIT_ACTION_FINISH",
+              "调用 owner.wait_action_tick 与 ActionGate",
+              "合法完成结果 / 技能完成门 → POST_ACTION"
+            ],
+            [
+              "POST_ACTION",
+              "仅解释 SkillVerdict",
+              "REPLAN、ADVANCE、IDLE、NEW_ACTION"
+            ],
+            [
+              "STOP",
+              "调用 RuntimeClock.request_shutdown",
+              "主循环退出"
+            ]
+          ],
+          "refs": [
+            "fsm",
+            "verdict"
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "四种裁决与业务状态不是一回事"
+        },
+        {
+          "type": "ul",
+          "items": [
+            "`REPLAN`：清理重规划标记，回到 DISPATCH，仍处理当前任务语义。",
+            "`ADVANCE`：装载下一条内部命令；没有下一条时回到等待。",
+            "`IDLE`：在未失败时发布完成，停止继续规划。",
+            "`NEW_ACTION`：技能已经武装新的动作，core 不代替技能再次安排。VLA 的多腿流程使用它。"
+          ],
+          "refs": [
+            "verdict",
+            "vla-skill"
+          ]
+        },
+        {
+          "type": "p",
+          "text": "等待阶段会周期性输出 `dispatcher_wait`、状态、原因与输入年龄；异常守护记录失败，清理执行状态并恢复循环。代码使用 20 Hz rate，但等待任务等分支有各自 sleep，不能把“rate(20)”理解成所有分支严格 20 Hz。默认 headless 只跳过通用感知门，动作仍要经过 odometry 新鲜度校验。",
+          "refs": [
+            "fsm",
+            "action-start"
+          ]
+        }
+      ],
+      "related": [
+        "skills",
+        "execution",
+        "cancel"
+      ],
+      "nav_title": "Dispatcher 分发状态"
+    },
+    {
+      "id": "execution",
+      "title": "共享执行：从 Goal 到原生 action",
+      "group": "机端执行",
+      "lead": "飞行与 VLA 共用一个 ActionSession，后端通过 planner_execution 接收原生 ROS action；这里不再引入独立任务执行节点。",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "`start` 先确认任务仍有效、会话未关闭且没有 active/pending，读取新鲜定位并校验目标数值与高度，再建立 `(generation, owner)` 对应的 ActionKey。此时目标只是 pending；真正发送发生在 `_pump`，等待执行端 ready、stop_confirmed、状态新鲜、连接成立和释放后的更新快照。",
+          "refs": [
+            "action-start",
+            "action-pump",
+            "composition"
+          ]
+        },
+        {
+          "type": "diagram",
+          "title": "共享执行资源的关键门",
+          "nodes": [
+            {
+              "id": "a",
+              "label": "技能提交 Goal",
+              "detail": "绑定 owner + generation",
+              "target": "skills",
+              "col": 0,
+              "row": 0,
+              "tone": ""
+            },
+            {
+              "id": "b",
+              "label": "pending 待发",
+              "detail": "状态合法；未占用",
+              "target": "execution",
+              "col": 1,
+              "row": 0,
+              "tone": ""
+            },
+            {
+              "id": "c",
+              "label": "资源就绪检查",
+              "detail": "ready + stop_confirmed + 新鲜",
+              "target": "execution",
+              "col": 2,
+              "row": 0,
+              "tone": "accent"
+            },
+            {
+              "id": "f",
+              "label": "结果归还技能",
+              "detail": "只消费匹配 token 的结果",
+              "target": "completion",
+              "col": 0,
+              "row": 1,
+              "tone": ""
+            },
+            {
+              "id": "e",
+              "label": "执行事件泵",
+              "detail": "状态、结果、期限、重启",
+              "target": "execution",
+              "col": 1,
+              "row": 1,
+              "tone": ""
+            },
+            {
+              "id": "d",
+              "label": "发送 action goal",
+              "detail": "保存 handle 与 boot_id",
+              "target": "planner",
+              "col": 2,
+              "row": 1,
+              "tone": ""
+            }
+          ],
+          "edges": [
+            [
+              "a",
+              "b",
+              "start"
+            ],
+            [
+              "b",
+              "c",
+              "tick"
+            ],
+            [
+              "c",
+              "d",
+              "可发送"
+            ],
+            [
+              "d",
+              "e",
+              "异步事件"
+            ],
+            [
+              "e",
+              "f",
+              "poll"
+            ]
+          ],
+          "refs": [
+            "action-start",
+            "action-pump"
+          ],
+          "description": ""
+        },
+        {
+          "type": "h3",
+          "text": "客户端与服务端承担不同防线"
+        },
+        {
+          "type": "table",
+          "title": "执行边界",
+          "headers": [
+            "一侧",
+            "检查 / 机制",
+            "意义"
+          ],
+          "rows": [
+            [
+              "客户端 ActionSession",
+              "源时戳、接收年龄、frame、有限值、任务有效性",
+              "避免非法目标从技能进入传输"
+            ],
+            [
+              "ActionServer / WaypointExecution",
+              "资源 ready、1–3 点窗口、高度、yaw 策略、后端 validate",
+              "避免依赖客户端单方面正确"
+            ],
+            [
+              "事件关联",
+              "token + 发送时 boot_id + ActionKey",
+              "迟到结果不能归给新动作"
+            ],
+            [
+              "独立设备快照",
+              "`/planner/execution_state`",
+              "说明资源是否恢复；不作为某任务成功结果"
+            ],
+            [
+              "停止记录 StopRecord",
+              "仅保留传输停止所需关联",
+              "旧任务释放后仍继续确认设备停止"
+            ]
+          ],
+          "refs": [
+            "action-start",
+            "action-pump",
+            "execution",
+            "server"
+          ]
+        },
+        {
+          "type": "p",
+          "text": "ExecuteWaypoints 的 Goal 包含 header 和 WaypointTarget；Feedback 包含相位、消费进度与停稳观测；Result 包含 reason、stop_confirmed、state_valid 和最终 pose。ROS action 状态决定成功、取消或失败，不能仅看 Result 中有没有位姿。服务端 tick 周期配置为 0.05 秒，命令保持路径另有独立节拍。",
+          "refs": [
+            "action-msg",
+            "server",
+            "server-result"
+          ]
+        },
+        {
+          "type": "callout",
+          "title": "断线和重启不会自动重放动作",
+          "text": "事件泵发现 readiness 陈旧、boot_id 改变或等待超时，会请求停止并产出失败。pending 也有等待上限。连接恢复只恢复通信；只有执行状态满足释放条件才可能发新目标。",
+          "refs": [
+            "action-pump"
+          ]
+        }
+      ],
+      "related": [
+        "completion",
+        "planner",
+        "cancel"
+      ],
+      "nav_title": "共享执行与 Action"
+    },
+    {
+      "id": "completion",
+      "title": "完成：到达、停稳、保持、唯一终态",
+      "group": "机端执行",
+      "lead": "航点全部消费只是进入完成检查。成功还需要新鲜观测满足原目标停稳门，并确认运动输出已交给保持。",
+      "blocks": [
+        {
+          "type": "diagram",
+          "title": "普通航点动作的成功路径与故障分支",
+          "nodes": [
+            {
+              "id": "a",
+              "label": "executing",
+              "detail": "原始目标 + 规划消费进度",
+              "target": "planner",
+              "col": 0,
+              "row": 0,
+              "tone": ""
+            },
+            {
+              "id": "b",
+              "label": "settling",
+              "detail": "原目标位置 / 偏航 + 动态停稳",
+              "target": "completion",
+              "col": 1,
+              "row": 0,
+              "tone": "accent"
+            },
+            {
+              "id": "c",
+              "label": "stopping",
+              "detail": "撤销运动；保持接管",
+              "target": "cancel",
+              "col": 2,
+              "row": 0,
+              "tone": ""
+            },
+            {
+              "id": "f",
+              "label": "fail / fault",
+              "detail": "缺状态、超时或后端失败",
+              "target": "diagnostics",
+              "col": 0,
+              "row": 1,
+              "tone": "warn"
+            },
+            {
+              "id": "e",
+              "label": "唯一 RPC done",
+              "detail": "技能结束 → runtime 终态",
+              "target": "rpc",
+              "col": 1,
+              "row": 1,
+              "tone": ""
+            },
+            {
+              "id": "d",
+              "label": "Succeeded + stopped",
+              "detail": "再次动态停稳确认",
+              "target": "completion",
+              "col": 2,
+              "row": 1,
+              "tone": "accent"
+            }
+          ],
+          "edges": [
+            [
+              "a",
+              "b",
+              "全部消费"
+            ],
+            [
+              "b",
+              "c",
+              "目标门通过"
+            ],
+            [
+              "c",
+              "d",
+              "停止确认"
+            ],
+            [
+              "d",
+              "e",
+              "动作成功"
+            ],
+            [
+              "a",
+              "f",
+              "失效 / 超时"
+            ]
+          ],
+          "refs": [
+            "execution",
+            "settle",
+            "server-result",
+            "terminal"
+          ],
+          "description": ""
+        },
+        {
+          "type": "table",
+          "title": "当前 planner_execution.yaml 的完成阈值",
+          "headers": [
+            "参数",
+            "配置值",
+            "用途"
+          ],
+          "rows": [
+            [
+              "world_frame",
+              "world",
+              "目标与观测坐标系一致"
+            ],
+            [
+              "min_height / max_height",
+              "0.3 / 3.0 m",
+              "普通目标的高度界"
+            ],
+            [
+              "state_timeout_s",
+              "1.0 s",
+              "状态接收与源数据新鲜度"
+            ],
+            [
+              "action_timeout_s / stop_timeout_s",
+              "60.0 / 5.0 s",
+              "执行期限 / 停止确认期限"
+            ],
+            [
+              "settle_position_m",
+              "0.30 m",
+              "最后原始目标的位置误差"
+            ],
+            [
+              "settle_speed_m_s",
+              "0.15 m/s",
+              "实际线速度模长"
+            ],
+            [
+              "settle_acceleration_m_s2",
+              "0.30 m/s²",
+              "相邻源观测速度差分"
+            ],
+            [
+              "settle_yaw_rate_rad_s",
+              "0.20 rad/s",
+              "实际偏航角速度"
+            ],
+            [
+              "settle_yaw_deg",
+              "10°",
+              "显式终末 yaw 的容差"
+            ],
+            [
+              "settle_hold_s",
+              "0.20 s",
+              "在递增源时戳上连续合格时长"
+            ]
+          ],
+          "refs": [
+            "config",
+            "settle"
+          ]
+        },
+        {
+          "type": "p",
+          "text": "SettleMonitor 不用重复快照累积“稳定时间”：dt=0 直接返回 false；dt≤0 或间隔过大不合格。普通到达检查还要求最终位置接近原始目标；look_forward 为真时不额外限制终末 yaw，显式 yaw 则必须在容差内。停止阶段传入空 target，仅验证动态停稳，不要求飞机回到被取消的旧目标。",
+          "refs": [
+            "settle",
+            "execution"
+          ]
+        },
+        {
+          "type": "p",
+          "text": "服务端在目标门通过后把 completing 设为 true，再执行 begin_stop(\"goal_reached\")。只有保持接管成功并通过停止阶段停稳，才产生 Succeeded。期间取消或安全停止会覆盖成功候选；停止超时产生 Aborted 且 stop_confirmed=false，资源进入 fault。",
+          "refs": [
+            "execution",
+            "server-result"
+          ]
+        },
+        {
+          "type": "table",
+          "title": "三层“成功”不可互换",
+          "headers": [
+            "表达",
+            "证明了什么",
+            "仍未证明什么"
+          ],
+          "rows": [
+            [
+              "RPC accepted",
+              "调用通过准入",
+              "动作已经执行"
+            ],
+            [
+              "forwarded",
+              "真实出口完成转交",
+              "起飞、降落或悬停的物理完成"
+            ],
+            [
+              "action_result",
+              "动作结果与技能门符合完成条件",
+              "所有外部部署和真实飞控都已验收"
+            ],
+            [
+              "workflow_result",
+              "业务流程汇合条件满足",
+              "任意底层 action 的取消回执自动等同业务成功"
+            ]
+          ],
+          "refs": [
+            "takeoff",
+            "rpc-methods",
+            "server-result",
+            "track"
+          ]
+        }
+      ],
+      "related": [
+        "cancel",
+        "skills",
+        "diagnostics"
+      ],
+      "nav_title": "到达、停稳与完成"
+    },
+    {
+      "id": "planner",
+      "title": "默认规划：EGO 如何接住目标",
+      "group": "机端执行",
+      "lead": "EGO 的任务目标来自原生 action。规划算法负责生成可执行轨迹，共享执行库负责目标生命周期与终态。",
+      "blocks": [
+        {
+          "type": "ol",
+          "items": [
+            "`ego.launch` 配置 odometry 与 cloud；EGO 初始化时把 Backend.validate/start/commit/stop 函数注入 WaypointActionServer，并把 CommandOutput 交给 TrajServer。",
+            "普通目标进入 `startExecution`，转为 Eigen 点列，保存末点、yaw 与 look_forward 后交给 setGoalWindow；原地连续全景 yaw 走专门的 WAIT_YAW 分支。",
+            "EGOReplanFSM 等待 odom 和目标，经过轨迹生成、重规划、执行等状态。它的状态机与 dispatcher 六态处于不同层，不能混画成一个大 FSM。",
+            "`planner_manager.cpp` 的 rebound 管线构造初始 MinJerk 轨迹，检查约束点和碰撞段，按配置尝试不同拓扑候选或单候选优化，选择成功结果作为局部轨迹。",
+            "执行阶段持续检查航点进度及重规划条件；轨迹采样产生位置、速度、加速度和偏航命令。输出经 CommandOutput 的当前代次检查，最终到 `/setpoint_cmd`。",
+            "航点进度回报共享执行库；后端不能只因路径生成或批次点列耗尽就宣告工具成功，最终结果仍经过原目标停稳与停止确认。"
+          ],
+          "refs": [
+            "ego-launch",
+            "ego-backend",
+            "ego-goal",
+            "ego-fsm",
+            "ego-opt",
+            "output",
+            "execution"
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "地图和任务生命周期分开"
+        },
+        {
+          "type": "p",
+          "text": "EGO 后端停止会清掉当前目标、窗口、链路、轨迹跟踪并进入 WAIT_TARGET。它不通过删除整个 planner 进程来取消单任务；定位、地图和通信保持常驻。tracking 开启时，EGO 小图提供 `readTrackingMap` 读取函数给 Elastic，保持单向注入。",
+          "refs": [
+            "ego-goal",
+            "ego-backend"
+          ]
+        },
+        {
+          "type": "callout",
+          "title": "算法说明的边界",
+          "text": "此处覆盖目标接入、初始轨迹、优化、重规划与输出之间的运行关系，不把静态源码阅读写成规划性能或避障效果结论。具体代价函数、地图采样与数值求解细节可从 EGO 轨迹优化管线摘录继续进入本地源码。",
+          "refs": [
+            "ego-opt"
+          ]
+        }
+      ],
+      "related": [
+        "backends",
+        "simulation",
+        "completion"
+      ],
+      "nav_title": "EGO 默认规划"
+    },
+    {
+      "id": "backends",
+      "title": "后端：EGO、SUPER、DIFF 的差别",
+      "group": "机端执行",
+      "lead": "三种后端接同类航点 action，不代表它们支持相同的偏航策略，也不代表默认部署同时运行三者。",
+      "blocks": [
+        {
+          "type": "table",
+          "title": "按实际 validate 与构建接线判断",
+          "headers": [
+            "后端",
+            "接受 / 拒绝",
+            "命令输出形态"
+          ],
+          "rows": [
+            [
+              "EGO",
+              "普通目标；连续全景须单点、原地、显式 yaw 且匹配 yaw_path / mode",
+              "与 action server 同进程输出"
+            ],
+            [
+              "SUPER",
+              "需启用 timer；速度朝向模式拒绝显式 yaw；非普通 yaw_mode / yaw_path 拒绝",
+              "ActionServer 使用配置中的 cmd_topic"
+            ],
+            [
+              "DIFF",
+              "要求 look_forward，且 yaw_mode / yaw_path 为普通值",
+              "ActionServer 以 external_output=true 构造；独立输出方回报保持"
+            ],
+            [
+              "默认 build_ego.sh / ego.launch",
+              "选 EGO；链接 Elastic 代码不等于启用 tracking",
+              "tracking_enabled 默认 false"
+            ]
+          ],
+          "refs": [
+            "ego-backend",
+            "super",
+            "diff",
+            "build",
+            "ego-launch"
+          ]
+        },
+        {
+          "type": "p",
+          "text": "独立输出端需要同时对上 boot_id、execution_generation 与新鲜的 CommandState。只有同代次输出已保持，服务端才把 holding 当作成立。EGO/SUPER 的同进程路径可直接获取 CommandOutput 状态；这些差别正是不能用“同一个 action 类型”推导完全可互换的原因。",
+          "refs": [
+            "output",
+            "diff"
+          ]
+        },
+        {
+          "type": "callout",
+          "title": "默认路径与备选代码",
+          "text": "根仿真编排和当前真机 worker 都启动 basic_flight.launch → ego.launch。本页记录 SUPER/DIFF 的源码接口差异，不提供把 launch 名替换后就保证可用的部署承诺。",
+          "refs": [
+            "sim-manifests",
+            "drone-runtime"
+          ]
+        }
+      ],
+      "related": [
+        "planner",
+        "tracking",
+        "boundaries"
+      ],
+      "nav_title": "规划后端对比"
+    },
+    {
+      "id": "simulation",
+      "title": "仿真：命令怎样变成位姿与图像",
+      "group": "机端执行",
+      "lead": "默认编排使用 L2 动力学计算飞行状态、Unity 提供传感器。两者经 ROS 话题共同反馈给 EGO 与遥测。",
+      "blocks": [
+        {
+          "type": "diagram",
+          "title": "默认 Unity + L2 闭环",
+          "nodes": [
+            {
+              "id": "a",
+              "label": "EGO / 保持输出",
+              "detail": "/setpoint_cmd",
+              "target": "planner",
+              "col": 0,
+              "row": 0,
+              "tone": ""
+            },
+            {
+              "id": "b",
+              "label": "SO3ControlNodelet",
+              "detail": "位置命令 + odom / imu",
+              "target": "simulation",
+              "col": 1,
+              "row": 0,
+              "tone": ""
+            },
+            {
+              "id": "c",
+              "label": "四旋翼动力学",
+              "detail": "/drone_0_so3_cmd → 状态",
+              "target": "simulation",
+              "col": 2,
+              "row": 0,
+              "tone": "accent"
+            },
+            {
+              "id": "f",
+              "label": "EGO + telemetry_bridge",
+              "detail": "地图与观测消费",
+              "target": "telemetry",
+              "col": 0,
+              "row": 1,
+              "tone": ""
+            },
+            {
+              "id": "e",
+              "label": "ROS 传感器标准接口",
+              "detail": "RGB / depth / cloud",
+              "target": "simulation",
+              "col": 1,
+              "row": 1,
+              "tone": ""
+            },
+            {
+              "id": "d",
+              "label": "Unity 场景传感器",
+              "detail": "位姿输入 → 图像 / LiDAR",
+              "target": "simulation",
+              "col": 2,
+              "row": 1,
+              "tone": ""
+            }
+          ],
+          "edges": [
+            [
+              "a",
+              "b",
+              "位置控制"
+            ],
+            [
+              "b",
+              "c",
+              "SO3 命令"
+            ],
+            [
+              "c",
+              "d",
+              "odom"
+            ],
+            [
+              "d",
+              "e",
+              "TCP / bridge"
+            ],
+            [
+              "e",
+              "f",
+              "传感器"
+            ]
+          ],
+          "refs": [
+            "sim-manifests",
+            "l2-launch",
+            "unity-bridge"
+          ],
+          "description": ""
+        },
+        {
+          "type": "p",
+          "text": "`uav_simulator.launch` 装配 SO3 控制器与动力学。控制器订阅 `/setpoint_cmd` 和 odom/imu，输出 `/drone_0_so3_cmd`；动力学订阅 SO3 命令并以配置的 200 Hz odom 频率发布 `/ekf_quat/ekf_odom`。编排器传入 `enable_lidar=false`、`gsplat_bridge=false`，所以默认场景的雷达来自 Unity，而不是本地 pcl_render。",
+          "refs": [
+            "l2-launch",
+            "sim-manifests"
+          ]
+        },
+        {
+          "type": "table",
+          "title": "原 Unity bridge 的转换",
+          "headers": [
+            "输入",
+            "输出",
+            "实际处理"
+          ],
+          "rows": [
+            [
+              "`/camera1/color/image/compressed`",
+              "`/camera/color/image_raw`",
+              "解压为 rgb8；重写为 ROS 接收时刻"
+            ],
+            [
+              "`/camera1/depth/image/compressed`",
+              "`/camera/aligned_depth_to_color/image_raw`",
+              "反向灰度 × depth_range 转毫米 16UC1"
+            ],
+            [
+              "`/camera1/color/info`",
+              "`/camera/color/camera_info`",
+              "复制标定并更新帧头"
+            ],
+            [
+              "`/livox/lidar`",
+              "`/cloud_registered`",
+              "复制点云，标为 world；不再乘机体位姿"
+            ],
+            [
+              "`/ekf_quat/ekf_odom`",
+              "`/drone_0_visual_slam/odom`",
+              "把动力学位姿提供给原 Unity 场景"
+            ]
+          ],
+          "refs": [
+            "unity-bridge"
+          ]
+        },
+        {
+          "type": "callout",
+          "title": "时间与坐标的实际前提",
+          "text": "原 Unity bridge 的 header() 将每条消息时戳改为 ROS 接收时间，点云直接标记为 world。它不在此处完成硬件同步或坐标变换；因此图像时刻插值和点云几何依赖这组转换前提，不能把它描述为保留了原传感器采集时戳。",
+          "refs": [
+            "unity-bridge"
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Unity launch 默认 sensor_source=original；其他值会选另一份 sensor_bridge.py。原场景模式需 Unity 自身已进入 Play；启动器在等待传感器输入后才启动 L3。可选 GSplat 分组在 UAV launch 中存在，但被当前根编排明确关闭。",
+          "refs": [
+            "unity-launch",
+            "sim-up",
+            "sim-manifests"
+          ]
+        },
+        {
+          "type": "callout",
+          "title": "起降与返航的仿真边界",
+          "text": "这条默认装配明确接通的是位置命令、控制器、动力学与传感器闭环。所读 L2 控制装配没有提供 `/px4ctrl/takeoff_land` 消费者；若部署没有额外的起降消费者，L3 转交检查会拒绝起降。仿真已有空中初始位姿也不能自动建立 FlightSession 起飞原点。",
+          "refs": [
+            "l2-launch",
+            "commands",
+            "origin"
+          ]
+        }
+      ],
+      "related": [
+        "telemetry",
+        "startup",
+        "boundaries"
+      ],
+      "nav_title": "仿真与控制反馈"
+    },
+    {
+      "id": "startup",
+      "title": "启动：先制品，再依赖，再控制面",
+      "group": "部署与运维",
+      "lead": "默认的完整启动命令是根目录 make up；它先启动仿真业务栈，再启动当前工作区的原生站端。",
+      "blocks": [
+        {
+          "type": "code",
+          "title": "命令入口阅读示例（本次未执行）",
+          "text": "make station-setup\nmake sim-prepare\nmake up\nmake status\n# 关闭前须已取消任务/急停并达到源码要求的停止条件\nmake down",
+          "refs": [
+            "root"
+          ]
+        },
+        {
+          "type": "p",
+          "text": "`station-setup` 转到 L4 的依赖准备。`sim-prepare` 要求业务 Deployment 已停止，核对 L2/L3 的 PositionCommand 字段，解析镜像，依次创建 L3、Unity 和消息兼容编译 Job，保存源码/配置摘要。它准备制品，不启动业务。`check_prepared` 会拒绝配置、源码或制品已变化的启动请求。",
+          "refs": [
+            "sim-prepare"
+          ]
+        },
+        {
+          "type": "diagram",
+          "title": "默认启动依赖顺序",
+          "nodes": [
+            {
+              "id": "a",
+              "label": "编译制品准备",
+              "detail": "消息定义 + 镜像 + 源码摘要",
+              "target": "startup",
+              "col": 0,
+              "row": 0,
+              "tone": ""
+            },
+            {
+              "id": "b",
+              "label": "roscore 就绪",
+              "detail": "建立 ROS 图通信基础",
+              "target": "startup",
+              "col": 1,
+              "row": 0,
+              "tone": ""
+            },
+            {
+              "id": "c",
+              "label": "动力学 + Unity",
+              "detail": "等待 odom 和传感器",
+              "target": "simulation",
+              "col": 2,
+              "row": 0,
+              "tone": ""
+            },
+            {
+              "id": "f",
+              "label": "站端原生服务",
+              "detail": "L4 / bridge / visualizer / VLA",
+              "target": "station",
+              "col": 0,
+              "row": 1,
+              "tone": "accent"
+            },
+            {
+              "id": "e",
+              "label": "遥测 + 日志",
+              "detail": "各自 presence 与数据面",
+              "target": "telemetry",
+              "col": 1,
+              "row": 1,
+              "tone": ""
+            },
+            {
+              "id": "d",
+              "label": "L3 启动",
+              "detail": "planner 就绪 + task presence",
+              "target": "dispatcher",
+              "col": 2,
+              "row": 1,
+              "tone": ""
+            }
+          ],
+          "edges": [
+            [
+              "a",
+              "b",
+              "up"
+            ],
+            [
+              "b",
+              "c",
+              "master 就绪"
+            ],
+            [
+              "c",
+              "d",
+              "输入就绪"
+            ],
+            [
+              "d",
+              "e",
+              "任务面在线"
+            ],
+            [
+              "e",
+              "f",
+              "start"
+            ]
+          ],
+          "refs": [
+            "sim-up",
+            "sim-main"
+          ],
+          "description": ""
+        },
+        {
+          "type": "h3",
+          "text": "launch 到实际进程"
+        },
+        {
+          "type": "ol",
+          "items": [
+            "`basic_flight.launch` 必须收到显式的 `ground_z`，然后包含 `ego.launch`。它将 dispatcher 设为 `headless=true`，因此默认任务不经过通用视觉感知门。",
+            "`ego.launch` 把 `planner_execution.yaml` 装入 `/planner_execution`，启动 EGO 节点，将 odometry、点云、急停和 yaw 通道 remap 到部署接口，位置输出映射为 `/setpoint_cmd`。",
+            "`dispatcher_node.py` 构造 engine、飞行状态与命令端口、共享 ActionSession，注册飞行和 VLA 技能，启动控制面线程和 inference 线程，最后进入 ROS spin。",
+            "完整启动随后校验站端服务归属、前端和 Python 环境、配置库路由器和 station 身份，再经 L4 Makefile 启动站端。站端服务已运行时，相机配置更新会触发该工作区服务重启。"
+          ],
+          "refs": [
+            "launch",
+            "ego-launch",
+            "node",
+            "sim-station"
+          ]
+        },
+        {
+          "type": "callout",
+          "title": "就绪有层级",
+          "text": "Pod Running、planner action ready、task presence 和真实动作成功分别由不同条件产生。启动器按阶段等待输入与端点，是为了避免只有进程存在却没有执行条件；本次仅解释这些代码，未运行启动器或探针。",
+          "refs": [
+            "sim-up"
+          ]
+        }
+      ],
+      "related": [
+        "station",
+        "simulation",
+        "remote"
+      ],
+      "nav_title": "启动与依赖装配"
+    },
+    {
+      "id": "remote",
+      "title": "真机：冻结源码、端侧编译与显式切换",
+      "group": "部署与运维",
+      "lead": "根 Makefile 已接入 drone-* 命令。站端冻结和同步源码，设备 worker 持有长期操作并记录构建、候选和活动版本。",
+      "blocks": [
+        {
+          "type": "diagram",
+          "title": "远端构建与部署的数据链",
+          "nodes": [
+            {
+              "id": "a",
+              "label": "站端冻结源码",
+              "detail": "逐文件 SHA-256 + mode",
+              "target": "remote",
+              "col": 0,
+              "row": 0,
+              "tone": ""
+            },
+            {
+              "id": "b",
+              "label": "SSH + rsync",
+              "detail": "stage → publish release",
+              "target": "remote",
+              "col": 1,
+              "row": 0,
+              "tone": ""
+            },
+            {
+              "id": "c",
+              "label": "设备 worker",
+              "detail": "持久操作记录 + 排他锁",
+              "target": "remote",
+              "col": 2,
+              "row": 0,
+              "tone": "accent"
+            },
+            {
+              "id": "f",
+              "label": "L3 运行版本",
+              "detail": "active / previous",
+              "target": "remote",
+              "col": 0,
+              "row": 1,
+              "tone": ""
+            },
+            {
+              "id": "e",
+              "label": "候选制品",
+              "detail": "source + image + config",
+              "target": "remote",
+              "col": 1,
+              "row": 1,
+              "tone": ""
+            },
+            {
+              "id": "d",
+              "label": "ARM64 k3s Job",
+              "detail": "外部工作目录编译 EGO",
+              "target": "remote",
+              "col": 2,
+              "row": 1,
+              "tone": ""
+            }
+          ],
+          "edges": [
+            [
+              "a",
+              "b",
+              "冻结"
+            ],
+            [
+              "b",
+              "c",
+              "提交"
+            ],
+            [
+              "c",
+              "d",
+              "build"
+            ],
+            [
+              "d",
+              "e",
+              "成功"
+            ],
+            [
+              "e",
+              "f",
+              "显式 up"
+            ]
+          ],
+          "refs": [
+            "drone-station",
+            "drone-build",
+            "drone-runtime"
+          ],
+          "description": ""
+        },
+        {
+          "type": "table",
+          "title": "命令实际做什么",
+          "headers": [
+            "根目标",
+            "操作序列",
+            "关键边界"
+          ],
+          "rows": [
+            [
+              "`drone-plan`",
+              "解析配置，列出冻结清单",
+              "本地计划输出，不提交编译"
+            ],
+            [
+              "`drone-sync`",
+              "freeze → stage → rsync → publish",
+              "复制前后 inventory 一致；不接受符号链接"
+            ],
+            [
+              "`drone-build`",
+              "对已选择 source 提交 build",
+              "要求没有正在运行的新版 L3"
+            ],
+            [
+              "`drone-prepare`",
+              "sync → build",
+              "准备候选制品，不启动运行"
+            ],
+            [
+              "`drone-up`",
+              "启动匹配的 candidate",
+              "源码、配置、镜像和制品摘要要匹配"
+            ],
+            [
+              "`drone-deploy`",
+              "sync 后提交 down → build → up",
+              "有停机窗口；不是滚动升级"
+            ],
+            [
+              "`drone-status / drone-logs`",
+              "查询设备操作与日志",
+              "断线后先观察已有操作"
+            ],
+            [
+              "`drone-build-cancel`",
+              "写取消请求并处理遗留 Job",
+              "取消编译操作，不是飞行急停"
+            ],
+            [
+              "`drone-rollback`",
+              "up --previous",
+              "显式选择前一成功版本；依旧经过启动条件"
+            ]
+          ],
+          "refs": [
+            "root",
+            "drone-station",
+            "drone-runtime",
+            "drone-status"
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "制品与运行切换的约束"
+        },
+        {
+          "type": "p",
+          "text": "设备端把源码 release 只读挂入容器，把编译结果放在独立 builds 工作目录。构建前检查维护状态、CPU/内存/磁盘预算，镜像解析为 digest；构建成功后再次核对源码与维护条件，并保存制品摘要。up 要求 candidate 的 source、config、image 一致，再核对制品摘要、外部输入和冲突后创建 new-l3 Deployment。",
+          "refs": [
+            "drone-build",
+            "drone-runtime"
+          ]
+        },
+        {
+          "type": "p",
+          "text": "真机 launch 传入 realworld_experiment=true，并从配置带入地面高度、odometry 和 cloud。维护门读取飞控连接、未解锁及落地状态；关闭还需要原生执行停止与控制面 unowned。worker 不负责自动接管外部底层飞控，也不替操作者发送起降指令。",
+          "refs": [
+            "drone-runtime",
+            "drone-probe"
+          ]
+        },
+        {
+          "type": "p",
+          "text": "worker 把 done / failed / cancelled 持久化；状态查询发现操作记录仍 running 但对应服务已不活跃时，标为 unknown 并要求核对 Job。启动失败若不能确认安全关闭，会保留 active 记录和资源。远端连接中断不等于操作已停止，不宜把重新提交当成恢复。",
+          "refs": [
+            "drone-status",
+            "drone-runtime"
+          ]
+        },
+        {
+          "type": "callout",
+          "title": "当前源码状态",
+          "text": "这条路径来自本次开始前已有的工作区改动，页面按实际文件内容说明。没有连接设备、编译镜像、运行探针或确认其部署成功。真机路径当前只创建 L3 运行对象；定位、传感器、飞控与其他上行服务是部署前提，不能从这个 worker 推断全部栈已启动。",
+          "refs": [
+            "drone-runtime"
+          ]
+        }
+      ],
+      "related": [
+        "startup",
+        "shutdown",
+        "boundaries"
+      ],
+      "nav_title": "真机远端构建"
+    },
+    {
+      "id": "telemetry",
+      "title": "遥测与日志：数据如何回到站端",
+      "group": "部署与运维",
+      "lead": "遥测、任务终态和日志是不同的数据流。telemetry_bridge 独立取样 ROS 数据，既不分发工具，也不替代 action 结果。",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "TelemetryRos 订阅位姿、RGB、对齐深度、点云和相机标定。submit 按 ROS 源时戳过滤无效或陈旧消息，cloud 和 odom 还要求 world。CameraInfo 的宽高和内参满足有限性及焦距条件后才缓存并随 drone_status 上报。当前这份 bridge 把 battery 和 mode 写为 null，不把缺少数据伪装成满电或某种飞控模式。",
+          "refs": [
+            "telemetry"
+          ]
+        },
+        {
+          "type": "table",
+          "title": "上行数据与用途",
+          "headers": [
+            "ROS 来源",
+            "Zenoh telemetry 子通道",
+            "站端用途"
+          ],
+          "rows": [
+            [
+              "RGB Image",
+              "camera",
+              "显示与 VLA / tracking 种子；保留图像时戳信息"
+            ],
+            [
+              "16UC1 深度",
+              "depth",
+              "深度显示与相关数据消费；不能替代本地 tracking 原始输入"
+            ],
+            [
+              "world 点云",
+              "cloud",
+              "体素降采样与数量限制后供可视化、累积云"
+            ],
+            [
+              "world Odometry",
+              "drone_status",
+              "位姿序列；附带已接收相机标定"
+            ],
+            [
+              "运行元信息",
+              "meta",
+              "角色、运行时长和上行参数信息"
+            ]
+          ],
+          "refs": [
+            "telemetry",
+            "uplink",
+            "geometry"
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "为何采用最新值槽"
+        },
+        {
+          "type": "p",
+          "text": "Uplink 为每个通道只保留最新待发值，按 settings.rates 决定发送节奏；总带宽由 mbit 换算为每字节排程间隔。发布器使用 BEST_EFFORT 与 DROP，以有界资源和及时观测为目标，不承诺逐帧可靠传输。编码或发送失败节流记日志，不阻断任务控制面。",
+          "refs": [
+            "uplink"
+          ]
+        },
+        {
+          "type": "p",
+          "text": "站端 ZenohTelemetry 监听 connection token，根据当前绑定 stack 订阅遥测；解除绑定时清除各缓存，避免把上一设备画面继续显示为当前设备。VLA 几何服务另外持有 odom 序列与累积点云，解算时按图像时戳取位姿、按最新快照取云，两者不是“每帧同一时刻”的相同策略。",
+          "refs": [
+            "bridge-bind",
+            "geometry"
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "日志链路"
+        },
+        {
+          "type": "p",
+          "text": "仿真启动器生成 Fluent Bit 配置，仅 tail 本栈业务容器日志，排除采集器自身；解析 CRI / Docker 行，补 Kubernetes 身份，然后发给同 Pod 的 lx-log-relay。relay 通过镜像运行，其完整内部实现不在本段源码中，因此这里仅说明实际装配与输入，不能据此推导其全部投递保证。",
+          "refs": [
+            "logs"
+          ]
+        },
+        {
+          "type": "callout",
+          "title": "看见图像不等于工具可执行",
+          "text": "task、telemetry、logs 各自有就绪路径。某一个面在线不证明另外两个面工作；动作是否成功以 action 与 RPC outcome 的专属链路为准。",
+          "refs": [
+            "sim-up",
+            "uplink",
+            "rpc-outcome"
+          ]
+        }
+      ],
+      "related": [
+        "interfaces",
+        "vla",
+        "diagnostics"
+      ],
+      "nav_title": "遥测与日志"
+    },
+    {
+      "id": "cancel",
+      "title": "取消与急停：任务释放和物理停稳分开",
+      "group": "部署与运维",
+      "lead": "取消优先使旧调用失效，再请求执行端保持。任务引用可立即释放，设备停止确认仍需要继续推进。",
+      "blocks": [
+        {
+          "type": "ol",
+          "items": [
+            "站端 `cancel_batch` 先将批次标为 cancelled，并把 entry / running 的未结束记录补成本地取消结果；随后发独立的 basic_flight.emergency_stop 调用。这个本地账本收尾不证明设备已经停下。",
+            "L3 runtime 对同源新调用可以抢占旧调用，旧调用提交唯一 fail；取消与急停先经中断口调用 ActionSession.request_stop，再由优先消费者清理 engine 工作流。",
+            "ActionSession 设置 blocked，丢弃 pending、结果缓存与 active 任务引用，保存不含技能 owner 的 StopRecord；独立尝试全局 emergency_stop 和具体 goal handle cancel。两个出口分别尝试，某个失败不跳过另一个。",
+            "服务端 CommandOutput 增加输出代次并置 blocked，阻断旧规划计算或迟到 cmd 的发送权。保持命令以当前有效位姿为参考，速度、加速度、jerk 和 yaw_dot 清零，并通过独立节拍输出。",
+            "WaypointExecution 持续检查后端保持接管与动态停稳；确认后才能释放执行资源。停止超时会留下 fault / stop_confirmed=false。",
+            "客户端要收到停止请求之后的新鲜 ready 快照，并满足 boot / recovery_generation 的确认关系，才解除 blocked。单纯重新建立网络连接不能解除物理资源闭锁。"
+          ],
+          "refs": [
+            "batch-cancel",
+            "runtime",
+            "plane",
+            "action-stop",
+            "output",
+            "execution",
+            "action-pump"
+          ]
+        },
+        {
+          "type": "diagram",
+          "title": "取消的双轨处理",
+          "nodes": [
+            {
+              "id": "a",
+              "label": "取消 / 同源抢占 / 急停",
+              "detail": "先通过控制归属门",
+              "target": "lease",
+              "col": 1,
+              "row": 0,
+              "tone": "warn"
+            },
+            {
+              "id": "b",
+              "label": "调用轨：终结旧任务",
+              "detail": "唯一 fail；清引用和队列",
+              "target": "rpc",
+              "col": 0,
+              "row": 1,
+              "tone": ""
+            },
+            {
+              "id": "c",
+              "label": "设备轨：停止与保持",
+              "detail": "StopRecord；输出代次失效",
+              "target": "execution",
+              "col": 2,
+              "row": 1,
+              "tone": "accent"
+            },
+            {
+              "id": "d",
+              "label": "旧结果被隔离",
+              "detail": "不再推动新任务",
+              "target": "dispatcher",
+              "col": 0,
+              "row": 2,
+              "tone": ""
+            },
+            {
+              "id": "e",
+              "label": "停止确认或 fault",
+              "detail": "停稳前禁止新运动",
+              "target": "completion",
+              "col": 2,
+              "row": 2,
+              "tone": ""
+            }
+          ],
+          "edges": [
+            [
+              "a",
+              "b",
+              "任务账"
+            ],
+            [
+              "a",
+              "c",
+              "物理执行账"
+            ],
+            [
+              "b",
+              "d",
+              "失效"
+            ],
+            [
+              "c",
+              "e",
+              "持续观测"
+            ]
+          ],
+          "refs": [
+            "terminal",
+            "action-stop",
+            "action-pump",
+            "output"
+          ],
+          "description": ""
+        },
+        {
+          "type": "p",
+          "text": "停稳判定对取消目标不再要求回到原航点，仅观察速度、差分加速度和 yaw_rate 等动态条件。EGO stopExecution 清当前目标和轨迹，但不关地图与定位；FlightSession 的有效原点不会因为普通任务取消而在此被重建。",
+          "refs": [
+            "settle",
+            "ego-goal",
+            "origin"
+          ]
+        },
+        {
+          "type": "callout",
+          "title": "保持输出的前提",
+          "text": "CommandOutput 必须已有有效、符合 frame 和时间要求的位姿才能创建新的保持参考。代码发出停止请求，与下游真实飞控稳定跟踪该保持命令，是两个层次；本页没有运行证据去把它们合并成“已安全悬停”。",
+          "refs": [
+            "output"
+          ]
+        }
+      ],
+      "related": [
+        "shutdown",
+        "completion",
+        "diagnostics"
+      ],
+      "nav_title": "取消与急停"
+    },
+    {
+      "id": "shutdown",
+      "title": "关闭与重置：先确认，再撤销资源",
+      "group": "部署与运维",
+      "lead": "停止任务与停止系统由不同入口承担。仿真 down/reset 的安全门会先检查执行状态和当前租约，再删除本工作区资源。",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "`guard_shutdown` 先读取 planner 的 shutdown 状态；不安全时直接拒绝关闭，并要求通过当前站端取消或急停后等待。如果控制面仍有 owner，它确认站端和工作区归属，再通过本站端接口释放自己的租约并复查。只有无运动且租约释放，才按逆序删除业务 Deployment。",
+          "refs": [
+            "sim-down"
+          ]
+        },
+        {
+          "type": "ul",
+          "items": [
+            "`make sim-down`：只关闭仿真业务资源，保留 namespace 和编译制品。",
+            "`make down`：先完成仿真 down，再停止已登记属于本工作区的站端服务。",
+            "`make sim-reset`：按源码执行 down → up，经过同一关闭安全门；不是直接向动力学发送 reset 绕过停止确认。",
+            "启动失败后的回退：若 L3 已暴露控制面，先经过相同安全门；不能确认安全时保留已建资源，避免把异常当作强制清理授权。"
+          ],
+          "refs": [
+            "root",
+            "sim-main",
+            "sim-down",
+            "sim-up"
+          ]
+        },
+        {
+          "type": "p",
+          "text": "进程内部关闭由组合根的 ExitStack 逆序撤销技能和端口。ActionSession.close 设置关闭状态、请求取消并在有限期限内泵送停止确认；超时抛出 execution_close_stop_unconfirmed。它不把线程结束等同设备安全。",
+          "refs": [
+            "node",
+            "action-pump"
+          ]
+        },
+        {
+          "type": "callout",
+          "title": "这些是代码行为说明",
+          "text": "本轮没有运行 down、reset、探针或服务管理命令，未改动任何正在运行的系统。网页中的命令示例是文本，不是可执行控制按钮。",
+          "refs": []
+        }
+      ],
+      "related": [
+        "remote",
+        "cancel",
+        "startup"
+      ],
+      "nav_title": "关闭与重置"
+    },
+    {
+      "id": "diagnostics",
+      "title": "按阶段理解等待与失败",
+      "group": "部署与运维",
+      "lead": "先找到链路停在哪一层，再看那一层的状态、输入年龄与输出。下列内容是定位索引，不是本次故障诊断或验收结果。",
+      "blocks": [
+        {
+          "type": "table",
+          "title": "症状到代码入口",
+          "headers": [
+            "观察到的现象",
+            "先读哪里",
+            "源码中的判断"
+          ],
+          "rows": [
+            [
+              "启动只到 roscore / Unity",
+              "station-host-sim.up",
+              "按 master、odom、sensors、planner、task、telemetry、logs 依次等待"
+            ],
+            [
+              "计划没有发送",
+              "approve_batch / publish_call",
+              "是否已批准、绑定连接、记录未 done、批次仍 executing"
+            ],
+            [
+              "RPC 被拒绝",
+              "RpcMethods / ToolRegistry / runtime",
+              "方法名、参数字段、call_id、当前 owner 与独占门"
+            ],
+            [
+              "accepted 后没有运动",
+              "ActionSession._pump",
+              "pending、readiness 年龄、ready、stop_confirmed、连接与 blocked"
+            ],
+            [
+              "动作持续 waiting",
+              "engine / action_gate",
+              "owner 完成门、动作结果是否收到、代次是否匹配"
+            ],
+            [
+              "位置接近却不成功",
+              "SettleMonitor / execution.tick",
+              "速度、加速度、yaw_rate、源时戳、显式 yaw 及保持确认"
+            ],
+            [
+              "VLA 看见目标但没有航点",
+              "VlaGeometryService.compute_waypoint",
+              "odom 是否覆盖图像时刻，累积云是否可用"
+            ],
+            [
+              "tracking 突然 HOLD 或失败",
+              "TrackSkill / Elastic",
+              "视觉观测、深度配对、地图新鲜度、动作停止结果"
+            ],
+            [
+              "取消后不能立即发新目标",
+              "ActionSession / CommandOutput",
+              "停止尚未确认或已 fault；新运动被阻止"
+            ],
+            [
+              "远端状态 unknown",
+              "Runtime.handle",
+              "记录 running 但 worker 服务已不活跃，需核对已有 Job"
+            ]
+          ],
+          "refs": [
+            "sim-up",
+            "rpc-publish",
+            "schema",
+            "action-pump",
+            "fsm",
+            "settle",
+            "geometry",
+            "track",
+            "elastic-algorithm",
+            "drone-status"
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "日志中的“等待”比进程存在更具体"
+        },
+        {
+          "type": "p",
+          "text": "engine 的周期诊断区分当前 FSM 状态、等待原因、结果是否收到以及输入年龄；ActionSession 的 execution_wait 区分 never、stale、received，并写出设备 phase。两者分别回答“任务在等什么”和“物理执行资源在等什么”。不要把控制台看到的 running 自动解释成飞机正在运动。",
+          "refs": [
+            "fsm",
+            "action-pump"
+          ]
+        },
+        {
+          "type": "callout",
+          "title": "当前图谱没有生成运行证据",
+          "text": "没有执行测试、语法检查、浏览器验收、构建或运行探针。这里的流程与异常解释来自函数体和接线阅读；页面交互与真实系统行为仍需在获许可后验收。",
+          "refs": []
+        }
+      ],
+      "related": [
+        "completion",
+        "boundaries"
+      ],
+      "nav_title": "等待与失败定位"
+    },
+    {
+      "id": "interfaces",
+      "title": "接口地图：谁生产，谁消费",
+      "group": "接口与源码",
+      "lead": "接口的名称只是一半信息。还要知道它由谁写入、由谁读取，以及它是否能够证明动作完成。",
+      "blocks": [
+        {
+          "type": "table",
+          "title": "控制与结果接口",
+          "headers": [
+            "接口",
+            "生产 / 请求方",
+            "消费 / 应答方",
+            "含义"
+          ],
+          "rows": [
+            [
+              "`lx/<stack>/rpc`",
+              "L4 RpcPlaneClient",
+              "L3 RpcMethods",
+              "连接请求或工具调用查询"
+            ],
+            [
+              "`lx/<stack>/rpc_outcome`",
+              "L3 终态投影",
+              "L4 RpcFlightBridge",
+              "唯一调用结果"
+            ],
+            [
+              "`/planner/execute_waypoints`",
+              "ActionSession 的 ROS client",
+              "规划器内 WaypointActionServer",
+              "离散航点 goal / feedback / result / cancel"
+            ],
+            [
+              "`/planner/track_target`",
+              "TrackSkill 经共享宿主",
+              "显式 tracking server",
+              "连续执行腿；业务完成归技能"
+            ],
+            [
+              "`/planner/execution_state`",
+              "WaypointActionServer",
+              "ActionSession / 独立输出端",
+              "设备执行资源快照"
+            ],
+            [
+              "`/planner/command_state`",
+              "独立 CommandOutput",
+              "外部输出型服务端",
+              "同启动、同代次保持接管回执"
+            ],
+            [
+              "`/command/emergency_stop`",
+              "命令端口 / 控制生命周期",
+              "ActionServer / 后端停止入口",
+              "停止请求，不是停稳证据"
+            ],
+            [
+              "`/px4ctrl/takeoff_land`",
+              "RosFlightCommands",
+              "部署提供的起降消费者",
+              "起降请求转交"
+            ],
+            [
+              "`/setpoint_cmd`",
+              "CommandOutput / 轨迹执行输出",
+              "L2 控制器或真实下游",
+              "PositionCommand，不携带工具名"
+            ]
+          ],
+          "refs": [
+            "rpc-client",
+            "rpc-methods",
+            "rpc-outcome",
+            "server",
+            "server-result",
+            "commands",
+            "output",
+            "l2-launch"
+          ]
+        },
+        {
+          "type": "table",
+          "title": "感知数据接口",
+          "headers": [
+            "接口",
+            "当前默认仿真来源",
+            "主要用途"
+          ],
+          "rows": [
+            [
+              "`/ekf_quat/ekf_odom`",
+              "四旋翼动力学",
+              "状态新鲜度、规划起点、停稳与原点会话"
+            ],
+            [
+              "`/cloud_registered`",
+              "Unity 原始传感器 bridge",
+              "EGO 建图与遥测上行"
+            ],
+            [
+              "`/camera/color/image_raw`",
+              "Unity bridge rgb8",
+              "图像遥测、tracking 的本地 RGB 流"
+            ],
+            [
+              "`/camera/aligned_depth_to_color/image_raw`",
+              "Unity bridge 16UC1 毫米图",
+              "遥测与 Elastic 三维目标恢复"
+            ],
+            [
+              "`/camera/color/camera_info`",
+              "Unity 相机标定",
+              "相机内参"
+            ],
+            [
+              "`lx/<stack>/telemetry/*`",
+              "独立 Uplink",
+              "站端缓存、显示、接地"
+            ]
+          ],
+          "refs": [
+            "unity-bridge",
+            "l2-launch",
+            "telemetry",
+            "elastic"
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "关联信息各有作用"
+        },
+        {
+          "type": "ul",
+          "items": [
+            "tool name：选择技能；不经过任务编号映射。",
+            "call_id：站端给定的一次工具调用关联键，用于准入重放与 RPC 终态。",
+            "station_id / station_instance_id / lease_id：控制权身份；不是飞行物理会话。",
+            "owner / generation / action token：执行侧隔离动作与迟到事件。",
+            "boot_id / recovery_generation / execution_generation：区分后端启动、停止恢复与输出代次。",
+            "image_stamp / submit_seq / execution_id：在视觉跟踪链上关联帧、观测与执行腿。",
+            "FlightSession 原点：由地面候选及后续飞行状态确认，不从 RPC 身份推导。"
+          ],
+          "refs": [
+            "rpc-methods",
+            "runtime",
+            "action-pump",
+            "output",
+            "track",
+            "origin"
+          ]
+        }
+      ],
+      "related": [
+        "rpc",
+        "execution",
+        "telemetry"
+      ],
+      "nav_title": "接口与数据流"
+    },
+    {
+      "id": "boundaries",
+      "title": "当前接线边界与容易误读的地方",
+      "group": "接口与源码",
+      "lead": "完整说明也包括链路尚未接通的地方。以下结论来自装配与消费者交叉阅读，不将设计资料中的目标能力当作现状。",
+      "blocks": [
+        {
+          "type": "table",
+          "title": "按源码区分能力状态",
+          "headers": [
+            "项目",
+            "当前能从源码证明的事实",
+            "阅读结论"
+          ],
+          "rows": [
+            [
+              "默认工具集合",
+              "flight_specs + vla_specs；组合根对应装配",
+              "八项；站端工具词汇可能更宽"
+            ],
+            [
+              "tracking",
+              "须 tracking.launch + --tracking-profile + tracking_enabled",
+              "显式入口第九项；默认仿真/真机入口不启用"
+            ],
+            [
+              "探索 / 场景导航",
+              "L4 _dispatch_step 保留 navigation.explore / navigation.scene_graph_nav 分支；L3 默认 catalog 无这些方法",
+              "不能视为该默认 L3 的端到端能力；请求最终可能 method_not_found"
+            ],
+            [
+              "VLA 模式触发",
+              "组合根传入 planner_mode_sink_no_channel",
+              "保留调用但无实际模式发布"
+            ],
+            [
+              "SUPER / DIFF",
+              "有 action 后端代码；默认 build_ego 只选择 EGO",
+              "不宣称三后端已统一部署或能力完全等价"
+            ],
+            [
+              "仿真起降",
+              "默认控制装配是 SO3 命令闭环；L3 起降要求真实订阅者",
+              "没有额外消费者时会拒绝转交"
+            ],
+            [
+              "返航",
+              "FlightSession 需候选原点及升空确认",
+              "空中启动不能自动得到返航原点"
+            ],
+            [
+              "遥测电池 / 模式",
+              "当前 telemetry_ros 编码为 null",
+              "UI 或其他数据源有电池值不代表此桥上传了该值"
+            ],
+            [
+              "原 Unity 时戳",
+              "bridge 在接收回调重写 ROS 时间",
+              "不是原始采集硬件时间"
+            ],
+            [
+              "真机 remote build",
+              "当前工作区已有编译与启动实现",
+              "代码事实，不代表设备侧验证完成"
+            ]
+          ],
+          "refs": [
+            "registry",
+            "flight-catalog",
+            "vla-catalog",
+            "node",
+            "batch-dispatch",
+            "node-vla",
+            "build",
+            "commands",
+            "l2-launch",
+            "origin",
+            "telemetry",
+            "unity-bridge",
+            "drone-runtime"
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "注释与函数体不一致时，读函数体"
+        },
+        {
+          "type": "p",
+          "text": "例如 ToolRegistry.default 的旧注释只写了一个 VLA 工具，但实际返回 flight_specs + vla_specs，而 vla_specs 返回 vla_nav 与 vla_rotate 两项；基础飞行 catalog 的模块注释也不能推翻组合根已注册的事实。再如零度旋转的实际分段表达式会产生一个目标。这些地方都按可执行语句解释，不根据注释推断运行能力。",
+          "refs": [
+            "registry",
+            "vla-catalog",
+            "composition",
+            "rotate"
+          ]
+        },
+        {
+          "type": "h3",
+          "text": "本图谱没有覆盖的外部实现"
+        },
+        {
+          "type": "p",
+          "text": "真实飞控内部控制、真实传感器驱动、外部 Zenoh 路由器配置、模型服务权重、日志 relay 镜像内部投递和实际集群状态，不由本次所读默认入口直接提供完整实现。这里追踪到仓库内生产者 / 消费者边界，并标明外部依赖；不会把外部系统假设为已运行。未穷举第三方数学库、模型 vendor 或所有站端通用聊天能力。",
+          "refs": [
+            "sim-manifests",
+            "drone-runtime",
+            "logs",
+            "l4-app"
+          ]
+        }
+      ],
+      "related": [
+        "overview",
+        "reading"
+      ],
+      "nav_title": "当前接线边界"
+    },
+    {
+      "id": "reading",
+      "title": "源码阅读路线与后续维护",
+      "group": "接口与源码",
+      "lead": "先顺着一条能闭环的入口读，再横向理解共享机制。每条路线都可以通过本页章节和源码摘录直接跳转。",
+      "blocks": [
+        {
+          "type": "ol",
+          "items": [
+            "启动路线：根 Makefile → station-host-sim.main / up → basic_flight.launch → ego.launch + dispatcher_node.main。对应 [启动](#startup)、[仿真](#simulation)。",
+            "工具路线：flight_actions.build_flight_action_tools → FlightService.approve_batch / _dispatch_step → RpcFlightBridge.publish_call → RpcMethods._execution_call → runtime.admit。对应 [站端](#station)、[RPC](#rpc)。",
+            "执行路线：engine._run_inference_loop → 具体 Skill.plan_tick → ActionSession.start / _pump → WaypointActionServer → Backend.start → EGO。对应 [六态](#dispatcher)、[执行资源](#execution)、[规划](#planner)。",
+            "结果路线：WaypointExecution.tick → SettleMonitor → CommandOutput 保持确认 → action Result → 技能裁决 → runtime.emit → RpcMethods.on_event → FlightService._handle_outcome。对应 [完成](#completion)。",
+            "视觉路线：站端 image_stamp / odom_series / cloud_map → geometry → waypoint；连续跟踪另外读 TrackingProducer → TrackSkill → Elastic。对应 [VLA](#vla)、[tracking](#tracking)。",
+            "停止路线：cancel_batch / runtime.cancel → 优先中断 → ActionSession.request_stop → CommandOutput 代次门 → 服务端停稳 → 客户端释放。对应 [取消](#cancel)。",
+            "运维路线：station-host-drone.sync → Runtime.worker → build / up / down → state 记录。对应 [远端构建](#remote)。"
+          ],
+          "refs": [
+            "root",
+            "node",
+            "agent-tools",
+            "batch",
+            "runtime",
+            "fsm",
+            "action-pump",
+            "execution",
+            "vla-skill",
+            "track",
+            "drone-station",
+            "drone-runtime"
+          ]
+        },
+        {
+          "type": "p",
+          "text": "维护时先检查当前实际入口、注册集合和真实上下游，再修改解释。证据摘要只能告诉你源码字节变了，不能证明人工叙述仍然成立。生成器只重建页面与摘录，不执行 ROS、Zenoh、构建、集群或测试操作。",
+          "refs": []
+        },
+        {
+          "type": "callout",
+          "title": "如何离线使用",
+          "text": "直接打开 index.html 即可阅读；将整个 doc/code-atlas 目录一起复制，可保留样式、搜索、图内跳转和源码摘录。无需安装依赖或启动后端。浏览器打印功能可导出 PDF，但离线 HTML 保留更完整的网页链接体验。",
+          "refs": []
+        }
+      ],
+      "related": [
+        "overview",
+        "boundaries"
+      ],
+      "nav_title": "源码阅读路线"
+    }
+  ],
+  "navigation": [
+    {
+      "id": "guide",
+      "title": "系统导读",
+      "description": "先建立全局认识，再跟读一次完整调用。",
+      "sections": [
+        "overview",
+        "layout",
+        "journey"
+      ]
+    },
+    {
+      "id": "tasks",
+      "title": "按任务阅读",
+      "description": "从要完成的动作进入，理解每类任务的执行过程。",
+      "sections": [
+        "skills",
+        "vla",
+        "tracking"
+      ]
+    },
+    {
+      "id": "station",
+      "title": "站端与通信",
+      "description": "从意图、计划与控制权，追踪调用如何到达机端。",
+      "sections": [
+        "station",
+        "lease",
+        "rpc"
+      ]
+    },
+    {
+      "id": "execution",
+      "title": "机端执行",
+      "description": "沿分发、动作、规划与仿真理解执行闭环。",
+      "sections": [
+        "dispatcher",
+        "execution",
+        "completion",
+        "planner",
+        "backends",
+        "simulation"
+      ]
+    },
+    {
+      "id": "operations",
+      "title": "部署与运维",
+      "description": "启动、构建、观测、停止，以及按阶段定位问题。",
+      "sections": [
+        "startup",
+        "remote",
+        "telemetry",
+        "cancel",
+        "shutdown",
+        "diagnostics"
+      ]
+    },
+    {
+      "id": "reference",
+      "title": "接口与源码",
+      "description": "查找跨模块接口、接线边界及源码阅读入口。",
+      "sections": [
+        "interfaces",
+        "boundaries",
+        "reading"
+      ]
+    }
+  ]
+}

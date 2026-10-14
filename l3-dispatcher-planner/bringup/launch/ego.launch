@@ -1,5 +1,6 @@
 <launch>
   <arg name="tracking_enabled" default="false"/>
+  <arg name="realworld_experiment" default="false"/>
   <arg name="drone_id" default="0"/>
   <arg name="odometry_topic" default="/ekf_quat/ekf_odom"/>
   <arg name="cloud_topic" default="/cloud_registered"/>
@@ -10,7 +11,7 @@
     <param name="tracking_enabled" value="$(arg tracking_enabled)"/>
     <param name="fsm/drone_id" value="$(arg drone_id)"/>
     <param name="manager/drone_id" value="$(arg drone_id)"/>
-    <param name="fsm/realworld_experiment" value="false"/>
+    <param name="fsm/realworld_experiment" value="$(arg realworld_experiment)"/>
     <param name="fsm/fail_safe" value="true"/>
     <param name="traj_server/time_forward" value="1.0"/>
     <remap from="~odom_world" to="$(arg odometry_topic)"/>

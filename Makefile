@@ -6,9 +6,11 @@
 REPO_ROOT := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 PYTHON ?= python3
 SIM_RUN = cd "$(REPO_ROOT)" && $(PYTHON) l3-dispatcher-planner/tools/station-host-sim.py
+DRONE_RUN = cd "$(REPO_ROOT)" && $(PYTHON) l3-dispatcher-planner/tools/station-host-drone.py
 
 .PHONY: help up down status sim-render sim-prepare sim-up sim-down sim-status sim-reset
 .PHONY: station-setup station-up station-stop station-status
+.PHONY: drone-plan drone-sync drone-build drone-prepare drone-up drone-down drone-deploy drone-status drone-logs drone-build-cancel drone-rollback
 
 help:
 	@printf '%s\n' \
@@ -18,7 +20,33 @@ help:
 	  '完整关闭：make down（先取消任务或急停并等待停稳）' \
 	  '仅仿真：make sim-up / sim-down / sim-status / sim-reset' \
 	  '仅站端：make station-up / station-stop / station-status' \
-	  '仅生成清单：make sim-render'
+	  '仅生成清单：make sim-render' \
+	  '真机：配置 DRONE_* 后，make drone-plan / drone-prepare / drone-up' \
+	  '真机更新：make drone-deploy；关闭：make drone-down' \
+	  '真机状态/日志：make drone-status / drone-logs'
+
+drone-plan:
+	$(DRONE_RUN) plan
+drone-sync:
+	$(DRONE_RUN) sync
+drone-build:
+	$(DRONE_RUN) build
+drone-prepare:
+	$(DRONE_RUN) prepare
+drone-up:
+	$(DRONE_RUN) up
+drone-down:
+	$(DRONE_RUN) down
+drone-deploy:
+	$(DRONE_RUN) deploy
+drone-status:
+	$(DRONE_RUN) status
+drone-logs:
+	$(DRONE_RUN) logs
+drone-build-cancel:
+	$(DRONE_RUN) build-cancel
+drone-rollback:
+	$(DRONE_RUN) up --previous
 
 up:
 	$(SIM_RUN) start

@@ -4,10 +4,12 @@
   <arg name="odometry_topic" default="/ekf_quat/ekf_odom"/>
   <arg name="cloud_topic" default="/cloud_registered"/>
   <arg name="python_executable" default="python3"/>
+  <arg name="realworld_experiment" default="false"/>
   <include file="$(dirname)/ego.launch">
     <arg name="drone_id" value="$(arg drone_id)"/>
     <arg name="odometry_topic" value="$(arg odometry_topic)"/>
     <arg name="cloud_topic" value="$(arg cloud_topic)"/>
+    <arg name="realworld_experiment" value="$(arg realworld_experiment)"/>
   </include>
   <param name="/planner_execution/ground_z" value="$(arg ground_z)" type="double"/>
   <node pkg="dispatcher" type="dispatcher_node.py" name="dispatcher" output="screen" required="true"

@@ -17,4 +17,6 @@ if [[ "${1:-}" == "--with-telemetry" ]]; then
   ln -sfn "$repo_root/ros_packages/telemetry_bridge" "$build_root/src/telemetry_bridge"
   shift
 fi
-exec catkin_make -C "$build_root" -j2 -DPYTHON_EXECUTABLE=/usr/bin/python3 -DCMAKE_BUILD_TYPE=Release "$@"
+build_jobs="${L3_BUILD_JOBS:-2}"
+[[ "$build_jobs" =~ ^[1-9][0-9]*$ ]] || { echo 'L3_BUILD_JOBS must be positive.' >&2; exit 2; }
+exec catkin_make -C "$build_root" -j"$build_jobs" -DPYTHON_EXECUTABLE=/usr/bin/python3 -DCMAKE_BUILD_TYPE=Release "$@"

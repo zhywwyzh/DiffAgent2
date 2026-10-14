@@ -1,0 +1,5 @@
+{
+  "apiVersion": "apps/v1", "kind": "Deployment", "metadata": {},
+  "spec": {"replicas": 1, "strategy": {"type": "Recreate"},
+           "selector": {"matchLabels": {"app": "new-l3"}}, "template": {}}
+}

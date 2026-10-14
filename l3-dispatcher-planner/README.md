@@ -4,6 +4,11 @@ dispatcher 持有六态任务 FSM，经 planner 原生 `/planner/execute_waypoin
 驱动 EGO，输出到 `/setpoint_cmd`。默认注册六个基础飞行工具和两个 VLA 工具；
 tracking 由独立显式入口装配。当前代码未完成运行验收。
 
+设备侧源码投放、ARM64 k3s 编译和新版 L3 启停入口见
+[真机运行说明](bringup/k3s/real/README.md)。从编排仓库根执行 `make drone-prepare`、
+`make drone-up`；更新用 `make drone-deploy`，关闭用 `make drone-down`。
+须先配置独立端侧工作空间及现有底层服务，代码尚未编译和设备验收。
+
 本仓库完整 Unity 仿真入口见[k3s Unity 启动说明](bringup/k3s/unity/README.md)。
 从编排仓库根执行 `make sim-prepare` 编译，`make up` 启动仿真与当前 L4，
 `make status` 查询，`make down` 关闭；首次 L4 依赖用 `make station-setup` 准备。

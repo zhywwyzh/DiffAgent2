@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 420" role="img" aria-labelledby="runtime-hero-title runtime-hero-desc" font-family="Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif">
+  <title id="runtime-hero-title">从站端意图到机端执行，再回到观测与结果</title>
+  <desc id="runtime-hero-desc">左侧为站端计划与观测，右侧为机端分发、执行、规划及控制。中间实线表示 RPC 请求下行；下方虚线表示独立的遥测与终态回传。点击各区域可进入对应章节。此图为逻辑职责概览。</desc>
+  <defs>
+    <linearGradient id="runtime-hero-bg" x2="1" y2="1"><stop stop-color="#eff6f2"/><stop offset="1" stop-color="#f8f5ed"/></linearGradient>
+    <pattern id="runtime-hero-grid" width="28" height="28" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#c2d3ce" opacity=".5"/></pattern>
+    <marker id="runtime-hero-down" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 8 4 0 8Z" fill="#137f76"/></marker>
+    <marker id="runtime-hero-return" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 8 4 0 8Z" fill="#7c7194"/></marker>
+  </defs>
+  <rect width="1120" height="420" fill="url(#runtime-hero-bg)"/>
+  <rect width="1120" height="420" fill="url(#runtime-hero-grid)"/>
+  <circle cx="900" cy="167" r="151" fill="none" stroke="#dbe7df"/>
+  <circle cx="900" cy="167" r="123" fill="none" stroke="#dbe7df"/>
+  <path d="M315 174H405M690 174H772" fill="none" stroke="#137f76" stroke-width="2" marker-end="url(#runtime-hero-down)"/>
+  <path d="M896 305V355H179V307" fill="none" stroke="#7c7194" stroke-width="1.8" stroke-dasharray="7 6" marker-end="url(#runtime-hero-return)"/>
+  <a href="../index.html#station" aria-label="阅读站端意图、计划与确认">
+    <rect x="36" y="37" width="279" height="273" rx="15" fill="#fff" stroke="#c8dcd4"/>
+    <text x="59" y="68" fill="#6b827a" font-size="11" letter-spacing="2">01 / STATION</text>
+    <text x="59" y="98" fill="#193b3a" font-size="23" font-weight="700">站端 · 理解与编排</text>
+    <rect x="90" y="122" width="171" height="100" rx="7" fill="#eaf3ee" stroke="#3b6b62" stroke-width="1.5"/>
+    <rect x="101" y="133" width="149" height="76" rx="3" fill="#fbfdfa"/>
+    <path d="M78 225H273L261 236H90Z" fill="#c6d9ce" stroke="#3b6b62" stroke-width="1.5"/>
+    <rect x="114" y="145" width="93" height="7" rx="3" fill="#b4d5c7"/>
+    <rect x="114" y="160" width="119" height="5" rx="2" fill="#dbe7df"/>
+    <rect x="114" y="172" width="83" height="5" rx="2" fill="#dbe7df"/>
+    <rect x="114" y="189" width="45" height="10" rx="3" fill="#248a78"/>
+    <text x="59" y="269" fill="#345a54" font-size="14">意图 / 计划 / 确认 / 观测</text>
+    <text x="59" y="291" fill="#788b85" font-size="11">L4 · FlightService</text>
+    <text x="278" y="70" fill="#137f76" font-size="17">↗</text>
+  </a>
+  <a href="../index.html#rpc" aria-label="阅读 RPC 准入与终态通道">
+    <text x="430" y="91" fill="#137f76" font-size="12" letter-spacing="2">指令下行 / RPC</text>
+    <rect x="405" y="113" width="285" height="122" rx="13" fill="#153e3c"/>
+    <circle cx="427" cy="136" r="3" fill="#98d6bc"/>
+    <text x="440" y="141" fill="#b2d4c9" font-size="11">调用身份 · 租约 · 工具参数</text>
+    <text x="428" y="179" fill="#f6faf6" font-size="24" font-weight="600">execution.call</text>
+    <path d="M428 195H667" stroke="#37635c"/>
+    <text x="428" y="219" fill="#bed8ce" font-size="12">准入响应与执行终态分别返回</text>
+    <text x="659" y="141" fill="#b2d4c9" font-size="16">↗</text>
+  </a>
+  <a href="../index.html#execution" aria-label="阅读机端共享执行与 Action">
+    <rect x="772" y="37" width="312" height="273" rx="15" fill="#ffffff" fill-opacity=".8" stroke="#c8dcd4"/>
+    <text x="796" y="68" fill="#6b827a" font-size="11" letter-spacing="2">02 / DRONE</text>
+    <text x="796" y="98" fill="#193b3a" font-size="23" font-weight="700">机端 · 分发与执行</text>
+    <g fill="none" stroke="#3a7165" stroke-width="2">
+      <path d="M890 162 855 138M923 162 962 138M890 189 855 213M923 189 962 213" stroke-width="7" stroke-linecap="round"/>
+      <ellipse cx="850" cy="135" rx="33" ry="14"/><ellipse cx="968" cy="135" rx="33" ry="14"/>
+      <ellipse cx="850" cy="216" rx="33" ry="14"/><ellipse cx="968" cy="216" rx="33" ry="14"/>
+      <path d="M824 135H876M942 135H994M824 216H876M942 216H994" stroke="#9bbeb1"/>
+      <rect x="883" y="151" width="48" height="51" rx="14" fill="#d4e8da"/>
+      <path d="M895 203V215H919V203"/>
+      <circle cx="907" cy="177" r="8" fill="#fff"/>
+    </g>
+    <text x="796" y="269" fill="#345a54" font-size="14">Dispatcher → Action → Planner</text>
+    <text x="796" y="291" fill="#788b85" font-size="11">运动与控制反馈 · 实际接线见章节</text>
+    <text x="1047" y="70" fill="#137f76" font-size="17">↗</text>
+  </a>
+  <a href="../index.html#vla" aria-label="阅读 VLA 视觉导航"><rect x="405" y="252" width="133" height="32" rx="16" fill="#e0eee5" stroke="#c6dcd0"/><text x="471" y="273" text-anchor="middle" fill="#3b6a5b" font-size="12">VLA 目标导航 ↗</text></a>
+  <a href="../index.html#tracking" aria-label="阅读 Tracking 持续跟随"><rect x="550" y="252" width="140" height="32" rx="16" fill="#e0eee5" stroke="#c6dcd0"/><text x="620" y="273" text-anchor="middle" fill="#3b6a5b" font-size="12">Tracking 跟随 ↗</text></a>
+  <a href="../index.html#telemetry" aria-label="阅读独立遥测上行"><rect x="338" y="339" width="221" height="31" rx="15" fill="#f5f2f7"/><text x="448" y="359" text-anchor="middle" fill="#79658b" font-size="13">观测回传 · 图像 / 位姿 / 点云 ↗</text></a>
+  <a href="../index.html#completion" aria-label="阅读执行完成与终态"><rect x="575" y="339" width="206" height="31" rx="15" fill="#f5f2f7"/><text x="678" y="359" text-anchor="middle" fill="#79658b" font-size="13">结果回传 · rpc_outcome ↗</text></a>
+  <text x="36" y="397" fill="#7d9086" font-size="10" letter-spacing="1.5">DIFFAGENT2 / SOURCE ATLAS</text>
+  <text x="1084" y="397" text-anchor="end" fill="#7d9086" font-size="11">源码可追溯 · 点击图中模块继续阅读</text>
+</svg>

@@ -1,5 +1,20 @@
 # dispatcher 待迁依赖与保留项台账
 
+## 2026-10-13 设备侧 L3 部署接入（代码接入，未运行）
+
+R03/R05 的新增部署消费者为 `tools/station-host-drone.py`、
+`tools/drone-host-runtime.py` 与 `bringup/k3s/real/runtime_probe_ros.py`，均位于
+`l3-dispatcher-planner/`。构建和运行使用新版独立目录与同源执行配置，
+通过 `basic_flight.launch` 显式启用真机 EGO；未恢复 mission 或旧目标协议。
+关闭前检查地面/未解锁状态、原生 ExecutionState 的停止确认及无运动输出、
+控制面 unowned；不代发起降、急停或抢占租约。L2 消费兼容性用无消息发布的握手检查。
+
+本轮未编译、未测试、未运行验收，R03/R05 不关闭。剩余触发条件包括目标镜像依赖、
+MAVROS 时钟/频率、L2 消费握手、真实 cmd 输出与执行停止、启动失败保留资源、
+设备重启及租约释放竞态。独立目录隔离还须在获许可后的设备验收中留证。
+实现范围和运行前提见[方案](../iteration/design-drone-remote-build.md)与
+[运行说明](../../../l3-dispatcher-planner/bringup/k3s/real/README.md)。
+
 ## 2026-10-12 k3s Unity 部署接入（代码交付，未运行）
 
 R03/R05 的本轮消费者为 `l3-dispatcher-planner/tools/station-host-sim.py`、

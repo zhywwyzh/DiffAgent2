@@ -1,5 +1,13 @@
 # l3 待迁依赖与保留项入口
 
+## 设备侧 L3 装配（2026-10-13）
+
+[远端方案](../iteration/design-drone-remote-build.md)已接入独立端侧目录的投放、
+ARM64 k3s 编译、L3 启停及显式回退代码。设备维护门观察落地/未解锁状态，
+关闭还须原生停止确认和当前租约释放；不修改旧版脚本或底层资源。
+R03/R05 保持未关闭：本轮未编译、未测试、未连接设备验收。
+实际使用前提及配置见[设备运行说明](../../../l3-dispatcher-planner/bringup/k3s/real/README.md)。
+
 ## k3s Unity 装配（2026-10-12）
 
 [实施方案](../iteration/design-k3s-unity-bringup.md)已接入本工作区启动器、独立
