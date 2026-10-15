@@ -116,6 +116,22 @@ basic_flight 名字是工具身份；物理飞行会话与 RPC call_id 分离，
   Python 队列不算取消物理执行。重注册同名技能不改变已发布动作的归属。
 - 每次注册返回 disposer；反注册和进程停止释放资源，顺序与获取相反，异步释放等待完成。
 
+### 变更关联
+
+```contract-links
+{
+  "implementation": [
+    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/flight/**",
+    "l3-dispatcher-planner/bringup/launch/basic_flight.launch",
+    "l3-dispatcher-planner/ros_packages/utils/quadrotor_msgs/msg/TakeoffLand.msg"
+  ],
+  "depends_on": [
+    "l3-dispatcher",
+    "l3-dispatcher/l4-rpc"
+  ]
+}
+```
+
 ## 条款检查判据
 
 ### 6. 交付判据

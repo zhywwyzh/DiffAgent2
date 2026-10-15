@@ -57,6 +57,23 @@ stdout 为 JSON 结果，日志保存在设备及站端忽略区。未知状态�
 
 本叶拥有独立设备工作空间的源码投放、构建与启停；复用外部 ROS master 和 L0/L1/L2，业务协议和构建闭包保持原 owner。
 
+### 变更关联
+
+```contract-links
+{
+  "implementation": [
+    "l3-dispatcher-planner/tools/station-host-drone.py",
+    "l3-dispatcher-planner/tools/drone-host-runtime.py",
+    "l3-dispatcher-planner/tools/build_ego.sh",
+    "l3-dispatcher-planner/bringup/k3s/real/**",
+    "Makefile"
+  ],
+  "depends_on": [
+    "runtime"
+  ]
+}
+```
+
 ## 条款检查判据
 
 DR1：核对目录隔离、源码与制品身份；DR2：核对设备状态、旧版运行拒绝及关闭门；DR3：核对断线重连和失败保留，证据归实施方案。

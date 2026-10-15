@@ -110,6 +110,26 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 
 未采纳的 tracking 消费约定见 `specs/proposed/inner/l3-tracking.spec.md` §12。
 
+### 变更关联
+
+```contract-links
+{
+  "implementation": [
+    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/methods.py",
+    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/protocol.py",
+    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/zenoh_transport.py",
+    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/control_plane.py",
+    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/runtime.py",
+    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/connection_lease.py"
+  ],
+  "depends_on": [
+    "l3-dispatcher",
+    "l3-dispatcher/tool-plane",
+    "l3-dispatcher/tracking"
+  ]
+}
+```
+
 ## 条款检查判据
 
 ### 6. 验收

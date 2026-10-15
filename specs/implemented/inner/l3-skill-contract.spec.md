@@ -176,6 +176,26 @@ Protocol 类型声明。
 
 未采纳的跟踪宿主端口见 `specs/proposed/inner/l3-tracking.spec.md` §8。
 
+### 变更关联
+
+```contract-links
+{
+  "implementation": [
+    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/**",
+    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/execution/skill_host.py",
+    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/execution/composition.py"
+  ],
+  "depends_on": [
+    "l3-dispatcher",
+    "l3-dispatcher/core-boundary",
+    "l3-dispatcher/execution-seam",
+    "l3-dispatcher/scenegraph",
+    "l3-dispatcher/tool-plane",
+    "l3-dispatcher/tracking"
+  ]
+}
+```
+
 ## 条款检查判据
 
 ### 8. 门禁

@@ -54,6 +54,20 @@ presence、publisher 和会话。健康文件报告输入年龄及成功发送�
 
 本叶唯一拥有站端消费者对应的遥测载荷；ROS 与编码边界按所有权章节，任务和日志不由本叶定义。
 
+### 变更关联
+
+```contract-links
+{
+  "implementation": [
+    "l3-dispatcher-planner/ros_packages/telemetry_bridge/**",
+    "l3-dispatcher-planner/bringup/k3s/unity/telemetry.deployment.yaml"
+  ],
+  "depends_on": [
+    "runtime"
+  ]
+}
+```
+
 ## 条款检查判据
 
 ST1：按频道核对源时戳、坐标、二进制布局和真实值；ST2：核对限流、最新值槽及逆序关闭；ST3：核对无输入时的年龄报告。端到端证据归实施记录，未获许可不执行检查。

@@ -126,6 +126,23 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 - 工作区不留中间产物；临时快照放主机本地，不入库；
 - 提交前执行隐私检索，个人凭据零命中。
 
+### 变更关联
+
+```contract-links
+{
+  "implementation": [
+    "doc/l3-dispatcher-planner/iteration/**",
+    "doc/l3-dispatcher-planner/rest/**"
+  ],
+  "depends_on": [
+    "l3-dispatcher",
+    "l3-dispatcher/core-boundary",
+    "l3-dispatcher/execution-seam",
+    "l3-dispatcher/skill-contract"
+  ]
+}
+```
+
 ## 条款检查判据
 
 ### 6. 验收

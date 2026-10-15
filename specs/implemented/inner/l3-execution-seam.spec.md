@@ -118,6 +118,30 @@ ActionSession 由飞行与 VLA 共用。任务取消立即释放任务资源；�
 
 本叶唯一拥有共享动作会话、planner 原生动作生命周期和公共执行参数；技能拥有业务目标与多腿顺序，算法归各 planner 后端。
 
+### 变更关联
+
+```contract-links
+{
+  "implementation": [
+    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/execution/**",
+    "l3-dispatcher-planner/ros_packages/planner/planner_execution/**",
+    "l3-dispatcher-planner/ros_packages/planner/ego_planner/**",
+    "l3-dispatcher-planner/ros_packages/planner/super_planner/**",
+    "l3-dispatcher-planner/ros_packages/planner/diff_planner/**",
+    "l3-dispatcher-planner/ros_packages/utils/quadrotor_msgs/action/ExecuteWaypoints.action",
+    "l3-dispatcher-planner/ros_packages/utils/quadrotor_msgs/msg/WaypointTarget.msg",
+    "l3-dispatcher-planner/ros_packages/utils/quadrotor_msgs/msg/ExecutionState.msg",
+    "l3-dispatcher-planner/ros_packages/utils/quadrotor_msgs/msg/CommandState.msg",
+    "l3-dispatcher-planner/ros_packages/utils/quadrotor_msgs/msg/YawPolicy.msg",
+    "l3-dispatcher-planner/bringup/config/planner_execution.yaml"
+  ],
+  "depends_on": [
+    "l3-dispatcher",
+    "l3-dispatcher/tracking"
+  ]
+}
+```
+
 ## 条款检查判据
 
 ### 8. 门禁与验收

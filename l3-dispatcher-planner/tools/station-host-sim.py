@@ -638,12 +638,15 @@ class Stack:
                 raise RuntimeError(f"存在旧站端服务 {service}，请由原工作区停止")
 
     def station(self, action):
-        self.station_owner()
         marker = ARTIFACTS / "station.json"
         if action == "stop":
+            if not marker.exists():
+                print("当前入口没有登记的站端服务，跳过站端停止；未操作任何站端服务", flush=True)
+                return
             record = read_json(marker, {})
             if record.get("owner") != OWNER:
-                raise RuntimeError("当前入口未登记站端服务，拒绝停止")
+                raise RuntimeError("站端登记不属于当前工作区，拒绝停止")
+            self.station_owner()
             snapshot = self.http("/api/stacks?claims=1") if self.station_active("l4-app") else {}
             if snapshot.get("connection"):
                 self.http("/api/connection/release", post=True)
@@ -652,6 +655,7 @@ class Stack:
             self.station_dropins(remove=True)
             marker.unlink(missing_ok=True)
             return
+        self.station_owner()
         root = Path(self.c["SIM_L4_ROOT"])
         for path in (root / ".venv/bin/python", root / "console/dist/index.html",
                      root / "src/copaw/station_sidecar/visualizer/web/dist/index.html"):

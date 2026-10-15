@@ -60,6 +60,29 @@
 |-------------|-------------|------|------|
 | …… | …… | …… | …… |
 
+### 配套契约同步记录
+
+> 修改前按 `development-workflow/contract-sync` 捕获明确任务范围的基线。
+> 按实际差异及依赖反查列出每个候选，状态仅为 updated、unchanged、pending；
+> unchanged 必须有具体理由，pending 或漏项不得报告完成。格式唯一归同步叶契约 §3。
+> 下列是编写示意，实际方案必须替换全部占位值；检查结果写入 §8 或 §10。
+
+```contract-sync
+{
+  "baseline": ".artifacts/spec-sync/<本轮基线>.json",
+  "baseline_sha256": "<原始基线字节的SHA-256>",
+  "reviews": [
+    {
+      "id": "<root-id>/<leaf-id>",
+      "clauses": ["<受影响章节或条款>"],
+      "status": "pending",
+      "reason": "<说明本次差异如何影响契约及其处理结果>",
+      "evidence": ["<仓库相对文件路径>"]
+    }
+  ]
+}
+```
+
 ## 6. 删除清单
 
 > 明确列出被替代项及删除理由。

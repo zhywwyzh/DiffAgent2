@@ -70,6 +70,23 @@ Entity 与 Invoked 是脚本头字段，含义与允许实体见 §1、§2；本
 
 实体词汇由本叶唯一拥有，稳定身份与隐私边界归父根 topology。
 
+### 变更关联
+
+```contract-links
+{
+  "implementation": [
+    "scripts/**",
+    "specs/tools/*.py",
+    "l3-dispatcher-planner/tools/**",
+    "l3-dispatcher-planner/bringup/**/scripts/**",
+    "l3-dispatcher-planner/bringup/k3s/**/*.sh"
+  ],
+  "depends_on": [
+    "topology"
+  ]
+}
+```
+
 ## 条款检查判据
 
 ### 4. 约束判据

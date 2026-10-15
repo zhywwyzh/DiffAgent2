@@ -184,6 +184,21 @@ Parent: specs/implemented/development-workflow.spec.md
    迁移原因 / topic 保持不变）。**统一声明**：除非使用者明确许可，否则跳过
    验收测试工作（`AGENTS.md` 硬性约束 §9）。
 
+### 变更关联
+
+```contract-links
+{
+  "implementation": [
+    "l3-dispatcher-planner/ros_packages/**/*.cpp",
+    "l3-dispatcher-planner/ros_packages/**/*.h",
+    "l3-dispatcher-planner/ros_packages/**/*.hpp"
+  ],
+  "depends_on": [
+    "development-workflow"
+  ]
+}
+```
+
 ## 条款检查判据
 
 CS1：对照 §1–§5 判断命名、注释、单位、头布局及格式；CS2：依据 §6 核对行为字面值；实施证据归对应方案，执行检查遵循许可约束。

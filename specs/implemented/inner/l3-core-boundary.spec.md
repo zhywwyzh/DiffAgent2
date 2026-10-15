@@ -89,6 +89,24 @@ core 只做五件事：
 共享执行资源的异步取消通过装配注入的 `lifecycle_tick` 推进；core 每节拍机械调用，
 不识别具体动作或 ROS 状态，不增加 FSM 状态或任务队列。等待日志由资源 owner 输出。
 
+### 变更关联
+
+```contract-links
+{
+  "implementation": [
+    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py",
+    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/core/**",
+    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher_node.py"
+  ],
+  "depends_on": [
+    "l3-dispatcher",
+    "l3-dispatcher/migration-protocol",
+    "l3-dispatcher/package-layout",
+    "l3-dispatcher/ros-adapter-boundary"
+  ]
+}
+```
+
 ## 条款检查判据
 
 ### 4. 门禁

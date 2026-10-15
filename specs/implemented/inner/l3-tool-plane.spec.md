@@ -180,6 +180,27 @@ leg.`；`outputSchema` 为空 object（`type=object`、`properties={}`、
 
 工具面语义由本叶唯一拥有，线上信封归 l4-rpc，业务动作归 flight-actions 与技能契约；未采纳家族只按 §1 的提案指针导航。
 
+### 变更关联
+
+```contract-links
+{
+  "implementation": [
+    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/**",
+    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/**/catalog.py"
+  ],
+  "depends_on": [
+    "l3-dispatcher",
+    "l3-dispatcher/core-boundary",
+    "l3-dispatcher/flight-actions",
+    "l3-dispatcher/l4-rpc",
+    "l3-dispatcher/ros-adapter-boundary",
+    "l3-dispatcher/scenegraph",
+    "l3-dispatcher/skill-contract",
+    "l3-dispatcher/tracking"
+  ]
+}
+```
+
 ## 条款检查判据
 
 ### 10. 门禁

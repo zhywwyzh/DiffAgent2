@@ -126,6 +126,28 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 
 未采纳的跟踪目录与依赖扩展见 `specs/proposed/inner/l3-tracking.spec.md` §9。
 
+### 变更关联
+
+```contract-links
+{
+  "implementation": [
+    "l3-dispatcher-planner/ros_packages/dispatcher/**"
+  ],
+  "depends_on": [
+    "development-workflow/l3-coding-style",
+    "l3-dispatcher",
+    "l3-dispatcher/core-boundary",
+    "l3-dispatcher/execution-seam",
+    "l3-dispatcher/l4-rpc",
+    "l3-dispatcher/ros-adapter-boundary",
+    "l3-dispatcher/scenegraph",
+    "l3-dispatcher/skill-contract",
+    "l3-dispatcher/tool-plane",
+    "l3-dispatcher/tracking"
+  ]
+}
+```
+
 ## 条款检查判据
 
 ### 6. 门禁

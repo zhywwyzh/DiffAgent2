@@ -83,6 +83,23 @@ namespace 使用工作区 owner 注解作互斥锁；资源同时携带 owner �
 
 运行时装配归本提案，任务归 l3-dispatcher，遥测载荷归 runtime/station-telemetry，日志归 observability/log。
 
+### 变更关联
+
+```contract-links
+{
+  "implementation": [
+    "l3-dispatcher-planner/tools/station-host-sim.py",
+    "l3-dispatcher-planner/tools/build_ego.sh",
+    "l3-dispatcher-planner/bringup/k3s/unity/**",
+    "l3-dispatcher-planner/bringup/launch/basic_flight.launch",
+    "Makefile"
+  ],
+  "depends_on": [
+    "runtime"
+  ]
+}
+```
+
 ## 条款检查判据
 
 UB1：核对配置拒绝、源码摘要和挂载一致性；UB2：核对资源 owner、重入和失败回收；UB3：核对 down/reset 停稳、租约与就绪判据。证据归实施方案，未获许可不执行检查。

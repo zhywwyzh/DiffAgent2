@@ -24,6 +24,7 @@ Contract-ID: development-workflow
 | 契约路径 | 职责 |
 |----------|-----------|
 | `specs/implemented/inner/l3-coding-style.spec.md` | l3 源码约定 |
+| `specs/implemented/inner/spec-change-sync.spec.md` | 实现变更的配套契约识别、逐项处置与同步门禁 |
 
 ## 边界
 

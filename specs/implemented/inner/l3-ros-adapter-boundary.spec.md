@@ -88,6 +88,24 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 
 ROS 收发边界由本叶唯一拥有；core 通道语义归 core-boundary，行为字符串稳定性归 l3-coding-style §6。
 
+### 变更关联
+
+```contract-links
+{
+  "implementation": [
+    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/**",
+    "l3-dispatcher-planner/ros_packages/planner/**/*_ros.cpp",
+    "l3-dispatcher-planner/ros_packages/planner/**/*_ros.h",
+    "l3-dispatcher-planner/ros_packages/planner/**/ros_adapter/**"
+  ],
+  "depends_on": [
+    "development-workflow/l3-coding-style",
+    "l3-dispatcher",
+    "l3-dispatcher/core-boundary"
+  ]
+}
+```
+
 ## 条款检查判据
 
 ### 6. 门禁

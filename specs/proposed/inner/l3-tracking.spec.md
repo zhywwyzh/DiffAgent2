@@ -131,6 +131,28 @@ Elastic 的地图读取由 EGO 装配根直接注入；领域数据协议 MapVie
 取消回执不是 RPC 成功或外部取消事件。站端不得沿用旧版 `action_result` 元数据推导成功。
 本提案不拥有外部站端代码；消费闭环证据归实施记录。
 
+### 变更关联
+
+```contract-links
+{
+  "implementation": [
+    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/track/**",
+    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/perception/tracking_frames.py",
+    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/support/tracking_data.py",
+    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/ros_adapter/tracking*.py",
+    "l3-dispatcher-planner/ros_packages/planner/elastic_tracker/**",
+    "l3-dispatcher-planner/ros_packages/utils/quadrotor_msgs/action/TrackTarget.action",
+    "l3-dispatcher-planner/ros_packages/utils/quadrotor_msgs/msg/TrackingObservation.msg",
+    "l3-dispatcher-planner/bringup/config/tracking.yaml",
+    "l3-dispatcher-planner/bringup/launch/tracking.launch"
+  ],
+  "depends_on": [
+    "l3-dispatcher",
+    "l3-dispatcher/tool-plane"
+  ]
+}
+```
+
 ## 条款检查判据
 
 TR1：按 §1、§3、§8、§11 核对输入与装配；TR2：按 §4 核对业务完成、外部取消优先与停止确认；TR3：按 §7 核对几何和输出限制。运行证据归迁移方案，未获许可不执行检查。

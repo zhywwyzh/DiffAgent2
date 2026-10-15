@@ -264,6 +264,25 @@ ROS 收发隔离与共享状态规范（归 `l3-dispatcher/ros-adapter-boundary`
 
 场景图模型和场景家族扩展由本提案拥有；builder 唯一写图，通用技能、工具面和 ROS 边界仍引用生效契约。
 
+### 变更关联
+
+```contract-links
+{
+  "implementation": [
+    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/scene_nav/**",
+    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/perception/**"
+  ],
+  "depends_on": [
+    "l3-dispatcher",
+    "l3-dispatcher/execution-seam",
+    "l3-dispatcher/package-layout",
+    "l3-dispatcher/ros-adapter-boundary",
+    "l3-dispatcher/skill-contract",
+    "l3-dispatcher/tool-plane"
+  ]
+}
+```
+
 ## 条款检查判据
 
 ### 9. 门禁

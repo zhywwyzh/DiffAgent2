@@ -540,6 +540,27 @@ task_session_id + 时间窗合并。
   进入 `/var/log/containers`；`api/ctl/status` 的 `bound:true` 意味着连接令牌
   有效，而非记录在流动 —— 先对比两次快照再下结论。
 
+### 变更关联
+
+```contract-links
+{
+  "implementation": [
+    "l3-dispatcher-planner/ros_packages/**/*.py",
+    "l3-dispatcher-planner/ros_packages/**/*.cpp",
+    "l3-dispatcher-planner/ros_packages/**/*.h",
+    "l3-dispatcher-planner/ros_packages/**/*.hpp",
+    "l3-dispatcher-planner/bringup/k3s/**/logs.yaml",
+    "l3-dispatcher-planner/bringup/launch/**"
+  ],
+  "depends_on": [
+    "l3-dispatcher/flight-actions",
+    "l3-dispatcher/l4-rpc",
+    "l3-dispatcher/tool-plane",
+    "observability"
+  ]
+}
+```
+
 ## 条款检查判据
 
 ### 14. 验证
