@@ -132,7 +132,7 @@ def create_flight_runtime(engine):
         if field.name in local:
             values[field.name] = params_ros.get_private_param("flight/" + field.name, field.default)
         else:
-            old_name = field.name.removesuffix("_s") if field.name in {"state_timeout_s", "action_timeout_s"} else field.name
+            old_name = field.name[:-2] if field.name in {"state_timeout_s", "action_timeout_s"} else field.name
             marker = object()
             if params_ros.get_private_param("flight/" + old_name, marker) is not marker:
                 raise ValueError(f"retired parameter flight/{old_name}: use /planner_execution/{field.name}")

@@ -35,7 +35,7 @@ Exploration 原场景配置；更换场景时需同步对应参数。
 
 namespace 若属于参考工作区，须由原工作区停止原栈后再启动新版，或者为新版
 配置独立 namespace 和空闲端口。Unity 必须连接相同配置端口。固定站端服务
-属于其它检出时，同样由原检出停止，新版不会覆盖。
+属于其它检出时，启动前报告冲突；可执行新版 make down 统一关闭本机站端后再启动。
 旧入口停止后若仍留下未登记的 namespace，新入口仍拒绝接管；为新版选择一个
 尚未使用的专用名称，例如 `sim-new`，并先释放同机 ROS/Unity 端口。入口不会
 自动删除旧 namespace 或为旧资源补 owner 标签。
@@ -43,7 +43,9 @@ L4 config-db 必须已有 `lx_station_id`，`lx_zenoh_router` 须与本栈一致
 
 ## 准备与完整启动
 
-首次准备 L4 依赖，已有虚拟环境和两套前端产物时可跳过 setup。
+首次准备 L4 依赖；只有虚拟环境、全部控制台入口和两套前端产物齐全时才可跳过 setup。
+缺少 agent-station-vla 等入口时须重新 setup 同步本地安装。完整启动在创建仿真资源前
+检查这些入口，站端开始启动前即登记；部分启动失败后仍可用 make down 清理。
 setup、prepare 会安装依赖或构建，在允许该工作后执行。
 
 ```bash
@@ -93,14 +95,23 @@ make down
 ```
 
 stop 前在 WebUI 取消任务或急停并等待停稳。入口核对 planner、租约和归属，只
-删除本栈资源并停止登记的本站端；没有站端登记时跳过且正常结束，不操作站端服务。
+删除本栈资源，并关闭本机固定的 L4 四服务及已知退役站端单元；即使它们来自其它
+检出或缺少启动登记，也不会跳过。存在连接时先安全释放，忙时拒绝关闭。
 保留 namespace、编译产物、日志缓冲和外部
 Unity。无法确认安全关闭时保留资源并报错。
 
 仅业务栈用 `make sim-up/sim-down/sim-status`，仅本站端用
 `make station-up/station-stop/station-status`；`make sim-reset` 整体重建业务栈，
-不调用单独动力学 `/sim/reset`。源码或配置变化后执行
-`make down → make sim-prepare → make up`；关闭和查询读取活动配置，避免丢失旧栈归属。
+不调用单独动力学 `/sim/reset`。构建输入或镜像变化后执行
+`make down → make sim-prepare → make up`；仅运行参数变化时执行
+`make down → make up`，启动前按当前参数重新生成遥测和 Player 配置。
+关闭和查询读取活动配置，避免丢失旧栈归属。活动资源配置冲突时仍拒绝覆盖。
+
+L3、Unity bridge、L2 消息检查各有独立成功记录；prepare 仅重建输入或镜像、
+命令、路径变化的组件。修改 Markdown、启动器停止逻辑或遥测频率不失效编译缓存；
+编译资源、Python 3.8 导入、消息一致性和真实构建失败仍明确报告。
+首次升级到 schema=2 记录需执行一次 `make sim-prepare`，保留原 catkin 增量缓存；
+不自动把旧记录视为新格式缓存。此后重复 prepare 可复用有效组件，不反复创建编译 Job。
 制品、清单、日志与状态集中在 `.artifacts/k3s-unity/`，启动拒绝过期产物。
 
 根 Makefile 调用 `tools/station-host-sim.py`，不维护第二套部署逻辑；直接运行

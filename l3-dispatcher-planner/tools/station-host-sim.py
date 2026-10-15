@@ -169,20 +169,35 @@ def read_json(path, default=None):
     return json.loads(path.read_text()) if path.exists() else default
 
 
-def source_digest(c):
+def component_sources(c, component):
+    if component == "l3":
+        packages = ("utils/quadrotor_msgs", "utils/traj_utils", "utils/vis_utils",
+                    "planner/ego_planner/plan_manage", "planner/elastic_tracker",
+                    "planner/planner_execution", "dispatcher", "telemetry_bridge")
+        return [L3 / "ros_packages" / name for name in packages] + [
+            L3 / "tools/build_ego.sh", ASSETS / "runtime_probe_ros.py"]
+    l2 = Path(c["SIM_L2_ROOT"])
+    if component == "unity":
+        return [l2 / "projects/unity-simulator" / name for name in
+                ("ros_packages/ros_tcp_endpoint", "bringup")]
+    if component == "l2-wire":
+        return [l2 / "projects/uav-simulator/ros_packages/quadrotor_msgs/msg/PositionCommand.msg"]
+    raise ValueError("未知编译组件: " + component)
+
+
+def component_source_digest(c, component):
     h = hashlib.sha256()
-    roots = (L3 / "ros_packages", L3 / "bringup", L3 / "tools",
-             Path(c["SIM_L2_ROOT"]) / "projects/unity-simulator",
-             Path(c["SIM_L2_ROOT"]) / "projects/uav-simulator/bringup",
-             Path(c["SIM_L2_ROOT"]) / "projects/uav-simulator/ros_packages/quadrotor_msgs")
-    for index, root in enumerate(roots):
-        if not root.is_dir():
-            raise ValueError(f"源码目录缺失: {root}")
-        for path in sorted(root.rglob("*")):
-            relative = path.relative_to(root)
-            if any(part in (".git", ".artifacts", "__pycache__", "tests", "test", "Library", "Temp") for part in relative.parts):
+    for index, root in enumerate(component_sources(c, component)):
+        if not root.exists():
+            raise ValueError(f"构建输入缺失: {root}")
+        h.update(str(root.resolve()).encode())
+        paths = [root] if root.is_file() else sorted(root.rglob("*"))
+        for path in paths:
+            relative = Path(path.name) if root.is_file() else path.relative_to(root)
+            if any(part in (".git", ".artifacts", "__pycache__", "tests", "test", "Library", "Temp")
+                   for part in relative.parts):
                 continue
-            if path.is_file() and path.suffix != ".pyc":
+            if path.is_file() and path.suffix.lower() not in (".pyc", ".md", ".rst"):
                 h.update(f"{index}/{relative}\0".encode())
                 h.update(path.read_bytes())
     return h.hexdigest()
@@ -330,7 +345,7 @@ class Stack:
             container["readinessProbe"] = {"exec": {"command": self.shell(probe, setup)},
                                             "periodSeconds": 10, "timeoutSeconds": 8, "failureThreshold": 3}
         obj["spec"]["template"] = {"metadata": {"labels": labels, "annotations": {
-            CONFIG_KEY: self.fingerprint, "diffagent.io/source": self.prepared.get("source", "unprepared")}},
+            CONFIG_KEY: self.fingerprint, "diffagent.io/source": digest(self.prepared["components"]) if self.prepared.get("components") else "unprepared"}},
             "spec": self.pod([container])}
         return obj
 
@@ -434,6 +449,30 @@ class Stack:
             images[key] = matches[0]
         return images
 
+    def component_signature(self, component, obj):
+        container = obj["spec"]["template"]["spec"]["containers"][0]
+        image_key = "SIM_L2_IMAGE" if component == "l2-wire" else "SIM_L3_IMAGE"
+        generated = ARTIFACTS / "l3/devel/lib/python3/dist-packages/quadrotor_msgs/msg/_PositionCommand.py"
+        wire_definition = (hashlib.sha256(generated.read_bytes()).hexdigest()
+                           if component == "l2-wire" and generated.is_file() else None)
+        return digest({"schema": 2, "source": component_source_digest(self.c, component),
+                       "generated_wire": wire_definition,
+                       "image": container["image"], "requested_image": self.c[image_key],
+                       "command": container["command"],
+                       "mounts": {"l3": str(L3), "l2": self.c["SIM_L2_ROOT"],
+                                  "artifacts": str(ARTIFACTS)}})
+
+    def component_artifacts_present(self, component):
+        if component == "l3":
+            return all((ARTIFACTS / "l3" / path).is_file() for path in (
+                "devel/setup.bash", "devel/lib/ego_planner/ego_planner_node",
+                "devel/lib/libego_planner.so", "devel/lib/libplanner_execution.so",
+                "devel/lib/libelastic_tracker.so",
+                "devel/lib/python3/dist-packages/quadrotor_msgs/msg/_PositionCommand.py"))
+        if component == "unity":
+            return (ARTIFACTS / "unity/devel/setup.bash").is_file()
+        return True
+
     def prepare(self):
         self.claim()
         if any(self.get("deployment", name) for name in BUSINESS):
@@ -446,12 +485,21 @@ class Stack:
             raise RuntimeError("L2/L3 PositionCommand 定义不一致，不能建立控制闭环")
         mark = ARTIFACTS / "prepared.json"
         mark.unlink(missing_ok=True)
-        self.prepared = {"images": self.resolve_images(), "source": source_digest(self.c)}
+        self.prepared = {"schema": 2, "images": self.resolve_images(), "components": {}}
         self.write_config()
         for component in ("l3", "unity"):
             (ARTIFACTS / component).mkdir(parents=True, exist_ok=True)
         for component in ("l3", "unity", "l2-wire"):
             obj = self.compile_manifest(component)
+            signature = self.component_signature(component, obj)
+            cache_path = ARTIFACTS / f"compile-{component}.json"
+            saved = read_json(cache_path, {})
+            if (saved.get("schema") == 2 and saved.get("owner") == OWNER
+                    and saved.get("signature") == signature and self.component_artifacts_present(component)):
+                self.prepared["components"][component] = saved
+                print(f"{component} 构建输入及产物有效，复用成功记录", flush=True)
+                continue
+            cache_path.unlink(missing_ok=True)
             name = obj["metadata"]["name"]
             self.delete("job", name)
             self.create(obj)
@@ -477,30 +525,38 @@ class Stack:
                         match = re.search(r'_md5sum\s*=\s*[\"\x27]([0-9a-f]{32})', generated.read_text())
                         if not match or "POSITION_COMMAND_MD5=" + match.group(1) not in result.stdout:
                             raise RuntimeError("L2 镜像与新版生成的 PositionCommand MD5 不一致")
+                    if self.component_signature(component, obj) != signature:
+                        raise RuntimeError(f"{component} 编译期间输入变化，请重新 prepare")
+                    if not self.component_artifacts_present(component):
+                        raise RuntimeError(f"{component} 必要编译产物缺失，请 prepare")
+                    record = {"schema": 2, "owner": OWNER, "signature": signature}
+                    atomic_json(cache_path, record)
+                    self.prepared["components"][component] = record
                     break
                 time.sleep(2)
             else:
                 raise RuntimeError(f"{name} 超时；Job 和日志保留供诊断")
-        if source_digest(self.c) != self.prepared["source"]:
-            raise RuntimeError("编译期间源码变化，请重新 prepare")
-        self.prepared.update(config=self.fingerprint, owner=OWNER, schema=1,
+        self.check_component_records()
+        self.prepared.update(owner=OWNER,
                              mounts={"l3": "/work/l3", "unity": "/work/unity"},
-                             build_commands={component: self.compile_manifest(component)["spec"]["template"]["spec"]["containers"][0]["command"]
-                                             for component in ("l3", "unity", "l2-wire")},
                              revisions={"orchestrator": run(["git", "-C", ROOT, "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip(),
                                         "l2": run(["git", "-C", self.c["SIM_L2_ROOT"], "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()})
         atomic_json(mark, self.prepared)
         self.render()
         print("制品准备完成；业务栈尚未启动", flush=True)
 
+    def check_component_records(self):
+        for component in ("l3", "unity", "l2-wire"):
+            record = self.prepared.get("components", {}).get(component, {})
+            signature = self.component_signature(component, self.compile_manifest(component))
+            if (record.get("schema") != 2 or record.get("owner") != OWNER
+                    or record.get("signature") != signature or not self.component_artifacts_present(component)):
+                raise RuntimeError(f"{component} 构建输入变化或产物缺失，请显式 prepare")
+
     def check_prepared(self):
-        if self.prepared.get("owner") != OWNER or self.prepared.get("config") != self.fingerprint:
-            raise RuntimeError("配置或工作区已变化，请显式 prepare")
-        if self.prepared.get("source") != source_digest(self.c):
-            raise RuntimeError("源码已变化，请显式 prepare")
-        for component in ("l3", "unity"):
-            if not (ARTIFACTS / component / "devel/setup.bash").is_file():
-                raise RuntimeError(f"{component} 编译产物缺失，请 prepare")
+        if self.prepared.get("owner") != OWNER or self.prepared.get("schema") != 2:
+            raise RuntimeError("缺少当前版本的制品记录，请显式 prepare（已有编译缓存保留）")
+        self.check_component_records()
 
     def exec_probe(self, action, deployment="sim-l3", setup="l3", required=True):
         python = "python3" if deployment in ("sim-roscore", "sim-dynamics", "sim-unity") else self.c["SIM_PYTHON_EXECUTABLE"]
@@ -542,7 +598,8 @@ class Stack:
         player_created = False
         active = read_json(ARTIFACTS / "active-config.json", {})
         if active and (active.get("owner") != OWNER or active.get("config") != self.c):
-            raise RuntimeError("仍有另一份活动配置，请先 down 后 prepare/up")
+            raise RuntimeError("仍有另一份活动配置，请先 down，再按是否涉及构建输入决定 prepare/up")
+        self.write_config()
         atomic_json(ARTIFACTS / "active-config.json", {"owner": OWNER, "config": self.c})
         try:
             manifests = self.manifests()
@@ -592,7 +649,6 @@ class Stack:
             raise RuntimeError("planner 尚未动态停稳或仍有运动；请先通过当前站端取消/急停并等待")
         claim = state["claim"]
         if claim.get("owned"):
-            self.station_owner()
             snapshot = self.http("/api/stacks?claims=1")
             lease = snapshot.get("connection") or {}
             if lease.get("stack_id") != self.c["LX_STACK_ID"] or lease.get("station_id") != claim.get("station_id"):
@@ -637,30 +693,17 @@ class Stack:
             if result.returncode == 0:
                 raise RuntimeError(f"存在旧站端服务 {service}，请由原工作区停止")
 
-    def station(self, action):
-        marker = ARTIFACTS / "station.json"
-        if action == "stop":
-            if not marker.exists():
-                print("当前入口没有登记的站端服务，跳过站端停止；未操作任何站端服务", flush=True)
-                return
-            record = read_json(marker, {})
-            if record.get("owner") != OWNER:
-                raise RuntimeError("站端登记不属于当前工作区，拒绝停止")
-            self.station_owner()
-            snapshot = self.http("/api/stacks?claims=1") if self.station_active("l4-app") else {}
-            if snapshot.get("connection"):
-                self.http("/api/connection/release", post=True)
-            run(["make", "-C", self.c["SIM_L4_ROOT"], "l4-app", "stop"],
-                env=dict(os.environ, L4_ROOT=self.c["SIM_L4_ROOT"]))
-            self.station_dropins(remove=True)
-            marker.unlink(missing_ok=True)
-            return
+    def station_preflight(self):
         self.station_owner()
         root = Path(self.c["SIM_L4_ROOT"])
-        for path in (root / ".venv/bin/python", root / "console/dist/index.html",
+        for entry in ("python", "copaw", "agent-station-bridge", "agent-station-visualizer", "agent-station-vla"):
+            path = root / ".venv/bin" / entry
+            if not path.is_file() or not os.access(path, os.X_OK):
+                raise RuntimeError(f"站端入口缺失或不可执行: {path}；请先 make station-setup")
+        for path in (root / "console/dist/index.html",
                      root / "src/copaw/station_sidecar/visualizer/web/dist/index.html"):
             if not path.is_file():
-                raise RuntimeError("站端依赖缺失，请先显式 make -C l4-agent setup")
+                raise RuntimeError(f"站端前端产物缺失: {path}；请先 make station-setup")
         router = run([root / ".venv/bin/copaw", "kv", "get", "lx_zenoh_router"], cwd=root,
                      capture_output=True, text=True, timeout=15).stdout.strip()
         if router != self.c["PUBLIC_ZENOHD_ROUTER"]:
@@ -679,9 +722,63 @@ class Stack:
             with socket.socket() as sock:
                 if sock.connect_ex(("127.0.0.1", port)) == 0:
                     self.port_owner(port, root)
+        return was_active
+
+    def station_stop(self):
+        # 完整关闭固定本机站端；用户授权覆盖跨检出及无登记的启动残留。
+        if self.station_active("l4-app"):
+            snapshot = self.http("/api/stacks?claims=1")
+            if snapshot.get("connection"):
+                released = self.http("/api/connection/release", post=True)
+                if not released.get("released") and released.get("reason") != "not_connected":
+                    raise RuntimeError(f"站端连接未安全释放，拒绝关闭: {released}")
+        services = SERVICES + ("l4-visualizer", "agent-station-vlm")
+        units = []
+        for service in services:
+            result = subprocess.run(["systemctl", "--user", "show", service + ".service",
+                                     "--property=LoadState", "--value"], capture_output=True, text=True)
+            if result.returncode and result.stdout.strip() != "not-found":
+                raise RuntimeError(f"无法查询站端服务 {service}: {result.stderr.strip()}")
+            if result.stdout.strip() not in ("", "not-found"):
+                units.append(service + ".service")
+        if units:
+            run(["systemctl", "--user", "stop", *units])
+            run(["systemctl", "--user", "disable", *units])
+        directory = Path.home() / ".config/systemd/user"
+        for service in services:
+            (directory / (service + ".service")).unlink(missing_ok=True)
+            for dropin in (directory / (service + ".service.d")).glob("50-diffagent-*.conf"):
+                dropin.unlink()
+        run(["systemctl", "--user", "daemon-reload"])
+        deadline = time.monotonic() + 15
+        while True:
+            busy = []
+            for port in (8088, 8092, 8391, 8093, 9876, 9877):
+                with socket.socket() as sock:
+                    sock.settimeout(0.2)
+                    if sock.connect_ex(("127.0.0.1", port)) == 0:
+                        busy.append(port)
+            if not busy:
+                break
+            if time.monotonic() >= deadline:
+                raise RuntimeError(f"站端服务已停止但端口仍占用: {busy}；未强杀未知进程")
+            time.sleep(1)
+        (ARTIFACTS / "station.json").unlink(missing_ok=True)
+        print("本机 L4 站端服务已全部停止，用户单元和仿真相机配置已清理", flush=True)
+
+    def station(self, action):
+        if action == "stop":
+            self.station_stop()
+            return
+        was_active = self.station_preflight()
+        marker = ARTIFACTS / "station.json"
+        root = Path(self.c["SIM_L4_ROOT"])
         self.station_dropins()
-        run(["make", "-C", root, "l4-app", "start"], env=dict(os.environ, L4_ROOT=str(root)))
-        atomic_json(marker, {"owner": OWNER, "root": str(root)})
+        atomic_json(marker, {"owner": OWNER, "root": str(root), "phase": "starting"})
+        try:
+            run(["make", "-C", root, "l4-app", "start"], env=dict(os.environ, L4_ROOT=str(root)))
+        except subprocess.CalledProcessError as error:
+            raise RuntimeError("站端部分启动失败，登记已保留；make down 会清理本机站端服务") from error
         if was_active:
             # 已运行服务需要重启才能读取本次相机标定；只能操作确认属于本站端的服务。
             run(["systemctl", "--user", "restart", *[service + ".service" for service in SERVICES]])
@@ -697,6 +794,7 @@ class Stack:
             time.sleep(2)
         else:
             raise RuntimeError("站端启动超时，仿真栈与站端日志保留；使用 status 定位")
+        atomic_json(marker, {"owner": OWNER, "root": str(root), "phase": "ready"})
         print("站端启动命令已执行: http://127.0.0.1:8088 ，可视化 :8391", flush=True)
 
     def station_active(self, service):
@@ -897,6 +995,7 @@ def main():
             stack.down()
             stack.up()
         elif args.action == "start":
+            stack.station_preflight()
             stack.up()
             stack.station("start")
         elif args.action == "stop":
