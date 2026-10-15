@@ -31,7 +31,7 @@ R03/R05 的地面起飞判定、原点确认及 VLA 贴地能力仍按需拒绝�
 
 R03/R05 的新增部署消费者为 `tools/station-host-drone.py`、
 `tools/drone-host-runtime.py` 与 `bringup/k3s/real/runtime_probe_ros.py`，均位于
-`l3-dispatcher-planner/`。构建和运行使用新版独立目录与同源执行配置，
+`drone_projects/l3-dispatcher-planner/`。构建和运行使用新版独立目录与同源执行配置，
 通过 `basic_flight.launch` 显式启用真机 EGO；未恢复 mission 或旧目标协议。
 关闭前检查地面/未解锁状态、原生 ExecutionState 的停止确认及无运动输出、
 控制面 unowned；不代发起降、急停或抢占租约。L2 消费兼容性用无消息发布的握手检查。
@@ -40,11 +40,11 @@ R03/R05 的新增部署消费者为 `tools/station-host-drone.py`、
 MAVROS 时钟/频率、L2 消费握手、真实 cmd 输出与执行停止、启动失败保留资源、
 设备重启及租约释放竞态。独立目录隔离还须在获许可后的设备验收中留证。
 实现范围和运行前提见[方案](../iteration/design-drone-remote-build.md)与
-[运行说明](../../../l3-dispatcher-planner/bringup/k3s/real/README.md)。
+[运行说明](../../../deployment/k3s/real/README.md)。
 
 ## 2026-10-12 k3s Unity 部署接入（代码交付，未运行）
 
-R03/R05 的本轮消费者为 `l3-dispatcher-planner/tools/station-host-sim.py`、
+R03/R05 的本轮消费者为 `deployment/tools/station-host-sim.py`、
 `bringup/k3s/unity/` 和独立 `telemetry_bridge`。部署直接运行本仓库
 `basic_flight.launch`，编译当前原生 Action 与同源 planner_execution 参数。
 down/reset 只读核对执行状态和 `connection.status`，本站端仅释放自己的空闲
@@ -76,7 +76,7 @@ down/reset 只读核对执行状态和 `connection.status`，本站端仅释放�
 
 | 标记 | 含义 |
 |----|----|
-| `N/` | 相对 `l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/` |
+| `N/` | 相对 `drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/` |
 | 定位方式 | 优先按符号搜索，再参考行号；以符号为准，避免未来编辑造成锚点失效 |
 | 维护要求 | 对应能力开始设计时即读本条目，不要等写完代码才补查；本轮未改造的缺口不算已交付能力 |
 
@@ -185,8 +185,8 @@ down/reset 只读核对执行状态和 `connection.status`，本站端仅释放�
 
 R07 关门证据（2026-09-17，方案 P1）：
 
-- 删前 grep：`l3-dispatcher-planner/` 代码树（生产 + tests）内 `thinking_debug_dir` 仅 `core/telemetry.py` L69-L73 自身定义命中（零消费者）；`specs/` 0 命中；`doc/` 命中均为台账/方案记录文字。
-- 删后 grep：`l3-dispatcher-planner/` 全树 `thinking_debug_dir` **0 命中**。
+- 删前 grep：`drone_projects/l3-dispatcher-planner/` 代码树（生产 + tests）内 `thinking_debug_dir` 仅 `core/telemetry.py` L69-L73 自身定义命中（零消费者）；`specs/` 0 命中；`doc/` 命中均为台账/方案记录文字。
+- 删后 grep：`drone_projects/l3-dispatcher-planner/` 全树 `thinking_debug_dir` **0 命中**。
 - 行为核验：trace（`attach_trace`/session_tag）与 `dispatcher_started` 事件不受影响（删除块位于二者之后）；core-boundary 既有测试回归通过（30 项中 29 通过，唯一失败为环境缺 zenoh 的收集错误，与本次改动前的基线一致）。
 
 <a id="r08"></a>
@@ -246,9 +246,9 @@ R07 关门证据（2026-09-17，方案 P1）：
 | 2026-09-16 | R03、R05 与 l4 对接前置 | 继续保留；设计中 | [RPC 对接方案](../iteration/20260915-20260917/design-dispatcher-l4-rpc-integration.md)、[基础飞行方案](../iteration/20260915-20260917/design-dispatcher-basic-flight-migration.md) | 只读检查发现 owner watch 未接 acquire；复现快速终态丢失、非法 JSON 顶层无回复和失效租约重放获准。未改生产代码，未完成物理停止验证 | 前置轮次先修协议与监听；飞行轮次接完整执行缝、动作账务与急停轨迹；VLA 专属重规划仍待其技能迁移 |
 | 2026-09-16 | R04、R06 原点/历史边界 | 继续保留；仅原点子能力已出方案 | [基础飞行方案 §4.5](../iteration/20260915-20260917/design-dispatcher-basic-flight-migration.md#45-原点服务与-r04-范围) | 当前只读 l4 的 plan_tools.json 定义 return 空参返回起飞点；FlightSession 仅为设计，尚无实现/运行证据 | 起飞原点随基础飞行接入；previous、历史集合、游标和文本回退待真实消费者接入，不因本轮无公开入口裁掉；日志 session_tag 不等于飞行会话 |
 | 2026-09-17 | R05、R07 | R05 由 VLA 迁移方案接管（P0 契约先行）；R07 裁决删孤儿后关门（删除动作在方案 P1） | [dispatcher VLA 技能迁移方案](../iteration/design-dispatcher-vla-migration.md) §5/§7；[工具面契约 §1](../../../specs/implemented/inner/l3-tool-plane.spec.md)；[技能契约 §10](../../../specs/implemented/inner/l3-skill-contract.spec.md) | 本轮仅文档与 spec 更新，无代码与运行证据；工具面 revision 新值已按 §1 七工具元数据重算一致 | R05：P1–P3 实现后按方案 §8 回填验收（REPLAN 技能自有状态、不读宿主 pending_action），`_record_process_event` 记录消费待记录服务（R01/R06）继续挂账；R07：方案 P1 删字段并 grep 零命中后关门 |
-| 2026-09-17 | R07 | **已关门**（方案 P1 执行删除） | `l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/core/telemetry.py`：删 `thinking_debug_dir`/`last_thinking_debug_dir` 孤儿字段与目录创建逻辑，原位留中文注释指向本条目 | 删前 grep：代码树内仅 telemetry.py 自身定义命中（零消费者），specs/ 0 命中；删后 grep：`l3-dispatcher-planner/` 全树 `thinking_debug_dir` 0 命中；core-boundary 回归通过（当轮 29 passed，环境缺 zenoh 的 1 项为基线环境问题） | 无（关门）；未来多图调试需求按新设计重新立项，不恢复旧字段 |
+| 2026-09-17 | R07 | **已关门**（方案 P1 执行删除） | `drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/core/telemetry.py`：删 `thinking_debug_dir`/`last_thinking_debug_dir` 孤儿字段与目录创建逻辑，原位留中文注释指向本条目 | 删前 grep：代码树内仅 telemetry.py 自身定义命中（零消费者），specs/ 0 命中；删后 grep：`drone_projects/l3-dispatcher-planner/` 全树 `thinking_debug_dir` 0 命中；core-boundary 回归通过（当轮 29 passed，环境缺 zenoh 的 1 项为基线环境问题） | 无（关门）；未来多图调试需求按新设计重新立项，不恢复旧字段 |
 | 2026-09-20 | R09 | 登记（不迁） | [场景图迁移方案](../iteration/design-dispatcher-scenegraph-migration.md) §4.1 裁决 6/8/9；契约先行产物见 `l3-scenegraph`、`l3-skill-contract` §11、`l3-tool-plane` §1 目标集合 | 本轮仅契约与文档改动，无代码与运行证据；未运行测试或构建 | `scene.navigate` 落地时按条目「必须验证」回填；在线建图恢复须先接回地图依赖并另立契约 |
-| 2026-09-20 | R05（VLA 部分） | **VLA REPLAN 退役**（记录消费继续挂账） | [机上收窄方案](../iteration/design-dispatcher-vla-waypoint-executor-migration.md) P0–P3：`vla_skill` 重写为航点执行器（三裁决），机上几何/`geometry_source`/`get_fast_rgb` 删除，`base_policy` 几何族退役（3029→1302 行），`_FAIL_REASONS` 登记 `invalid_station_waypoint`；归档 [2026-09-20 决策](../../../specs/implemented/architecture/2026-09-20-vla-waypoint-executor.md) | `py_compile` 全包通过、删除项 grep 零残留、`revision` 按真实注册面重算回填 spec；经使用者许可运行 `pytest l3-dispatcher-planner/tests`（排除 4 个 zenoh 环境基线收集失败）→ **167 passed / 1 failed**，唯一失败 `test_import_closure_has_no_domain_or_ros` 为既有基线（`core/skill_router.py` 提交 `28db4d1` 的 import 与禁用前缀冲突，`core/` 未被本轮触碰） | `host.recording._record_process_event` 记录消费仍待 R01/R06 记录服务；站端 `waypoint_world` 产出归外部仓库（本库 `l4-agent` 非最新），具备条件后补真机/仿真整链验收 |
+| 2026-09-20 | R05（VLA 部分） | **VLA REPLAN 退役**（记录消费继续挂账） | [机上收窄方案](../iteration/design-dispatcher-vla-waypoint-executor-migration.md) P0–P3：`vla_skill` 重写为航点执行器（三裁决），机上几何/`geometry_source`/`get_fast_rgb` 删除，`base_policy` 几何族退役（3029→1302 行），`_FAIL_REASONS` 登记 `invalid_station_waypoint`；归档 [2026-09-20 决策](../../../specs/implemented/architecture/2026-09-20-vla-waypoint-executor.md) | `py_compile` 全包通过、删除项 grep 零残留、`revision` 按真实注册面重算回填 spec；经使用者许可运行 `pytest drone_projects/l3-dispatcher-planner/tests`（排除 4 个 zenoh 环境基线收集失败）→ **167 passed / 1 failed**，唯一失败 `test_import_closure_has_no_domain_or_ros` 为既有基线（`core/skill_router.py` 提交 `28db4d1` 的 import 与禁用前缀冲突，`core/` 未被本轮触碰） | `host.recording._record_process_event` 记录消费仍待 R01/R06 记录服务；站端 `waypoint_world` 产出归外部仓库（本库 `l4-agent` 非最新），具备条件后补真机/仿真整链验收 |
 | 2026-09-26 | VLA 旋转腿补注册（[旧库 VLA 变动迁移方案](../iteration/design-dispatcher-old-repo-vla-convergence.md) P1） | `navigation.vla_rotate` 补注册为第 8 个生产工具（同一 `RotateSkill` 实例双名注册，对齐旧库 `engine._skills`）；`tools/vla/catalog.py` + `execution/composition.py` + `l3-tool-plane` §1 集合/`revision` 同批更新 | 静态验证：`py_compile` 通过；`revision` 复算与契约记录一致（`sha256:32b34a60…1228`）；装配级注册/销毁干净（`install_flight` 双名同实例、`dispose` 后零残留） | 站端重扫腿端到端验收待真机/仿真；测试断言（7 工具集合 + 旧 `revision`）未同步，待使用者许可 |
 
 未来处理后在此追加记录并同步 README 索引。若仍不能接入，不只写“以后处理”，应说明缺少哪个端口/服务、下一次由哪种任务触发；若决定删除，应记录消费者如何退役或被替代。

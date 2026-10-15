@@ -59,8 +59,8 @@ presence、publisher 和会话。健康文件报告输入年龄及成功发送�
 ```contract-links
 {
   "implementation": [
-    "l3-dispatcher-planner/ros_packages/telemetry_bridge/**",
-    "l3-dispatcher-planner/bringup/k3s/unity/telemetry.deployment.yaml"
+    "drone_projects/l3-dispatcher-planner/ros_packages/telemetry_bridge/**",
+    "deployment/k3s/unity/telemetry.deployment.yaml"
   ],
   "depends_on": [
     "runtime"

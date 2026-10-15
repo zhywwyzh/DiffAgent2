@@ -9,493 +9,493 @@
     },
     "sim-manifests": {
       "label": "仿真进程装配",
-      "path": "l3-dispatcher-planner/tools/station-host-sim.py",
+      "path": "deployment/tools/station-host-sim.py",
       "count": 27,
       "line": 316
     },
     "sim-prepare": {
       "label": "仿真制品准备",
-      "path": "l3-dispatcher-planner/tools/station-host-sim.py",
+      "path": "deployment/tools/station-host-sim.py",
       "count": 59,
       "line": 413
     },
     "sim-up": {
       "label": "仿真启动顺序",
-      "path": "l3-dispatcher-planner/tools/station-host-sim.py",
+      "path": "deployment/tools/station-host-sim.py",
       "count": 52,
       "line": 502
     },
     "sim-down": {
       "label": "仿真关闭门",
-      "path": "l3-dispatcher-planner/tools/station-host-sim.py",
+      "path": "deployment/tools/station-host-sim.py",
       "count": 29,
       "line": 554
     },
     "sim-station": {
       "label": "站端归属与启动",
-      "path": "l3-dispatcher-planner/tools/station-host-sim.py",
+      "path": "deployment/tools/station-host-sim.py",
       "count": 58,
       "line": 607
     },
     "sim-main": {
       "label": "启动器命令分发",
-      "path": "l3-dispatcher-planner/tools/station-host-sim.py",
+      "path": "deployment/tools/station-host-sim.py",
       "count": 45,
       "line": 840
     },
     "build": {
       "label": "EGO 构建选包",
-      "path": "l3-dispatcher-planner/tools/build_ego.sh",
+      "path": "drone_projects/l3-dispatcher-planner/tools/build_ego.sh",
       "count": 50,
       "line": 1
     },
     "launch": {
       "label": "默认飞行 launch",
-      "path": "l3-dispatcher-planner/bringup/launch/basic_flight.launch",
+      "path": "drone_projects/l3-dispatcher-planner/bringup/launch/basic_flight.launch",
       "count": 50,
       "line": 1
     },
     "ego-launch": {
       "label": "EGO launch 接线",
-      "path": "l3-dispatcher-planner/bringup/launch/ego.launch",
+      "path": "drone_projects/l3-dispatcher-planner/bringup/launch/ego.launch",
       "count": 60,
       "line": 1
     },
     "config": {
       "label": "共享执行配置",
-      "path": "l3-dispatcher-planner/bringup/config/planner_execution.yaml",
+      "path": "drone_projects/l3-dispatcher-planner/bringup/config/planner_execution.yaml",
       "count": 40,
       "line": 1
     },
     "l4-start": {
       "label": "站端原生服务脚本",
-      "path": "l4-agent/bringup/ground-station-native/l4-app.sh",
+      "path": "station_projects/l4-agent/bringup/ground-station-native/l4-app.sh",
       "count": 110,
       "line": 30
     },
     "l4-app": {
       "label": "应用生命周期",
-      "path": "l4-agent/src/copaw/app/_app.py",
+      "path": "station_projects/l4-agent/src/copaw/app/_app.py",
       "count": 85,
       "line": 66
     },
     "agent-tools": {
       "label": "模型飞行工具入口",
-      "path": "l4-agent/src/copaw/agents/tools/flight_actions.py",
+      "path": "station_projects/l4-agent/src/copaw/agents/tools/flight_actions.py",
       "count": 90,
       "line": 67
     },
     "batch": {
       "label": "批次创建与确认",
-      "path": "l4-agent/src/copaw/station_sidecar/flight/service.py",
+      "path": "station_projects/l4-agent/src/copaw/station_sidecar/flight/service.py",
       "count": 74,
       "line": 380
     },
     "batch-dispatch": {
       "label": "步骤接地与下发",
-      "path": "l4-agent/src/copaw/station_sidecar/flight/service.py",
+      "path": "station_projects/l4-agent/src/copaw/station_sidecar/flight/service.py",
       "count": 145,
       "line": 627
     },
     "batch-outcome": {
       "label": "站端结果推进",
-      "path": "l4-agent/src/copaw/station_sidecar/flight/service.py",
+      "path": "station_projects/l4-agent/src/copaw/station_sidecar/flight/service.py",
       "count": 68,
       "line": 555
     },
     "batch-cancel": {
       "label": "站端取消批次",
-      "path": "l4-agent/src/copaw/station_sidecar/flight/service.py",
+      "path": "station_projects/l4-agent/src/copaw/station_sidecar/flight/service.py",
       "count": 54,
       "line": 458
     },
     "fleet": {
       "label": "连接获取与 token",
-      "path": "l4-agent/src/copaw/station_sidecar/fleet.py",
+      "path": "station_projects/l4-agent/src/copaw/station_sidecar/fleet.py",
       "count": 92,
       "line": 415
     },
     "fleet-renew": {
       "label": "站端租约续期",
-      "path": "l4-agent/src/copaw/station_sidecar/fleet.py",
+      "path": "station_projects/l4-agent/src/copaw/station_sidecar/fleet.py",
       "count": 73,
       "line": 584
     },
     "rpc-bind": {
       "label": "先订阅结果再调用",
-      "path": "l4-agent/src/copaw/station_sidecar/flight/rpc_bridge.py",
+      "path": "station_projects/l4-agent/src/copaw/station_sidecar/flight/rpc_bridge.py",
       "count": 34,
       "line": 77
     },
     "rpc-publish": {
       "label": "站端发送准入门",
-      "path": "l4-agent/src/copaw/station_sidecar/flight/rpc_bridge.py",
+      "path": "station_projects/l4-agent/src/copaw/station_sidecar/flight/rpc_bridge.py",
       "count": 66,
       "line": 211
     },
     "rpc-client": {
       "label": "RPC 发送与结果订阅",
-      "path": "l4-agent/src/copaw/station_sidecar/rpc_plane.py",
+      "path": "station_projects/l4-agent/src/copaw/station_sidecar/rpc_plane.py",
       "count": 72,
       "line": 173
     },
     "rpc-methods": {
       "label": "L3 RPC 查询与准入",
-      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/methods.py",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/methods.py",
       "count": 136,
       "line": 156
     },
     "rpc-outcome": {
       "label": "L3 终态信封",
-      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/methods.py",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/methods.py",
       "count": 52,
       "line": 89
     },
     "registry": {
       "label": "实际默认注册表",
-      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/registry.py",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/registry.py",
       "count": 44,
       "line": 29
     },
     "schema": {
       "label": "参数严格校验",
-      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/registry.py",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/registry.py",
       "count": 115,
       "line": 156
     },
     "runtime": {
       "label": "准入、重放与抢占",
-      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/runtime.py",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/runtime.py",
       "count": 39,
       "line": 103
     },
     "terminal": {
       "label": "终态唯一账本",
-      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/runtime.py",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/runtime.py",
       "count": 59,
       "line": 187
     },
     "lease-loss": {
       "label": "租约失效顺序",
-      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/connection_lease.py",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/connection_lease.py",
       "count": 66,
       "line": 284
     },
     "plane": {
       "label": "控制面优先中断",
-      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/control_plane.py",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/control_plane.py",
       "count": 88,
       "line": 73
     },
     "node": {
       "label": "L3 组合根",
-      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher_node.py",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher_node.py",
       "count": 58,
       "line": 250
     },
     "node-vla": {
       "label": "VLA 模式通道现状",
-      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher_node.py",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher_node.py",
       "count": 39,
       "line": 155
     },
     "composition": {
       "label": "技能实例装配",
-      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/execution/composition.py",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/execution/composition.py",
       "count": 65,
       "line": 1
     },
     "fsm": {
       "label": "dispatcher 六态循环",
-      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py",
       "count": 145,
       "line": 213
     },
     "verdict": {
       "label": "四裁决与结果代次",
-      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/core/action_gate.py",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/core/action_gate.py",
       "count": 93,
       "line": 69
     },
     "flight-catalog": {
       "label": "基础飞行工具元数据",
-      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/flight/catalog.py",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/flight/catalog.py",
       "count": 40,
       "line": 1
     },
     "vla-catalog": {
       "label": "VLA 工具元数据",
-      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/vla/catalog.py",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/vla/catalog.py",
       "count": 70,
       "line": 29
     },
     "translate": {
       "label": "平移目标计算",
-      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/flight/translate_skill.py",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/flight/translate_skill.py",
       "count": 40,
       "line": 1
     },
     "rotate": {
       "label": "分段旋转与角度核对",
-      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/flight/rotate_skill.py",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/flight/rotate_skill.py",
       "count": 100,
       "line": 1
     },
     "return": {
       "label": "返航实际目标",
-      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/flight/return_skill.py",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/flight/return_skill.py",
       "count": 35,
       "line": 1
     },
     "origin": {
       "label": "原点会话生命周期",
-      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/flight/session.py",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/flight/session.py",
       "count": 75,
       "line": 1
     },
     "commands": {
       "label": "起降与急停 ROS 出口",
-      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/ros_adapter/flight_commands_ros.py",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/ros_adapter/flight_commands_ros.py",
       "count": 50,
       "line": 1
     },
     "takeoff": {
       "label": "起飞同步终态",
-      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/flight/takeoff_skill.py",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/flight/takeoff_skill.py",
       "count": 30,
       "line": 1
     },
     "action-start": {
       "label": "ActionSession 校验与待发",
-      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/execution/action_session.py",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/execution/action_session.py",
       "count": 52,
       "line": 27
     },
     "action-stop": {
       "label": "ActionSession 停止请求",
-      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/execution/action_session.py",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/execution/action_session.py",
       "count": 51,
       "line": 94
     },
     "action-pump": {
       "label": "ActionSession 状态与事件泵",
-      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/execution/action_session.py",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/execution/action_session.py",
       "count": 103,
       "line": 145
     },
     "action-msg": {
       "label": "航点 action 消息",
-      "path": "l3-dispatcher-planner/ros_packages/utils/quadrotor_msgs/action/ExecuteWaypoints.action",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/utils/quadrotor_msgs/action/ExecuteWaypoints.action",
       "count": 30,
       "line": 1
     },
     "server": {
       "label": "原生 ActionServer 接线",
-      "path": "l3-dispatcher-planner/ros_packages/planner/planner_execution/src/action_server_ros.cpp",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/planner/planner_execution/src/action_server_ros.cpp",
       "count": 25,
       "line": 24
     },
     "server-result": {
       "label": "ROS action 结果产生",
-      "path": "l3-dispatcher-planner/ros_packages/planner/planner_execution/src/action_server_ros.cpp",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/planner/planner_execution/src/action_server_ros.cpp",
       "count": 92,
       "line": 204
     },
     "execution": {
       "label": "服务端执行生命周期",
-      "path": "l3-dispatcher-planner/ros_packages/planner/planner_execution/src/execution.cpp",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/planner/planner_execution/src/execution.cpp",
       "count": 110,
       "line": 18
     },
     "settle": {
       "label": "动态停稳判定",
-      "path": "l3-dispatcher-planner/ros_packages/planner/planner_execution/src/settle_monitor.cpp",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/planner/planner_execution/src/settle_monitor.cpp",
       "count": 50,
       "line": 1
     },
     "output": {
       "label": "命令输出与保持仲裁",
-      "path": "l3-dispatcher-planner/ros_packages/planner/planner_execution/src/command_output_ros.cpp",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/planner/planner_execution/src/command_output_ros.cpp",
       "count": 103,
       "line": 30
     },
     "ego-backend": {
       "label": "EGO 动作后端与 tracking 装配",
-      "path": "l3-dispatcher-planner/ros_packages/planner/ego_planner/plan_manage/src/execution_backend_ros.cpp",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/planner/ego_planner/plan_manage/src/execution_backend_ros.cpp",
       "count": 55,
       "line": 1
     },
     "ego-goal": {
       "label": "EGO 目标与停止",
-      "path": "l3-dispatcher-planner/ros_packages/planner/ego_planner/plan_manage/src/execution_backend.cpp",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/planner/ego_planner/plan_manage/src/execution_backend.cpp",
       "count": 65,
       "line": 1
     },
     "ego-fsm": {
       "label": "EGO 规划状态机",
-      "path": "l3-dispatcher-planner/ros_packages/planner/ego_planner/plan_manage/src/ego_replan_fsm.cpp",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/planner/ego_planner/plan_manage/src/ego_replan_fsm.cpp",
       "count": 180,
       "line": 139
     },
     "ego-opt": {
       "label": "EGO 轨迹优化管线",
-      "path": "l3-dispatcher-planner/ros_packages/planner/ego_planner/plan_manage/src/planner_manager.cpp",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/planner/ego_planner/plan_manage/src/planner_manager.cpp",
       "count": 246,
       "line": 67
     },
     "super": {
       "label": "SUPER 后端限制",
-      "path": "l3-dispatcher-planner/ros_packages/planner/super_planner/planner/src/ros_interface/execution_backend_ros.cpp",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/planner/super_planner/planner/src/ros_interface/execution_backend_ros.cpp",
       "count": 70,
       "line": 1
     },
     "diff": {
       "label": "DIFF 后端限制",
-      "path": "l3-dispatcher-planner/ros_packages/planner/diff_planner/src/execution_backend_ros.cpp",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/planner/diff_planner/src/execution_backend_ros.cpp",
       "count": 45,
       "line": 1
     },
     "l2-launch": {
       "label": "L2 控制器与动力学装配",
-      "path": "l2-simulator-amd64/projects/uav-simulator/bringup/launch/uav_simulator.launch",
+      "path": "simulation_projects/l2-simulator-amd64/projects/uav-simulator/bringup/launch/uav_simulator.launch",
       "count": 101,
       "line": 192
     },
     "unity-launch": {
       "label": "Unity 传感器入口",
-      "path": "l2-simulator-amd64/projects/unity-simulator/bringup/launch/unity_simulator.launch",
+      "path": "simulation_projects/l2-simulator-amd64/projects/unity-simulator/bringup/launch/unity_simulator.launch",
       "count": 35,
       "line": 1
     },
     "unity-bridge": {
       "label": "原 Unity 传感器翻译",
-      "path": "l2-simulator-amd64/projects/unity-simulator/bringup/scripts/original_sensor_bridge.py",
+      "path": "simulation_projects/l2-simulator-amd64/projects/unity-simulator/bringup/scripts/original_sensor_bridge.py",
       "count": 60,
       "line": 13
     },
     "telemetry": {
       "label": "ROS 遥测取样与编码",
-      "path": "l3-dispatcher-planner/ros_packages/telemetry_bridge/scripts/telemetry_ros.py",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/telemetry_bridge/scripts/telemetry_ros.py",
       "count": 95,
       "line": 18
     },
     "uplink": {
       "label": "独立遥测上行",
-      "path": "l3-dispatcher-planner/ros_packages/telemetry_bridge/src/telemetry_bridge/uplink.py",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/telemetry_bridge/src/telemetry_bridge/uplink.py",
       "count": 103,
       "line": 12
     },
     "bridge-bind": {
       "label": "站端遥测绑定",
-      "path": "l4-agent/src/copaw/station_sidecar/bridge.py",
+      "path": "station_projects/l4-agent/src/copaw/station_sidecar/bridge.py",
       "count": 114,
       "line": 321
     },
     "vla-ground": {
       "label": "VLA 可见性与重扫",
-      "path": "l4-agent/src/copaw/station_sidecar/flight/service.py",
+      "path": "station_projects/l4-agent/src/copaw/station_sidecar/flight/service.py",
       "count": 205,
       "line": 805
     },
     "vla-resolve": {
       "label": "VLA 几何接地调用",
-      "path": "l4-agent/src/copaw/station_sidecar/flight/service.py",
+      "path": "station_projects/l4-agent/src/copaw/station_sidecar/flight/service.py",
       "count": 98,
       "line": 1010
     },
     "geometry": {
       "label": "相机时戳位姿与点云输入",
-      "path": "l4-agent/src/copaw/station_sidecar/vla/geometry.py",
+      "path": "station_projects/l4-agent/src/copaw/station_sidecar/vla/geometry.py",
       "count": 46,
       "line": 1651
     },
     "vla-skill": {
       "label": "机上 VLA 多腿执行",
-      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/vla/vla_skill.py",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/vla/vla_skill.py",
       "count": 117,
       "line": 21
     },
     "tracking-launch": {
       "label": "显式 tracking 入口",
-      "path": "l3-dispatcher-planner/bringup/launch/tracking.launch",
+      "path": "drone_projects/l3-dispatcher-planner/bringup/launch/tracking.launch",
       "count": 60,
       "line": 1
     },
     "track": {
       "label": "tracking 领域状态机",
-      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/track/track_skill.py",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/track/track_skill.py",
       "count": 180,
       "line": 32
     },
     "producer": {
       "label": "视觉跟踪独立线程",
-      "path": "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/track/producer.py",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/track/producer.py",
       "count": 90,
       "line": 1
     },
     "elastic": {
       "label": "Elastic 接线与命令采样",
-      "path": "l3-dispatcher-planner/ros_packages/planner/elastic_tracker/src/tracking_ros.cpp",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/planner/elastic_tracker/src/tracking_ros.cpp",
       "count": 95,
       "line": 1
     },
     "drone-station": {
       "label": "站端冻结、同步与提交",
-      "path": "l3-dispatcher-planner/tools/station-host-drone.py",
+      "path": "deployment/tools/station-host-drone.py",
       "count": 110,
       "line": 117
     },
     "drone-build": {
       "label": "端侧编译制品",
-      "path": "l3-dispatcher-planner/tools/drone-host-runtime.py",
+      "path": "deployment/tools/drone-host-runtime.py",
       "count": 76,
       "line": 279
     },
     "drone-runtime": {
       "label": "端侧启停与操作顺序",
-      "path": "l3-dispatcher-planner/tools/drone-host-runtime.py",
+      "path": "deployment/tools/drone-host-runtime.py",
       "count": 91,
       "line": 355
     },
     "drone-status": {
       "label": "端侧持久化操作查询",
-      "path": "l3-dispatcher-planner/tools/drone-host-runtime.py",
+      "path": "deployment/tools/drone-host-runtime.py",
       "count": 49,
       "line": 445
     },
     "logs": {
       "label": "仿真日志汇集装配",
-      "path": "l3-dispatcher-planner/tools/station-host-sim.py",
+      "path": "deployment/tools/station-host-sim.py",
       "count": 94,
       "line": 725
     },
     "geometry-algorithm": {
       "label": "站端 bbox 到航点分支",
-      "path": "l4-agent/src/copaw/station_sidecar/vla/geometry.py",
+      "path": "station_projects/l4-agent/src/copaw/station_sidecar/vla/geometry.py",
       "count": 297,
       "line": 1129
     },
     "elastic-algorithm": {
       "label": "Elastic 连续规划与交付检查",
-      "path": "l3-dispatcher-planner/ros_packages/planner/elastic_tracker/src/tracking.cpp",
+      "path": "drone_projects/l3-dispatcher-planner/ros_packages/planner/elastic_tracker/src/tracking.cpp",
       "count": 150,
       "line": 120
     },
     "drone-probe": {
       "label": "真机维护与输入门的代码",
-      "path": "l3-dispatcher-planner/bringup/k3s/real/runtime_probe_ros.py",
+      "path": "deployment/k3s/real/runtime_probe_ros.py",
       "count": 103,
       "line": 39
     },
     "vla-search-budget": {
       "label": "VLA 搜索预算常量",
-      "path": "l4-agent/src/copaw/station_sidecar/flight/service.py",
+      "path": "station_projects/l4-agent/src/copaw/station_sidecar/flight/service.py",
       "line": 62,
       "count": 4
     },
     "vla-rotate": {
       "label": "VLA 旋转下发与结果等待",
-      "path": "l4-agent/src/copaw/station_sidecar/flight/service.py",
+      "path": "station_projects/l4-agent/src/copaw/station_sidecar/flight/service.py",
       "line": 1263,
       "count": 66
     }
@@ -740,17 +740,17 @@
               "`make up`、`make drone-*`"
             ],
             [
-              "`l4-agent/`",
+              "`station_projects/l4-agent/`",
               "对话工具、计划确认、任务批次、连接管理、接地和可视化",
               "原生服务脚本与 `app/_app.py`"
             ],
             [
-              "`l3-dispatcher-planner/bringup/`",
+              "`drone_projects/l3-dispatcher-planner/bringup/`",
               "ROS 接线、共享参数与 k3s 清单骨架",
               "`basic_flight.launch` / `tracking.launch`"
             ],
             [
-              "`l3-dispatcher-planner/ros_packages/dispatcher/`",
+              "`drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/`",
               "Python 技能调度、工具 RPC、执行会话",
               "`dispatcher_node.py`"
             ],
@@ -770,7 +770,7 @@
               "独立遥测 Deployment"
             ],
             [
-              "`l2-simulator-amd64/projects/`",
+              "`simulation_projects/l2-simulator-amd64/projects/`",
               "动力学、Unity 传感器及可选 3DGS 仿真",
               "默认编排选 UAV 动力学 + Unity"
             ],

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Entity: station-host
-# Invoked: python3 l3-dispatcher-planner/tools/station-host-sim.py <action>
+# Invoked: python3 deployment/tools/station-host-sim.py <action>
 """本工作区 Unity 仿真栈的配置、制品与 k3s 生命周期入口。"""
 from __future__ import annotations
 
@@ -22,13 +22,14 @@ import urllib.error
 import urllib.request
 import uuid
 
-L3 = Path(__file__).resolve().parents[1]
-ROOT = L3.parent
-ASSETS = L3 / "bringup/k3s/unity"
+DEPLOYMENT = Path(__file__).resolve().parents[1]
+ROOT = DEPLOYMENT.parent
+L3 = ROOT / "drone_projects/l3-dispatcher-planner"
+ASSETS = DEPLOYMENT / "k3s/unity"
 OWNER_KEY = "diffagent.io/workspace"
 CONFIG_KEY = "diffagent.io/config"
 OWNER = hashlib.sha256(str(ROOT).encode()).hexdigest()[:16]
-ARTIFACTS = L3 / ".artifacts/k3s-unity"
+ARTIFACTS = DEPLOYMENT / ".artifacts/k3s-unity"
 SERVICES = ("l4-app", "agent-station-bridge", "agent-station-visualizer", "agent-station-vla")
 BUSINESS = ("sim-roscore", "sim-dynamics", "sim-unity", "sim-l3", "sim-telemetry", "sim-logs")
 
@@ -310,6 +311,7 @@ class Stack:
                   "LX_STACK_ID": c["LX_STACK_ID"], "ZENOH_ROUTER": c["PUBLIC_ZENOHD_ROUTER"],
                   "PYTHONUNBUFFERED": "1", "ROSCONSOLE_FORMAT": "[${node}] [${severity}] [${time}]: ${message}"}
         mounts = [(L3, "/source/l3", True), (Path(c["SIM_L2_ROOT"]), "/source/l2", True),
+                  (DEPLOYMENT, "/source/deployment", True),
                   (ARTIFACTS / "l3", "/work/l3", work != "compile"),
                   (ARTIFACTS / "unity", "/work/unity", work != "compile"),
                   (ARTIFACTS / "config", "/sim-config", True)]
@@ -318,7 +320,7 @@ class Stack:
             container["imagePullPolicy"] = "IfNotPresent"
             container["env"] = env_list(values) + container.get("env", [])
             if work != "compile":
-                container["command"] = ["bash", "/source/l3/bringup/k3s/unity/drone-container-run.sh"] + container["command"]
+                container["command"] = ["bash", "/source/deployment/k3s/unity/drone-container-run.sh"] + container["command"]
                 container["env"] += env_list({"SIM_COMPONENT": container["name"]})
             container["volumeMounts"] = [{"name": f"v{i}", "mountPath": dest, "readOnly": readonly}
                                            for i, (_, dest, readonly) in enumerate(mounts)]
@@ -352,7 +354,7 @@ class Stack:
     def manifests(self):
         c = self.c
         py = shlex.quote(c["SIM_PYTHON_EXECUTABLE"])
-        probe = f"{py} /source/l3/bringup/k3s/unity/runtime_probe_ros.py"
+        probe = f"{py} /source/deployment/k3s/unity/runtime_probe_ros.py"
         dynamics = "exec roslaunch /source/l2/projects/uav-simulator/bringup/launch/uav_simulator.launch enable_lidar:=false gsplat_bridge:=false "
         dynamics += " ".join(f"init_{axis}:={shlex.quote(c['SIM_INITIAL_' + axis.upper()])}" for axis in "xyz")
         sensors = "exec roslaunch unity_simulator unity_simulator.launch " + " ".join(
@@ -361,9 +363,9 @@ class Stack:
         ground_arg = f"ground_z:={shlex.quote(c['SIM_GROUND_Z'])} " if c["SIM_GROUND_Z"] else ""
         return [
             self.manifest("roscore.deployment.yaml", f"exec roscore -p {c['SIM_ROS_MASTER_PORT']}", "ros", "SIM_L2_IMAGE",
-                          "python3 /source/l3/bringup/k3s/unity/runtime_probe_ros.py master"),
+                          "python3 /source/deployment/k3s/unity/runtime_probe_ros.py master"),
             self.manifest("dynamics.deployment.yaml", dynamics, "dynamics", "SIM_L2_IMAGE",
-                          "python3 /source/l3/bringup/k3s/unity/runtime_probe_ros.py odom"),
+                          "python3 /source/deployment/k3s/unity/runtime_probe_ros.py odom"),
             self.manifest("sensors.deployment.yaml", sensors, "unity", probe="rosnode ping -c 1 /unity_endpoint >/dev/null"),
             self.manifest("l3.deployment.yaml", "exec roslaunch /source/l3/bringup/launch/basic_flight.launch "
                           + ground_arg + f"python_executable:={py}", probe=probe + " planner"),
@@ -401,7 +403,7 @@ class Stack:
         if component == "l3":
             command = f"L3_BUILD_JOBS={self.c['SIM_BUILD_JOBS']} bash /source/l3/tools/build_ego.sh /work/l3 --with-telemetry && "
             py = shlex.quote(self.c["SIM_PYTHON_EXECUTABLE"])
-            command += f"source /work/l3/devel/setup.bash && {py} /source/l3/bringup/k3s/unity/runtime_probe_ros.py dependencies"
+            command += f"source /work/l3/devel/setup.bash && {py} /source/deployment/k3s/unity/runtime_probe_ros.py dependencies"
         elif component == "unity":
             command = "mkdir -p /work/unity/src && "
             command += "ln -sfn /source/l2/projects/unity-simulator/ros_packages/ros_tcp_endpoint /work/unity/src/ros_tcp_endpoint && "
@@ -460,7 +462,7 @@ class Stack:
                        "image": container["image"], "requested_image": self.c[image_key],
                        "command": container["command"],
                        "mounts": {"l3": str(L3), "l2": self.c["SIM_L2_ROOT"],
-                                  "artifacts": str(ARTIFACTS)}})
+                                  "artifacts": str(ARTIFACTS), "deployment": str(DEPLOYMENT)}})
 
     def component_artifacts_present(self, component):
         if component == "l3":
@@ -519,7 +521,7 @@ class Stack:
                                 if end:
                                     endings.append(f"{item['name']}: {end.get('reason', 'unknown')} exit={end.get('exitCode')}")
                         detail = "; ".join(endings) or "Job failed"
-                        raise RuntimeError(f"{name} 编译失败（{detail}），见 .artifacts/k3s-unity/compile-{component}.log")
+                        raise RuntimeError(f"{name} 编译失败（{detail}），见 deployment/.artifacts/k3s-unity/compile-{component}.log")
                     if component == "l2-wire":
                         generated = ARTIFACTS / "l3/devel/lib/python3/dist-packages/quadrotor_msgs/msg/_PositionCommand.py"
                         match = re.search(r'_md5sum\s*=\s*[\"\x27]([0-9a-f]{32})', generated.read_text())
@@ -560,7 +562,7 @@ class Stack:
 
     def exec_probe(self, action, deployment="sim-l3", setup="l3", required=True):
         python = "python3" if deployment in ("sim-roscore", "sim-dynamics", "sim-unity") else self.c["SIM_PYTHON_EXECUTABLE"]
-        command = self.shell(f"{shlex.quote(python)} /source/l3/bringup/k3s/unity/runtime_probe_ros.py {action}", setup)
+        command = self.shell(f"{shlex.quote(python)} /source/deployment/k3s/unity/runtime_probe_ros.py {action}", setup)
         try:
             result = self.kube("-n", self.ns, "exec", "deployment/" + deployment, "--", *command,
                                capture_output=True, text=True, timeout=25)

@@ -19,11 +19,12 @@ import sys
 import time
 import uuid
 
-L3 = Path(__file__).resolve().parents[1]
-ROOT = L3.parent
-ASSETS = L3 / 'bringup/k3s/real'
-LOCAL = L3 / '.artifacts/drone'
-WORKER = L3 / 'tools/drone-host-runtime.py'
+DEPLOYMENT = Path(__file__).resolve().parents[1]
+ROOT = DEPLOYMENT.parent
+L3 = ROOT / 'drone_projects/l3-dispatcher-planner'
+ASSETS = DEPLOYMENT / 'k3s/real'
+LOCAL = DEPLOYMENT / '.artifacts/drone'
+WORKER = DEPLOYMENT / 'tools/drone-host-runtime.py'
 
 
 def read_env(path):
@@ -116,12 +117,13 @@ def rpc(c, action, **params):
 
 def inventory():
     paths = []
-    for relative in ('ros_packages', 'bringup/launch', 'bringup/config', 'bringup/k3s/real'):
+    for relative in ('ros_packages', 'bringup/launch', 'bringup/config'):
         paths.extend((L3 / relative).rglob('*'))
-    paths.extend(L3 / p for p in ('tools/build_ego.sh', 'tools/drone-host-runtime.py'))
+    paths.extend((DEPLOYMENT / 'k3s/real').rglob('*'))
+    paths.extend((L3 / 'tools/build_ego.sh', WORKER))
     result = {}
     for path in sorted(set(paths)):
-        relative = path.relative_to(L3)
+        relative = path.relative_to(ROOT)
         if any(p in ('.git', '.artifacts', '__pycache__', 'test', 'tests') for p in relative.parts):
             continue
         if path.is_symlink():
@@ -141,7 +143,7 @@ def sync(c):
         for relative in first:
             destination = staging / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(L3 / relative, destination)
+            shutil.copy2(ROOT / relative, destination)
         copied = {p: {'sha256': hashlib.sha256((staging / p).read_bytes()).hexdigest(),
                       'mode': (staging / p).stat().st_mode & 0o777} for p in first}
         if copied != first or inventory() != first:

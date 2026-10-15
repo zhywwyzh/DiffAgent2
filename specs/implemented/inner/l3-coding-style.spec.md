@@ -189,9 +189,9 @@ Parent: specs/implemented/development-workflow.spec.md
 ```contract-links
 {
   "implementation": [
-    "l3-dispatcher-planner/ros_packages/**/*.cpp",
-    "l3-dispatcher-planner/ros_packages/**/*.h",
-    "l3-dispatcher-planner/ros_packages/**/*.hpp"
+    "drone_projects/l3-dispatcher-planner/ros_packages/**/*.cpp",
+    "drone_projects/l3-dispatcher-planner/ros_packages/**/*.h",
+    "drone_projects/l3-dispatcher-planner/ros_packages/**/*.hpp"
   ],
   "depends_on": [
     "development-workflow"

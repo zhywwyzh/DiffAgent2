@@ -115,12 +115,12 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 ```contract-links
 {
   "implementation": [
-    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/methods.py",
-    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/protocol.py",
-    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/zenoh_transport.py",
-    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/control_plane.py",
-    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/runtime.py",
-    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/connection_lease.py"
+    "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/methods.py",
+    "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/protocol.py",
+    "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/zenoh_transport.py",
+    "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/control_plane.py",
+    "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/runtime.py",
+    "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/connection_lease.py"
   ],
   "depends_on": [
     "l3-dispatcher",

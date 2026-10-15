@@ -1,15 +1,8 @@
-# Unmanaged top-level l* directories remain independent repositories;
-# l3-dispatcher-planner is the built-in tracked subtree of this repo (AGENTS.md).
-/l*/
-!l3-dispatcher-planner/
+# 独立检出保持由各自仓库管理；机端 L3 和 deployment 由父仓库跟踪。
+/station_projects/l4-agent/
+/simulation_projects/l2-simulator-amd64/
 /lx-sim-k3s/
 /diff-netbird/
-!specs/l2/
-!specs/l3/
-!specs/l3/**/
-!specs/l3/**/*.md
-!specs/l4/
-!specs/l4/log-visualizer/
 
 # Build artifacts
 .artifacts/
@@ -45,4 +38,5 @@ gitlab-bots/.env
 # .trae/ 整体忽略，但技能目录纳入版本控制（.codebuddy/sync-skills.sh 的源）
 .trae/*
 !.trae/skills/
-.vscode/
+.vscode/*
+!.vscode/settings.json

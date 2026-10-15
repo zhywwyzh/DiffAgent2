@@ -136,15 +136,15 @@ Elastic 的地图读取由 EGO 装配根直接注入；领域数据协议 MapVie
 ```contract-links
 {
   "implementation": [
-    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/track/**",
-    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/perception/tracking_frames.py",
-    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/support/tracking_data.py",
-    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/ros_adapter/tracking*.py",
-    "l3-dispatcher-planner/ros_packages/planner/elastic_tracker/**",
-    "l3-dispatcher-planner/ros_packages/utils/quadrotor_msgs/action/TrackTarget.action",
-    "l3-dispatcher-planner/ros_packages/utils/quadrotor_msgs/msg/TrackingObservation.msg",
-    "l3-dispatcher-planner/bringup/config/tracking.yaml",
-    "l3-dispatcher-planner/bringup/launch/tracking.launch"
+    "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/track/**",
+    "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/perception/tracking_frames.py",
+    "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/support/tracking_data.py",
+    "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/ros_adapter/tracking*.py",
+    "drone_projects/l3-dispatcher-planner/ros_packages/planner/elastic_tracker/**",
+    "drone_projects/l3-dispatcher-planner/ros_packages/utils/quadrotor_msgs/action/TrackTarget.action",
+    "drone_projects/l3-dispatcher-planner/ros_packages/utils/quadrotor_msgs/msg/TrackingObservation.msg",
+    "drone_projects/l3-dispatcher-planner/bringup/config/tracking.yaml",
+    "drone_projects/l3-dispatcher-planner/bringup/launch/tracking.launch"
   ],
   "depends_on": [
     "l3-dispatcher",

@@ -545,12 +545,12 @@ task_session_id + 时间窗合并。
 ```contract-links
 {
   "implementation": [
-    "l3-dispatcher-planner/ros_packages/**/*.py",
-    "l3-dispatcher-planner/ros_packages/**/*.cpp",
-    "l3-dispatcher-planner/ros_packages/**/*.h",
-    "l3-dispatcher-planner/ros_packages/**/*.hpp",
-    "l3-dispatcher-planner/bringup/k3s/**/logs.yaml",
-    "l3-dispatcher-planner/bringup/launch/**"
+    "drone_projects/l3-dispatcher-planner/ros_packages/**/*.py",
+    "drone_projects/l3-dispatcher-planner/ros_packages/**/*.cpp",
+    "drone_projects/l3-dispatcher-planner/ros_packages/**/*.h",
+    "drone_projects/l3-dispatcher-planner/ros_packages/**/*.hpp",
+    "deployment/k3s/**/logs.yaml",
+    "drone_projects/l3-dispatcher-planner/bringup/launch/**"
   ],
   "depends_on": [
     "l3-dispatcher/flight-actions",

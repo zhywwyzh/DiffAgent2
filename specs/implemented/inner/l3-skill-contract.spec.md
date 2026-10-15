@@ -181,9 +181,9 @@ Protocol 类型声明。
 ```contract-links
 {
   "implementation": [
-    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/**",
-    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/execution/skill_host.py",
-    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/execution/composition.py"
+    "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/**",
+    "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/execution/skill_host.py",
+    "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/execution/composition.py"
   ],
   "depends_on": [
     "l3-dispatcher",

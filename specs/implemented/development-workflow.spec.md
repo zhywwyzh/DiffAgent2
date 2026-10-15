@@ -23,6 +23,7 @@ Contract-ID: development-workflow
 
 | 契约路径 | 职责 |
 |----------|-----------|
+| `specs/implemented/inner/workspace-layout.spec.md` | 工作区角色目录、项目版本归属与部署路径边界 |
 | `specs/implemented/inner/l3-coding-style.spec.md` | l3 源码约定 |
 | `specs/implemented/inner/spec-change-sync.spec.md` | 实现变更的配套契约识别、逐项处置与同步门禁 |
 

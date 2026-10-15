@@ -94,9 +94,9 @@ core 只做五件事：
 ```contract-links
 {
   "implementation": [
-    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py",
-    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/core/**",
-    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher_node.py"
+    "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/engine.py",
+    "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/core/**",
+    "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher_node.py"
   ],
   "depends_on": [
     "l3-dispatcher",

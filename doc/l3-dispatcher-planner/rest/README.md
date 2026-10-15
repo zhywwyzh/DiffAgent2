@@ -33,7 +33,7 @@ R03/R05 的地面起飞判定、原点确认及 VLA 贴地能力仍按需拒绝�
 ARM64 k3s 编译、L3 启停及显式回退代码。设备维护门观察落地/未解锁状态，
 关闭还须原生停止确认和当前租约释放；不修改旧版脚本或底层资源。
 R03/R05 保持未关闭：本轮未编译、未测试、未连接设备验收。
-实际使用前提及配置见[设备运行说明](../../../l3-dispatcher-planner/bringup/k3s/real/README.md)。
+实际使用前提及配置见[设备运行说明](../../../deployment/k3s/real/README.md)。
 
 ## k3s Unity 装配（2026-10-12）
 
@@ -41,7 +41,7 @@ R03/R05 保持未关闭：本轮未编译、未测试、未连接设备验收。
 编译 Job、Unity/动力学/L3 清单、遥测与日志。R03/R05 的部署消费者直接运行
 原生 Action 和同源执行配置；未运行构建、测试或验收，条目不关闭。真实停止、
 恢复、消息 ABI 与站端闭环仍为剩余条件。完整入口见
-[运行说明](../../../l3-dispatcher-planner/bringup/k3s/unity/README.md)。
+[运行说明](../../../deployment/k3s/unity/README.md)。
 
 这里记录 DiffAgent2 新版中因 DiffAgent2 旧版 skill 或共享服务存在真实依赖而暂时保留的内容。它是**持续维护的迁移待办与调查资料**，不是另一份 spec；职责、端口和行为契约仍以 `specs/` 为准。
 
@@ -86,7 +86,7 @@ R03/R05 的当前归属更新为 planner 原生 action 的停止与停稳、disp
 继续保留；R05 的飞行动作账务已接入，VLA 专属 REPLAN 已随 [机上收窄方案](../iteration/design-dispatcher-vla-waypoint-executor-migration.md)
 退役（station 解算 waypoint 后机上为终态腿，无 replan；归档见
 [2026-09-20 决策](../../../specs/implemented/architecture/2026-09-20-vla-waypoint-executor.md)；记录消费仍挂账）。R01/R02/R06
-的记录依赖仍未交付；R07 孤儿字段已随方案 P1 删除并关门（删后 `l3-dispatcher-planner/` 全树
+的记录依赖仍未交付；R07 孤儿字段已随方案 P1 删除并关门（删后 `drone_projects/l3-dispatcher-planner/` 全树
 grep 零命中，见台账 R07 证据）。上述保留项不随本次飞行功能完成而关闭。
 
 ## 日志规范与生产者迁移

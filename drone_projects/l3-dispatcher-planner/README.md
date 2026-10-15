@@ -5,16 +5,16 @@ dispatcher 持有六态任务 FSM，经 planner 原生 `/planner/execute_waypoin
 tracking 由独立显式入口装配。当前代码未完成运行验收。
 
 设备侧源码投放、ARM64 k3s 编译和新版 L3 启停入口见
-[真机运行说明](bringup/k3s/real/README.md)。从编排仓库根执行 `make drone-prepare`、
+[真机运行说明](../../deployment/k3s/real/README.md)。从编排仓库根执行 `make drone-prepare`、
 `make drone-up`；更新用 `make drone-deploy`，关闭用 `make drone-down`。
 须先配置独立端侧工作空间及现有底层服务，代码尚未编译和设备验收。
 
-本仓库完整 Unity 仿真入口见[k3s Unity 启动说明](bringup/k3s/unity/README.md)。
+本仓库完整 Unity 仿真入口见[k3s Unity 启动说明](../../deployment/k3s/unity/README.md)。
 从编排仓库根执行 `make sim-prepare` 编译，`make up` 启动仿真与当前 L4，
 `make status` 查询，`make down` 关闭；首次 L4 依赖用 `make station-setup` 准备。
 
-维护入口见[执行总纲](../doc/l3-dispatcher-planner/iteration/design-dispatcher-migration-execution-order.md)。动作规则归[基础飞行动作契约](../specs/implemented/inner/flight-actions.spec.md)，线上
-信封归[RPC 契约](../specs/implemented/inner/l3-l4-rpc.spec.md)。
+维护入口见[执行总纲](../../doc/l3-dispatcher-planner/iteration/20260915-20260917/design-dispatcher-migration-execution-order.md)。动作规则归[基础飞行动作契约](../../specs/implemented/inner/flight-actions.spec.md)，线上
+信封归[RPC 契约](../../specs/implemented/inner/l3-l4-rpc.spec.md)。
 
 ## 环境与构建
 
@@ -28,11 +28,11 @@ LX_STACK_ID、ZENOH_ROUTER；地面相关能力可额外设置 GROUND_Z。不要
 
 ```bash
 source "$ROS_SETUP"
-l3-dispatcher-planner/tools/build_ego.sh "$L3_BUILD_DIR"
+drone_projects/l3-dispatcher-planner/tools/build_ego.sh "$L3_BUILD_DIR"
 source "$L3_BUILD_DIR/devel/setup.bash"
 python3 -m venv --system-site-packages "$L3_PYTHON_ENV"
 source "$L3_PYTHON_ENV/bin/activate"
-python3 -m pip install -r l3-dispatcher-planner/ros_packages/dispatcher/requirements.txt
+python3 -m pip install -r drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/requirements.txt
 ```
 
 构建包含 dispatcher、EGO、planner_execution、Elastic、消息及可视化依赖。
@@ -47,7 +47,7 @@ python3 -m pip install -r l3-dispatcher-planner/ros_packages/dispatcher/requirem
 `/ekf_quat/ekf_odom` 和 `/cloud_registered`，可通过同名 launch 参数覆盖。
 
 ```bash
-roslaunch l3-dispatcher-planner/bringup/launch/basic_flight.launch
+roslaunch drone_projects/l3-dispatcher-planner/bringup/launch/basic_flight.launch
 ```
 
 该入口启用 headless dispatcher，不要求视觉感知配置；飞行仍要求新鲜、有限、坐标系
@@ -63,12 +63,12 @@ roslaunch l3-dispatcher-planner/bringup/launch/basic_flight.launch
 先安装测试依赖，再在已加载 ROS 与外部构建环境的解释器中执行：
 
 ```bash
-python3 -m pip install -r l3-dispatcher-planner/tests/requirements.txt
+python3 -m pip install -r drone_projects/l3-dispatcher-planner/tests/requirements.txt
 PYTHONDONTWRITEBYTECODE=1 python3 -m pytest -q -p no:cacheprovider \
-  l3-dispatcher-planner/tests/basic-flight \
-  l3-dispatcher-planner/tests/core-boundary \
-  l3-dispatcher-planner/tests/tool-registry \
-  l3-dispatcher-planner/tests/ros
+  drone_projects/l3-dispatcher-planner/tests/basic-flight \
+  drone_projects/l3-dispatcher-planner/tests/core-boundary \
+  drone_projects/l3-dispatcher-planner/tests/tool-registry \
+  drone_projects/l3-dispatcher-planner/tests/ros
 ```
 
 完整测试需要允许本机回环 socket。ROS 测试自行启动隔离 master、真实 EGO 和正式

@@ -121,9 +121,9 @@ basic_flight 名字是工具身份；物理飞行会话与 RPC call_id 分离，
 ```contract-links
 {
   "implementation": [
-    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/flight/**",
-    "l3-dispatcher-planner/bringup/launch/basic_flight.launch",
-    "l3-dispatcher-planner/ros_packages/utils/quadrotor_msgs/msg/TakeoffLand.msg"
+    "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/flight/**",
+    "drone_projects/l3-dispatcher-planner/bringup/launch/basic_flight.launch",
+    "drone_projects/l3-dispatcher-planner/ros_packages/utils/quadrotor_msgs/msg/TakeoffLand.msg"
   ],
   "depends_on": [
     "l3-dispatcher",

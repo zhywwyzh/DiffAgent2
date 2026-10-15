@@ -1,0 +1,8 @@
+{
+    "cmake.sourceDirectory": "${workspaceFolder}/drone_projects/l3-dispatcher-planner/ros_packages/dispatcher",
+    "git.autoRepositoryDetection": true,
+    "git.scanRepositories": [
+        "simulation_projects/l2-simulator-amd64",
+        "station_projects/l4-agent"
+    ]
+}

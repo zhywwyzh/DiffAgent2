@@ -201,7 +201,7 @@ def main():
     source_groups = {}
     for k, r in sources.items():
         module = r['path'].split('/')[0]
-        title = {'l4-agent':'站端 · L4', 'l3-dispatcher-planner':'机端 · L3', 'l2-simulator-amd64':'仿真与控制 · L2'}.get(module, '仓库入口与部署')
+        title = {'station_projects':'站端 · L4', 'drone_projects':'机端 · L3', 'simulation_projects':'仿真与控制 · L2', 'deployment':'工作区部署'}.get(module, '仓库入口与部署')
         source_groups.setdefault(title, []).append(f'<a href="#{k}">{escape(r["label"])}</a>')
     source_nav = ''.join(navigation_group(title, links, f'{i:02}', opened=i == 1) for i, (title, links) in enumerate(source_groups.items(), 1))
     out=['<div class="source-hero"><div class="eyebrow">证据阅读器 / 工作区快照</div><h1>源码摘录</h1><p>摘录仅用于解释与定位，不是可执行副本。原代码中的注释仅供上下文参考；运行说明以函数体、注册与实际接线为据。</p><a href="index.html">← 返回完整运行图谱</a></div>']

@@ -22,7 +22,7 @@ SIM_REGISTRY=<参考镜像仓库的主机及端口>
 及 VLA 贴地能力仍按各自现行契约检查，不用出生高度伪造地面或原点。
 Router 的配置键统一为 `PUBLIC_ZENOHD_ROUTER`，容器内部仍注入 `ZENOH_ROUTER`。
 
-L2、L4 默认取编排仓库根下的独立 `l2-simulator-amd64/`、`l4-agent/` 检出；
+L2、L4 默认取编排仓库根下的独立 `simulation_projects/l2-simulator-amd64/`、`station_projects/l4-agent/` 检出；
 `SIM_L2_ROOT`、`SIM_L4_ROOT` 可覆盖，相对路径从编排仓库根解析。
 默认 master 端口 22311、Unity 端口 10000，仅同机回环通信；出生位置默认
 `(0,0,1)`，可用 `SIM_INITIAL_X/Y/Z` 覆盖，出生高度与地面高度独立。
@@ -112,7 +112,7 @@ L3、Unity bridge、L2 消息检查各有独立成功记录；prepare 仅重建�
 编译资源、Python 3.8 导入、消息一致性和真实构建失败仍明确报告。
 首次升级到 schema=2 记录需执行一次 `make sim-prepare`，保留原 catkin 增量缓存；
 不自动把旧记录视为新格式缓存。此后重复 prepare 可复用有效组件，不反复创建编译 Job。
-制品、清单、日志与状态集中在 `.artifacts/k3s-unity/`，启动拒绝过期产物。
+制品、清单、日志与状态集中在 `deployment/.artifacts/k3s-unity/`，启动拒绝过期产物。
 
 根 Makefile 调用 `tools/station-host-sim.py`，不维护第二套部署逻辑；直接运行
 `make` 显示帮助。所有 make 命令均在编排仓库根执行，多目标操作按顺序串行。

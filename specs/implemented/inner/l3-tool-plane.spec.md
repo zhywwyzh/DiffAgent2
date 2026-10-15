@@ -185,8 +185,8 @@ leg.`；`outputSchema` 为空 object（`type=object`、`properties={}`、
 ```contract-links
 {
   "implementation": [
-    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/**",
-    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/**/catalog.py"
+    "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/**",
+    "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/**/catalog.py"
   ],
   "depends_on": [
     "l3-dispatcher",

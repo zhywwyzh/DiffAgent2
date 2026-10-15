@@ -1,8 +1,8 @@
 # 设备侧 L3 投放、编译与启动
 
 代码已接入，未编译、未测试、未连接设备验收。契约见
-[远端部署提案](../../../../specs/proposed/inner/drone-remote-build.spec.md)，过程见
-[实施方案](../../../../doc/l3-dispatcher-planner/iteration/design-drone-remote-build.md)。
+[远端部署提案](../../../specs/proposed/inner/drone-remote-build.spec.md)，过程见
+[实施方案](../../../doc/l3-dispatcher-planner/iteration/design-drone-remote-build.md)。
 
 ## 前提与隔离
 
@@ -56,7 +56,9 @@ make drone-status
 
 源码含白名单中的未提交修改，排除测试、缓存、模型、地图及本地配置。
 镜像入口被覆盖，只加载系统 Noetic 和新版 devel；不加载镜像内旧 workspace。
-编译和运行的容器路径均为 `/source/l3` 与 `/work/l3`，对应新版宿主目录。
+编译和运行的容器路径均为 `/source/l3` 与 `/work/l3`，对应新版宿主目录；
+编排清单及探针单独挂载 `/source/deployment`。投放清单保留
+`drone_projects/l3-dispatcher-planner/` 和 `deployment/` 的相对目录结构。
 L2 消息不兼容时拒绝启动，不增加消息转换节点。
 
 ## 日常更新与关闭
@@ -89,7 +91,7 @@ make drone-rollback   # L3已关闭时，显式启动同配置的前一成功制
 
 设备保留 `state/` 中的操作记录和日志、`builds/` 中的编译日志/产物清单，
 源码位于 `releases/`，设备脚本位于 `control/`；这些目录都在新版根目录内。
-站端选择与操作报告位于 `l3-dispatcher-planner/.artifacts/drone/`，不纳入版本控制。
+站端选择与操作报告位于 `deployment/.artifacts/drone/`，不纳入版本控制。
 每次尝试单独构建，首版不提供跨版本增量产物复用；历史目录不自动删除。
 不修改旧版部署，也不自动启动旧版作为回退。
 
@@ -98,3 +100,5 @@ make drone-rollback   # L3已关闭时，显式启动同配置的前一成功制
 默认装配 EGO、dispatcher 和其依赖，未装配 tracking 推理服务或新增遥测运行单元。
 镜像缺少当前源码依赖、设备缺少新鲜 MAVROS 消息、资源不足或 L2 消息不匹配时明确失败。
 Pod 就绪报告定位/点云、原生 action 和任务控制面，不代表实机飞行闭环已验收。
+
+目录迁移前的设备发布版本仍属于原布局；必须先由原版本入口关闭活动 L3，再同步并构建新布局，不混用新 worker 和旧发布目录。迁移不会自动连接或改动设备。

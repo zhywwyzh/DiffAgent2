@@ -20,7 +20,8 @@ station-host 冻结源码并投放；drone-host 持久执行操作；k3s Job 原
 - 新版控制脚本按摘要存储，源码按内容摘要发布，构建按独立尝试保存。
   所有可写挂载、配置、日志、缓存、状态和锁位于新版根目录。
 - 编译/运行只加载系统 Noetic 和新版 devel，不加载镜像的旧 catkin overlay。
-  容器源码路径 `/source/l3`、工作空间 `/work/l3` 在编译与运行间一致。
+  设备发布清单保留 `drone_projects/l3-dispatcher-planner` 与 `deployment` 的职责路径；
+  容器分别挂载 `/source/l3`、`/source/deployment`，工作空间 `/work/l3` 在编译与运行间一致。
 - namespace、systemd unit 和资源名按新版 owner 隔离；删除必须核对 owner 与 UID。
 
 ## 输入、输出与配置
@@ -62,14 +63,15 @@ stdout 为 JSON 结果，日志保存在设备及站端忽略区。未知状态�
 ```contract-links
 {
   "implementation": [
-    "l3-dispatcher-planner/tools/station-host-drone.py",
-    "l3-dispatcher-planner/tools/drone-host-runtime.py",
-    "l3-dispatcher-planner/tools/build_ego.sh",
-    "l3-dispatcher-planner/bringup/k3s/real/**",
+    "deployment/tools/station-host-drone.py",
+    "deployment/tools/drone-host-runtime.py",
+    "drone_projects/l3-dispatcher-planner/tools/build_ego.sh",
+    "deployment/k3s/real/**",
     "Makefile"
   ],
   "depends_on": [
-    "runtime"
+    "runtime",
+    "development-workflow/workspace-layout"
   ]
 }
 ```

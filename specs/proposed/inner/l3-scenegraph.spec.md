@@ -269,8 +269,8 @@ ROS 收发隔离与共享状态规范（归 `l3-dispatcher/ros-adapter-boundary`
 ```contract-links
 {
   "implementation": [
-    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/scene_nav/**",
-    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/perception/**"
+    "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tools/scene_nav/**",
+    "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/perception/**"
   ],
   "depends_on": [
     "l3-dispatcher",

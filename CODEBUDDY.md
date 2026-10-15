@@ -12,7 +12,7 @@
 | 涉及契约 | `specs/README.md` + 命中任务的根契约 + 其 `## Inner contracts` 表 |
 | l3 任务 | `specs/implemented/l3-dispatcher.spec.md` + 该表列出的叶契约 |
 | 涉及保留项 / 字段删除 / 返航 / 动作武装 / VLA 调试 / 急停悬停 | `doc/l3-dispatcher-planner/rest/README.md` 及其台账对应条目 |
-| l4 任务 | `l4-agent/AGENTS.md`（独立嵌套仓库，边界以其正文为准） |
+| l4 任务 | `station_projects/l4-agent/AGENTS.md`（独立嵌套仓库，边界以其正文为准） |
 | 改 `specs/**` | `specs/README.md`（生命周期、header、登记规则） |
 
 ## 2. 默认不读（限制阅读）
@@ -42,7 +42,7 @@
 - **文档一律简体中文**。
 - **验收测试**：除非使用者明确许可，跳过测试与验证性验收（`AGENTS.md` §9）。
 - **提交**用 `git commit --no-verify`；不安装、不重新启用预提交钩子。
-- **内置子树** `l3-dispatcher-planner/` 的改动不与父仓库一起提交，需显式指令。
+- **内置子树** `drone_projects/l3-dispatcher-planner/` 的改动不与父仓库一起提交，需显式指令。
 - **无转接器、过期必删**：被替代的旧接口直接删除，不留 shim 或注释桩。
 
 ## 5. 技能同步

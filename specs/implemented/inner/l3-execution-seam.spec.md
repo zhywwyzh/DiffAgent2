@@ -123,17 +123,17 @@ ActionSession 由飞行与 VLA 共用。任务取消立即释放任务资源；�
 ```contract-links
 {
   "implementation": [
-    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/execution/**",
-    "l3-dispatcher-planner/ros_packages/planner/planner_execution/**",
-    "l3-dispatcher-planner/ros_packages/planner/ego_planner/**",
-    "l3-dispatcher-planner/ros_packages/planner/super_planner/**",
-    "l3-dispatcher-planner/ros_packages/planner/diff_planner/**",
-    "l3-dispatcher-planner/ros_packages/utils/quadrotor_msgs/action/ExecuteWaypoints.action",
-    "l3-dispatcher-planner/ros_packages/utils/quadrotor_msgs/msg/WaypointTarget.msg",
-    "l3-dispatcher-planner/ros_packages/utils/quadrotor_msgs/msg/ExecutionState.msg",
-    "l3-dispatcher-planner/ros_packages/utils/quadrotor_msgs/msg/CommandState.msg",
-    "l3-dispatcher-planner/ros_packages/utils/quadrotor_msgs/msg/YawPolicy.msg",
-    "l3-dispatcher-planner/bringup/config/planner_execution.yaml"
+    "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/execution/**",
+    "drone_projects/l3-dispatcher-planner/ros_packages/planner/planner_execution/**",
+    "drone_projects/l3-dispatcher-planner/ros_packages/planner/ego_planner/**",
+    "drone_projects/l3-dispatcher-planner/ros_packages/planner/super_planner/**",
+    "drone_projects/l3-dispatcher-planner/ros_packages/planner/diff_planner/**",
+    "drone_projects/l3-dispatcher-planner/ros_packages/utils/quadrotor_msgs/action/ExecuteWaypoints.action",
+    "drone_projects/l3-dispatcher-planner/ros_packages/utils/quadrotor_msgs/msg/WaypointTarget.msg",
+    "drone_projects/l3-dispatcher-planner/ros_packages/utils/quadrotor_msgs/msg/ExecutionState.msg",
+    "drone_projects/l3-dispatcher-planner/ros_packages/utils/quadrotor_msgs/msg/CommandState.msg",
+    "drone_projects/l3-dispatcher-planner/ros_packages/utils/quadrotor_msgs/msg/YawPolicy.msg",
+    "drone_projects/l3-dispatcher-planner/bringup/config/planner_execution.yaml"
   ],
   "depends_on": [
     "l3-dispatcher",

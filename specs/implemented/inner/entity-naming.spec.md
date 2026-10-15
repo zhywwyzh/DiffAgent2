@@ -45,11 +45,11 @@ Entity 与 Invoked 是脚本头字段，含义与允许实体见 §1、§2；本
 1. 每个可执行运维脚本在头里声明 `# Entity: <entity>` 与
    `# Invoked: <how>`（如 `# Invoked: directly by the operator`、
    `# Invoked: locally or via SSH`）。`shared` 工具声明 `# Entity: shared`。
-2. 顶层脚本目录（`scripts/`、`specs/tools/`、`drone_projects/auto_deployer/`）
+2. 顶层脚本目录（`scripts/`、`specs/tools/`、`deployment/`）
    以实体为前缀命名可执行文件名：`<entity>-<name>.sh`——一眼看出它在哪里运行。
 3. 头约定——实体词汇（§1）加上 `# Entity:` / `# Invoked:`——只归本 spec
    所有，并在每个纳入版本控制的公开脚本中强制（顶层 `scripts/`、
-   `specs/tools/`、`drone_projects/auto_deployer/`、skill `scripts/`）。
+   `specs/tools/`、`deployment/`、skill `scripts/`）。
    主机本地运维脚本遵循同一约定。
 4. 容器侧 bringup 脚本（`bringup/*/scripts/ctr-*.sh`）暂保留其
    功能导向命名；目标词汇是 `drone-container-*`（§3，待迁批次）。
@@ -76,10 +76,11 @@ Entity 与 Invoked 是脚本头字段，含义与允许实体见 §1、§2；本
 {
   "implementation": [
     "scripts/**",
+    "deployment/tools/**",
+    "deployment/k3s/**/*.sh",
     "specs/tools/*.py",
-    "l3-dispatcher-planner/tools/**",
-    "l3-dispatcher-planner/bringup/**/scripts/**",
-    "l3-dispatcher-planner/bringup/k3s/**/*.sh"
+    "drone_projects/l3-dispatcher-planner/tools/**",
+    "drone_projects/l3-dispatcher-planner/bringup/**/scripts/**"
   ],
   "depends_on": [
     "topology"

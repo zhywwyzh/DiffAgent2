@@ -131,7 +131,7 @@ Parent: specs/implemented/l3-dispatcher.spec.md
 ```contract-links
 {
   "implementation": [
-    "l3-dispatcher-planner/ros_packages/dispatcher/**"
+    "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/**"
   ],
   "depends_on": [
     "development-workflow/l3-coding-style",

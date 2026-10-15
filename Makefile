@@ -5,8 +5,8 @@
 
 REPO_ROOT := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 PYTHON ?= python3
-SIM_RUN = cd "$(REPO_ROOT)" && $(PYTHON) l3-dispatcher-planner/tools/station-host-sim.py
-DRONE_RUN = cd "$(REPO_ROOT)" && $(PYTHON) l3-dispatcher-planner/tools/station-host-drone.py
+SIM_RUN = cd "$(REPO_ROOT)" && $(PYTHON) deployment/tools/station-host-sim.py
+DRONE_RUN = cd "$(REPO_ROOT)" && $(PYTHON) deployment/tools/station-host-drone.py
 
 .PHONY: help up down status sim-render sim-prepare sim-up sim-down sim-status sim-reset
 .PHONY: station-setup station-up station-stop station-status
@@ -76,7 +76,7 @@ sim-reset:
 	$(SIM_RUN) reset
 
 station-setup:
-	$(MAKE) -C "$(REPO_ROOT)/l4-agent" setup
+	$(MAKE) -C "$(REPO_ROOT)/station_projects/l4-agent" setup
 
 station-up:
 	$(SIM_RUN) station-start
@@ -85,4 +85,4 @@ station-stop:
 	$(SIM_RUN) station-stop
 
 station-status:
-	$(MAKE) -C "$(REPO_ROOT)/l4-agent" l4-app status
+	$(MAKE) -C "$(REPO_ROOT)/station_projects/l4-agent" l4-app status

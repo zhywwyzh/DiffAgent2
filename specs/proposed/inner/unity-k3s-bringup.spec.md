@@ -16,7 +16,7 @@ Parent: specs/proposed/runtime.spec.md
 
 ### 装配与配置
 
-入口为 `l3-dispatcher-planner/tools/station-host-sim.py`。已跟踪的
+入口为 `deployment/tools/station-host-sim.py`。已跟踪的
 `runtime.defaults.env` 提供非机器默认值，根 `.local.env` 覆盖声明的键；
 未知 `SIM_` 键拒绝，无关配置不传给容器。配置不经 shell 求值。
 Router 配置统一采用 PUBLIC_ZENOHD_ROUTER，装配到容器的 ZENOH_ROUTER。
@@ -44,7 +44,7 @@ Unity `original/editor` 复用外部场景 Play；不启动或停止外部 Unity
 
 `prepare` 显式通过 k3s Job 编译 L3 与 Unity bridge，解析镜像 digest，记录源码
 内容摘要、构建入口和挂载路径。运行产物位于被忽略的 `.artifacts/`，构建的
-容器路径为 `/work/l3`、`/work/unity`；源码为 `/source/l3`、`/source/l2`。
+容器路径为 `/work/l3`、`/work/unity`；源码为 `/source/l3`、`/source/l2`，编排单独挂载 `/source/deployment`。
 - **UB4 编译身份**：L3、Unity bridge 和 L2-wire 必须分别按实际构建输入、镜像摘要、
   构建命令、解释器及挂载路径记录身份；不得把无关部署工具、Markdown 文档、
   Unity 客户端场景或普通运行配置混入 ROS 编译身份。
@@ -101,14 +101,15 @@ namespace 使用工作区 owner 注解作互斥锁；资源同时携带 owner �
 ```contract-links
 {
   "implementation": [
-    "l3-dispatcher-planner/tools/station-host-sim.py",
-    "l3-dispatcher-planner/tools/build_ego.sh",
-    "l3-dispatcher-planner/bringup/k3s/unity/**",
-    "l3-dispatcher-planner/bringup/launch/basic_flight.launch",
+    "deployment/tools/station-host-sim.py",
+    "drone_projects/l3-dispatcher-planner/tools/build_ego.sh",
+    "deployment/k3s/unity/**",
+    "drone_projects/l3-dispatcher-planner/bringup/launch/basic_flight.launch",
     "Makefile"
   ],
   "depends_on": [
-    "runtime"
+    "runtime",
+    "development-workflow/workspace-layout"
   ]
 }
 ```

@@ -223,11 +223,13 @@ class Runtime:
                     'command': self.shell(body, built=not build),
                     'securityContext': {'allowPrivilegeEscalation': False},
                     'volumeMounts': [{'name': 'source', 'mountPath': '/source/l3', 'readOnly': True},
-                                     {'name': 'work', 'mountPath': '/work/l3', 'readOnly': not build}],
+                                     {'name': 'work', 'mountPath': '/work/l3', 'readOnly': not build},
+                                     {'name': 'deployment', 'mountPath': '/source/deployment', 'readOnly': True}],
                     'resources': {'requests': {'memory': '256Mi'},
                                   'limits': {'memory': self.c['DRONE_BUILD_MEMORY']}}}],
-                'volumes': [{'name': 'source', 'hostPath': {'path': str(release), 'type': 'Directory'}},
-                            {'name': 'work', 'hostPath': {'path': str(work), 'type': 'Directory'}}]}
+                'volumes': [{'name': 'source', 'hostPath': {'path': str(release / 'drone_projects/l3-dispatcher-planner'), 'type': 'Directory'}},
+                            {'name': 'work', 'hostPath': {'path': str(work), 'type': 'Directory'}},
+                            {'name': 'deployment', 'hostPath': {'path': str(release / 'deployment'), 'type': 'Directory'}}]}
 
     def probe(self, source, image, action, attempt=None):
         built = attempt is not None
@@ -236,10 +238,10 @@ class Runtime:
             attempt = 'probe-' + name
             (self.root / 'builds' / attempt / 'work').mkdir(parents=True)
         pod = self.pod(source, attempt, image,
-                       '/usr/bin/python3 /source/l3/bringup/k3s/real/runtime_probe_ros.py ' + action,
+                       '/usr/bin/python3 /source/deployment/k3s/real/runtime_probe_ros.py ' + action,
                        build=True)
         pod['containers'][0]['command'] = self.shell(
-            '/usr/bin/python3 /source/l3/bringup/k3s/real/runtime_probe_ros.py ' + action, built=built)
+            '/usr/bin/python3 /source/deployment/k3s/real/runtime_probe_ros.py ' + action, built=built)
         pod['containers'][0]['volumeMounts'][1]['readOnly'] = True
         pod['activeDeadlineSeconds'] = 30
         self.kube('create', '-f', '-', data={'apiVersion': 'v1', 'kind': 'Pod',
@@ -294,9 +296,9 @@ class Runtime:
         name = 'compile-' + attempt
         body = 'export L3_BUILD_JOBS=' + shlex.quote(self.c['DRONE_BUILD_JOBS']) + '; bash /source/l3/tools/build_ego.sh /work/l3; '
         body += 'test -x /work/l3/devel/lib/ego_planner/ego_planner_node; test -f /work/l3/devel/setup.bash; '
-        body += 'source /work/l3/devel/setup.bash; /usr/bin/python3 /source/l3/bringup/k3s/real/runtime_probe_ros.py dependencies'
+        body += 'source /work/l3/devel/setup.bash; /usr/bin/python3 /source/deployment/k3s/real/runtime_probe_ros.py dependencies'
         pod = self.pod(source, attempt, image, body, build=True)
-        spec = json.loads((self.root / 'releases' / source / 'bringup/k3s/real/compile.job.yaml').read_text())
+        spec = json.loads((self.root / 'releases' / source / 'deployment/k3s/real/compile.job.yaml').read_text())
         spec['metadata'] = {'name': name, 'namespace': self.ns, 'labels': {OWNER_KEY: self.owner}}
         spec['spec'].update(activeDeadlineSeconds=int(self.c['DRONE_BUILD_TIMEOUT_S']),
                             template={'metadata': {'labels': {OWNER_KEY: self.owner}}, 'spec': pod})
@@ -366,7 +368,7 @@ class Runtime:
             raise RuntimeError('无法唯一确认运行实例，拒绝停止')
         self.own(pods[0])
         output = self.kube('-n', self.ns, 'exec', pods[0]['metadata']['name'], '--',
-                           *self.shell('/usr/bin/python3 /source/l3/bringup/k3s/real/runtime_probe_ros.py shutdown', built=True))
+                           *self.shell('/usr/bin/python3 /source/deployment/k3s/real/runtime_probe_ros.py shutdown', built=True))
         print(output, flush=True)
         self.delete('deployment', 'new-l3')
         atomic(self.root / 'state/previous.json', active)
@@ -389,10 +391,10 @@ class Runtime:
             body += shlex.quote(argument + ':=' + self.c[key]) + ' '
         pod = self.pod(source, record['attempt'], image, body)
         pod['restartPolicy'] = 'Always'
-        spec = json.loads((self.root / 'releases' / source / 'bringup/k3s/real/l3.deployment.yaml').read_text())
+        spec = json.loads((self.root / 'releases' / source / 'deployment/k3s/real/l3.deployment.yaml').read_text())
         spec['metadata'] = {'name': 'new-l3', 'namespace': self.ns, 'labels': {OWNER_KEY: self.owner}}
         container = pod['containers'][0]
-        container['readinessProbe'] = {'exec': {'command': self.shell('/usr/bin/python3 /source/l3/bringup/k3s/real/runtime_probe_ros.py ready', built=True)},
+        container['readinessProbe'] = {'exec': {'command': self.shell('/usr/bin/python3 /source/deployment/k3s/real/runtime_probe_ros.py ready', built=True)},
                                        'periodSeconds': 10, 'timeoutSeconds': 20, 'failureThreshold': 3}
         spec['spec']['template'] = {'metadata': {'labels': {'app': 'new-l3', OWNER_KEY: self.owner}}, 'spec': pod}
         self.kube('create', '-f', '-', data=spec)

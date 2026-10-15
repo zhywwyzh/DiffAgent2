@@ -93,10 +93,10 @@ ROS 收发边界由本叶唯一拥有；core 通道语义归 core-boundary，行
 ```contract-links
 {
   "implementation": [
-    "l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/**",
-    "l3-dispatcher-planner/ros_packages/planner/**/*_ros.cpp",
-    "l3-dispatcher-planner/ros_packages/planner/**/*_ros.h",
-    "l3-dispatcher-planner/ros_packages/planner/**/ros_adapter/**"
+    "drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/**",
+    "drone_projects/l3-dispatcher-planner/ros_packages/planner/**/*_ros.cpp",
+    "drone_projects/l3-dispatcher-planner/ros_packages/planner/**/*_ros.h",
+    "drone_projects/l3-dispatcher-planner/ros_packages/planner/**/ros_adapter/**"
   ],
   "depends_on": [
     "development-workflow/l3-coding-style",

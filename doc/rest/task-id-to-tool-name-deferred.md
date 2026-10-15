@@ -35,15 +35,15 @@
 | 位置 | 已确认事实 | 结论 |
 |---|---|---|
 | `l4-agent/src/copaw/agents/tools/plan_tools.json:92` | 上层工具名包含 `navigation.vla_nav` | 沿用实际调用名，不凭旧编号另造名称 |
-| `l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/methods.py::_execution_call` | 将请求 method 作为调用的 name 交给 runtime | 任务身份仍在，编号不是必要中间层 |
-| `l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/core/skill_router.py::dispatch_plan` | 按 `skill_command.call.name` 查表分发 | core 只负责按名分发，不承担工具领域分支 |
-| `l3-dispatcher-planner/ros_packages/utils/quadrotor_msgs/msg/LocalGoalSet.msg` | 已移除 `source_task_id`、`SOURCE_TASK_*`；其他被误删字段已恢复 | 消息去编号不等于原业务判据迁移完成 |
-| `l3-dispatcher-planner/ros_packages/planner/ego_planner/plan_manage/src/ego_replan_fsm.cpp` 的修改前版本 | `aimCallback`、`aimCallbackYawPreset` 曾按来源编号限制 panorama | 移除来源判断有行为影响，不能只按编译通过结案 |
-| `l3-dispatcher-planner/ros_packages/planner/super_planner/planner/include/ros_interface/ros1/fsm_ros1.hpp` 的修改前版本 | 同样存在 `panorama_source_allowed` 及不允许时的偏航回退 | 两个后端的旧判据均需追溯上层业务归属 |
+| `drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/tool_plane/methods.py::_execution_call` | 将请求 method 作为调用的 name 交给 runtime | 任务身份仍在，编号不是必要中间层 |
+| `drone_projects/l3-dispatcher-planner/ros_packages/dispatcher/dispatcher/core/skill_router.py::dispatch_plan` | 按 `skill_command.call.name` 查表分发 | core 只负责按名分发，不承担工具领域分支 |
+| `drone_projects/l3-dispatcher-planner/ros_packages/utils/quadrotor_msgs/msg/LocalGoalSet.msg` | 已移除 `source_task_id`、`SOURCE_TASK_*`；其他被误删字段已恢复 | 消息去编号不等于原业务判据迁移完成 |
+| `drone_projects/l3-dispatcher-planner/ros_packages/planner/ego_planner/plan_manage/src/ego_replan_fsm.cpp` 的修改前版本 | `aimCallback`、`aimCallbackYawPreset` 曾按来源编号限制 panorama | 移除来源判断有行为影响，不能只按编译通过结案 |
+| `drone_projects/l3-dispatcher-planner/ros_packages/planner/super_planner/planner/include/ros_interface/ros1/fsm_ros1.hpp` 的修改前版本 | 同样存在 `panorama_source_allowed` 及不允许时的偏航回退 | 两个后端的旧判据均需追溯上层业务归属 |
 
 修改前证据可在 DiffAgent2 新版提交 `71e76e1` 的对应 planner 文件中查看。
 DiffAgent2 旧版的接口和调用链取证入口见
-[基础飞行方案 §4.4.1](../l3-dispatcher-planner/iteration/design-dispatcher-basic-flight-migration.md#441-s3-旧版接线取证2026-09-17)。
+[基础飞行方案 §4.4.1](../drone_projects/l3-dispatcher-planner/iteration/design-dispatcher-basic-flight-migration.md#441-s3-旧版接线取证2026-09-17)。
 不把工作区源文件位置或个人主机路径写入此记录。
 
 ## 必须继续处理的遗留项
@@ -86,7 +86,7 @@ task-id 删除本身不表示用户批准所有来源使用 panorama。当前来
 
 迁入 VLA/场景导航、处理 panorama/全景旋转、整理来源日志或继续删除任务身份字段时，
 必须重新参考本项，并结合
-[l3 保留项台账](../l3-dispatcher-planner/rest/dispatcher-deferred-dependencies.md)的 R05/R07 等关联条目。
+[l3 保留项台账](../drone_projects/l3-dispatcher-planner/rest/dispatcher-deferred-dependencies.md)的 R05/R07 等关联条目。
 
 关闭本项前必须确认：
 

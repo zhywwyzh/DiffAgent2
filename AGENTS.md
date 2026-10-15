@@ -6,31 +6,30 @@
 
 ## 当前迭代焦点
 
-> 默认编辑目标是 `l3-dispatcher-planner/`（本仓库根下的内置子树，
+> 默认编辑目标是 `drone_projects/l3-dispatcher-planner/`（本仓库 drone_projects 下的内置子树，
 > 由本仓库跟踪）；迭代分支建在本仓库（GitHub `zhywwyzh/DiffAgent2`）上。
 
-- **默认目标：`l3-dispatcher-planner/`** — 所有修改请求（功能、修复、
+- **默认目标：`drone_projects/l3-dispatcher-planner/`** — 所有修改请求（功能、修复、
   重构、测试、文档）默认落到这棵树，即使请求没有点名路径。
 - **迭代分支建在本仓库** — 迭代分支（如 `0907-vla-iteration`）建在
   GitHub `zhywwyzh/DiffAgent2` 上，并承载内置的 l3 改动；
   绝不在嵌套的项目检出目录里建分支。
 - **显式覆盖才改别处** — 其他树（`.trae/skills/`、本文件等）只在
-  请求明确点名时才改；含糊请求一律落到 `l3-dispatcher-planner/`，
+  请求明确点名时才改；含糊请求一律落到 `drone_projects/l3-dispatcher-planner/`，
   不跨树扩散。
 
 ## 这个仓库是什么
 
 > 编排仓库：统一 spec 注册表 `specs/`、agent 技能 `.trae/skills/`、
-> 以及内置的 `l3-dispatcher-planner` 子树。当前只迁移了技能与
-> 编排定位的说法，具体内容暂不迁移。
+> 以及内置的 `l3-dispatcher-planner` 子树。当前包含角色项目目录与独立 deployment 编排。
 
 - 本仓库（GitHub `zhywwyzh/DiffAgent2`，本地
   `<new-repo-root>`）是一个**编排仓库**：
   统一 spec 注册表 `specs/`、agent 技能 `.trae/skills/`，以及内置
   的 `l3-dispatcher-planner` 子树。
-- 原 diff-dockers 编排仓库中的 `specs/`、`docker_registry/`、
-  `drone_projects/auto_deployer/` 等实际内容**暂不迁移**，这里只保留
-  “编排仓库”这一定位说法。
+- 全栈编排归 `deployment/`，站端独立检出归 `station_projects/`，仿真独立检出归
+  `simulation_projects/`；目录要求见 `specs/implemented/inner/workspace-layout.spec.md`。
+  不复制 DiffAgent2 旧版的镜像仓库或部署工程。
 
 ## 新旧版本命名
 
