@@ -23,8 +23,7 @@ class TelemetryRos:
         self.subscriptions = []
         self.timer = None
         self.started = time.monotonic()
-        self.uplink = Uplink(os.environ["LX_STACK_ID"], os.environ["ZENOH_ROUTER"], self.settings,
-                             self.encode, rospy.logwarn)
+        self.uplink = Uplink(os.environ["LX_STACK_ID"], os.environ["ZENOH_ROUTER"], self.encode, rospy.logwarn)
         try:
             self.subscriptions = [
                 rospy.Subscriber("/ekf_quat/ekf_odom", Odometry, self.odom, queue_size=1),

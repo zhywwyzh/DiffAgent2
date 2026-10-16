@@ -24,6 +24,13 @@ LX_STACK_ID 与 namespace 缺省按工作区 owner 生成稳定的独立身份�
 SIM_NODE 缺省时按本机地址匹配唯一 amd64 节点，可显式覆盖；无匹配或歧义时报错。
 SIM_GROUND_Z 可省略，不阻塞普通启动及普通航点；地面相关能力按所属契约检查。
 
+- **UB9 遥测与采样分离**：Unity 装配不得生成通道频率或聚合带宽上限，遥测生产
+  按 runtime/station-telemetry ST4–ST6 处理新值。SIM_CAMERA_MAX_HZ、SIM_DEPTH_MAX_HZ、
+  SIM_CLOUD_MAX_HZ、SIM_ODOM_MAX_HZ 和 SIM_TELEMETRY_MBIT 为退役配置键，必须按
+  未知键拒绝，不保留兼容映射。SIM_UNITY_SENSOR_RATE_HZ 仅用于 native/player 的
+  camera.rate_hz，默认 30 Hz，须为正有限数、不设置最大值；original/editor 的源
+  采样由原场景控制，不受该键影响。遥测配置生成与消费须在同一次重新准备、启动中配套。
+
 镜像默认使用参考工作区同名 L2/L3、fluent-bit 和 relay，由本地 SIM_REGISTRY
 替换 image-registry 角色；单项完整引用可覆盖。沿用镜像的系统解释器，不设置
 无实际源码依据的 Python 版本门槛。prepare 导入真实源码闭包，具体缺口明确
@@ -67,6 +74,16 @@ L3 需要原生 Action 服务端、执行状态和现行 task presence。遥测�
 起降消费者与返航原点缺失时仍按既有契约失败，不制造虚假消费者或原点。
 代码交付不构成运行验收；统一测试许可约束继续适用。
 
+- **UB10 分阶段启动等待**：`up` 的每次业务就绪等待，编排入口必须先等待对应
+  Deployment rollout 完成，再通过 exec 执行容器内业务复核。Kubernetes
+  已有 readinessProbe 按原配置执行，不属于 rollout 之后的 exec 复核阶段。
+  编排入口的部署等待和 exec 复核两个阶段必须共用本次
+  SIM_READY_TIMEOUT_S 的单调截止时间，每次业务探针及重试间隔不得获得额外的
+  完整等待预算。部署等待期间必须输出正常就绪等待提示；rollout 失败或超时必须
+  保留命令诊断并使启动失败。rollout 通过后若 exec 遇到 `container not found`
+  的重启竞态，重试提示必须说明容器正在启动或重启，最终超时必须保留原始错误。
+  部署就绪不得替代既有传感器、planner、任务、遥测和日志的业务判据。
+
 ## 失败、取消与资源生命周期
 
 ### 生命周期
@@ -109,6 +126,7 @@ namespace 使用工作区 owner 注解作互斥锁；资源同时携带 owner �
   ],
   "depends_on": [
     "runtime",
+    "runtime/station-telemetry",
     "development-workflow/workspace-layout"
   ]
 }
@@ -116,7 +134,8 @@ namespace 使用工作区 owner 注解作互斥锁；资源同时携带 owner �
 
 ## 条款检查判据
 
-UB4–UB6：核对组件缓存、实际输入变化与运行配置分离；UB7–UB8：核对完整站端关闭、部分启动登记、依赖预检查及安全释放。
+UB4–UB6：核对组件缓存、实际输入变化与运行配置分离；UB7–UB8：核对完整站端关闭、部分启动登记、依赖预检查及安全释放；UB9：核对限速配置移除、退役键拒绝与独立 Player 采样。
+UB10：核对 rollout 先于业务探针、两阶段共享等待预算、正常创建期输出及失败诊断保留。
 UB1：核对配置拒绝、源码摘要和挂载一致性；UB2：核对资源 owner、重入和失败回收；UB3：核对 down/reset 停稳、租约与就绪判据。证据归实施方案，未获许可不执行检查。
 
 检查执行与证据记录遵循 `specs/README.md` 的统一许可边界；本文件不记录通过结论。

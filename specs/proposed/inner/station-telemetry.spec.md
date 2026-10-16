@@ -23,7 +23,7 @@ stack 绑定遥测频道与 presence；instance 是进程在线身份，不能�
 - drone_status：JSON，stamp 为 odometry 源秒时间；odom 含位置、四元数和世界系
   线速度；battery、mode 未知用 null；camera_calibration 使用实际 CameraInfo
   内参；外参通过本站端已有环境入口显式同步，不把假电池或假飞控模式作为飞行状态。
-- camera：`<d` 小端源秒时戳后接完整 JPEG；限流保留实际 header。
+- camera：`<d` 小端源秒时戳后接完整 JPEG；保留实际 header。
 - depth：`<BHH`，codec=1、宽、高，后接 16 位毫米 PNG；0 表示无效。
 - cloud：`<BI`，codec=0、点数，后接世界坐标 xyz 小端 float32；有限点、体素
   降采样与数量上限。非 world 坐标显式拒绝，不能改 frame 标签冒充世界点。
@@ -32,23 +32,38 @@ stack 绑定遥测频道与 presence；instance 是进程在线身份，不能�
 时间是 L2 接收时间，不能宣称严格采样同步。深度仅用于当前预览消费者，精度
 限制仍归原场景输入；不伪造相机和位姿同步证据。
 
+### Unity 生产配置
+
+- **ST4 配置边界**：Unity 遥测 JSON 只配置 cloud_leaf（正有限米值）和
+  cloud_max_points（正整数）；二者用于点云空间编码，不是传输限速。
+  不提供 rates、mbit 或其它通道频率、聚合带宽配置；通道集合固定为上列五项。
+  生产者必须拒绝集合外频道，不能使未知频道进入最新值槽并触发空转。
+  Player 的源采样配置归 runtime/unity-k3s-bringup，不参与遥测发送调度。
+
 ## 行为规则
 
 ### 所有权
 
 `telemetry_bridge` 是独立 ROS 数据生产者；不接任务、租约、取消或 planner goal。
-ROS 订阅只在 `telemetry_ros.py`；编码与限流为无 ROS 依赖模块。
+ROS 订阅只在 `telemetry_ros.py`；编码与发送为无 ROS 依赖模块。
 每个进程独占 Zenoh client 会话，禁用 multicast，连接显式 router。
 presence 为 `lx/<stack>/presence/telemetry/<instance>`，每通道使用
-BestEffort/Drop；有界最新值槽、通道频率上限和聚合带宽上限，不积压历史图像。
+BestEffort/Drop。
+- **ST5 Unity 无上限发送**：camera、depth、cloud、drone_status 必须在收到新值时
+  唤醒后台发送，不设置通道频率上限、聚合带宽上限或固定轮询间隔；meta 沿用
+  每秒自然生产。每通道仅保留最新待发值，处理不及时可以覆盖待发旧值，不积压历史图像。
+  发送仍受源采样、编码、实际传输和消费者处理能力影响，不承诺逐源帧必达。
 
 ## 失败、取消与资源生命周期
 
 ### 生命周期
 
-ROS 回调只提交最新值；后台单线程编码发送，失败节流报告，关停逆序注销订阅、
-presence、publisher 和会话。健康文件报告输入年龄及成功发送年龄，缺少数据
-不得被 Pod Running 掩盖。日志另由 fluent-bit 和 relay 上传，不复用遥测会话。
+ROS 回调只提交最新值；后台单线程编码发送，失败节流报告。
+- **ST6 等待与关闭**：无新值时必须等待提交、关停通知或下一次每秒健康报告期限，
+  不忙轮询；关停必须唤醒等待线程，停止发送后注销 presence、publisher 和会话。
+  等待发送线程退出最多 5 秒；超时必须显式失败并保留 Zenoh 资源，不在线程仍发送时注销。
+  健康文件报告输入年龄及成功发送年龄，缺少数据不得被 Pod Running 掩盖。
+日志另由 fluent-bit 和 relay 上传，不复用遥测会话。
 
 ## 归属与依赖
 
@@ -70,6 +85,6 @@ presence、publisher 和会话。健康文件报告输入年龄及成功发送�
 
 ## 条款检查判据
 
-ST1：按频道核对源时戳、坐标、二进制布局和真实值；ST2：核对限流、最新值槽及逆序关闭；ST3：核对无输入时的年龄报告。端到端证据归实施记录，未获许可不执行检查。
+ST1：按频道核对源时戳、坐标、二进制布局和真实值；ST2：核对最新值槽及逆序关闭；ST3：核对无输入时的年龄报告；ST4–ST6：核对限速配置移除、新值即时唤醒、空闲等待和关闭唤醒。端到端证据归实施记录，未获许可不执行检查。
 
 检查执行与证据记录遵循 `specs/README.md` 的统一许可边界；本文件不记录通过结论。

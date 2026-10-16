@@ -112,8 +112,7 @@ def config():
     if not re.fullmatch(r"[A-Za-z0-9_.-]+", c["SIM_UNITY_SCENE_ID"]):
         raise ValueError("SIM_UNITY_SCENE_ID 必须为便携场景标识")
     for key in ("SIM_GROUND_Z", "SIM_INITIAL_X", "SIM_INITIAL_Y", "SIM_INITIAL_Z", "SIM_UNITY_DEPTH_RANGE_M",
-                "SIM_UNITY_CAMERA_VERTICAL_FOV", "SIM_CAMERA_MAX_HZ", "SIM_DEPTH_MAX_HZ", "SIM_CLOUD_MAX_HZ",
-                "SIM_ODOM_MAX_HZ", "SIM_TELEMETRY_MBIT", "SIM_CLOUD_LEAF_M"):
+                "SIM_UNITY_CAMERA_VERTICAL_FOV", "SIM_UNITY_SENSOR_RATE_HZ", "SIM_CLOUD_LEAF_M"):
         if key == "SIM_GROUND_Z" and not c[key]:
             continue
         value = float(c[key])
@@ -121,8 +120,6 @@ def config():
             raise ValueError(f"{key}: 非法有限数值")
     if not 1 <= float(c["SIM_UNITY_CAMERA_VERTICAL_FOV"]) < 179 or float(c["SIM_UNITY_DEPTH_RANGE_M"]) > 65.535:
         raise ValueError("相机视角或深度量程非法")
-    if float(c["SIM_CAMERA_MAX_HZ"]) > 15:
-        raise ValueError("SIM_CAMERA_MAX_HZ 不能超过 15")
     t = [float(value) for value in c["SIM_UNITY_CAMERA_TRANSLATION_FLU"].split(",")]
     if len(t) != 3 or not all(math.isfinite(value) for value in t):
         raise ValueError("SIM_UNITY_CAMERA_TRANSLATION_FLU 必须为三个有限数")
@@ -384,7 +381,7 @@ class Stack:
     def write_config(self):
         c = self.c
         camera = {"width": int(c["SIM_UNITY_CAMERA_WIDTH"]), "height": int(c["SIM_UNITY_CAMERA_HEIGHT"]),
-                  "vertical_fov_deg": float(c["SIM_UNITY_CAMERA_VERTICAL_FOV"]), "rate_hz": float(c["SIM_CAMERA_MAX_HZ"]),
+                  "vertical_fov_deg": float(c["SIM_UNITY_CAMERA_VERTICAL_FOV"]), "rate_hz": float(c["SIM_UNITY_SENSOR_RATE_HZ"]),
                   "max_range_m": float(c["SIM_UNITY_DEPTH_RANGE_M"]), "flip_image_rows": True,
                   "translation_flu": [float(v) for v in c["SIM_UNITY_CAMERA_TRANSLATION_FLU"].split(",")],
                   "rotation_rpy_deg": [0, 0, 0]}
@@ -392,9 +389,7 @@ class Stack:
                     "tcp_host": c["SIM_UNITY_TCP_HOST"], "tcp_port": int(c["SIM_UNITY_TCP_PORT"]), "camera": camera,
                     "lidar": {"horizontal_rays": 360, "vertical_rays": 16, "vertical_fov_deg": 90}})
         atomic_json(ARTIFACTS / "config/telemetry.json", {
-            "rates": {"meta": 1, "drone_status": float(c["SIM_ODOM_MAX_HZ"]), "camera": float(c["SIM_CAMERA_MAX_HZ"]),
-                      "depth": float(c["SIM_DEPTH_MAX_HZ"]), "cloud": float(c["SIM_CLOUD_MAX_HZ"])},
-            "mbit": float(c["SIM_TELEMETRY_MBIT"]), "cloud_leaf": float(c["SIM_CLOUD_LEAF_M"]),
+            "cloud_leaf": float(c["SIM_CLOUD_LEAF_M"]),
             "cloud_max_points": int(c["SIM_CLOUD_MAX_POINTS"])})
 
     def compile_manifest(self, component):
@@ -560,12 +555,12 @@ class Stack:
             raise RuntimeError("缺少当前版本的制品记录，请显式 prepare（已有编译缓存保留）")
         self.check_component_records()
 
-    def exec_probe(self, action, deployment="sim-l3", setup="l3", required=True):
+    def exec_probe(self, action, deployment="sim-l3", setup="l3", required=True, timeout=25):
         python = "python3" if deployment in ("sim-roscore", "sim-dynamics", "sim-unity") else self.c["SIM_PYTHON_EXECUTABLE"]
         command = self.shell(f"{shlex.quote(python)} /source/deployment/k3s/unity/runtime_probe_ros.py {action}", setup)
         try:
             result = self.kube("-n", self.ns, "exec", "deployment/" + deployment, "--", *command,
-                               capture_output=True, text=True, timeout=25)
+                               capture_output=True, text=True, timeout=timeout)
             return json.loads(result.stdout.strip().splitlines()[-1])
         except (subprocess.SubprocessError, ValueError, IndexError) as exc:
             if required:
@@ -573,14 +568,32 @@ class Stack:
             return {"ok": False, "reason": str(getattr(exc, "stderr", "") or exc)}
 
     def wait_probe(self, action, deployment, setup):
-        deadline = time.monotonic() + int(self.c["SIM_READY_TIMEOUT_S"])
-        last = {}
-        while time.monotonic() < deadline:
-            last = self.exec_probe(action, deployment, setup, required=False)
+        timeout = int(self.c["SIM_READY_TIMEOUT_S"])
+        deadline = time.monotonic() + timeout
+        print(f"等待 {action}: 等待 {deployment} 部署就绪", flush=True)
+        try:
+            self.kube("-n", self.ns, "rollout", "status", "deployment/" + deployment,
+                      "--timeout=" + str(timeout) + "s", capture_output=True, text=True, timeout=timeout)
+        except subprocess.SubprocessError as exc:
+            detail = getattr(exc, "stderr", None) or getattr(exc, "stdout", None) or str(exc)
+            if isinstance(detail, bytes):
+                detail = detail.decode(errors="replace")
+            if isinstance(exc, subprocess.TimeoutExpired):
+                detail = f"超过 {timeout} 秒等待预算；{detail.strip()}"
+            raise RuntimeError(f"等待 {action} 的部署 {deployment} 就绪失败: {detail.strip()}") from exc
+        last = {"ok": False, "reason": f"{deployment} 部署已就绪，业务探针尚未完成"}
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            last = self.exec_probe(action, deployment, setup, required=False, timeout=min(25, remaining))
             if last.get("ok"):
                 return
-            print(f"等待 {action}: {last.get('reason', last)}", flush=True)
-            time.sleep(3)
+            reason = last.get("reason", last)
+            if isinstance(reason, str) and "container not found (" in reason:
+                reason = f"{deployment} 容器正在启动或重启"
+            print(f"等待 {action}: {reason}", flush=True)
+            time.sleep(min(3, max(0, deadline - time.monotonic())))
         raise RuntimeError(f"等待 {action} 超时: {last}")
 
     def port_free(self, port):

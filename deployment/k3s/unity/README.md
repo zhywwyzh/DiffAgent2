@@ -33,6 +33,18 @@ L2、L4 默认取编排仓库根下的独立 `simulation_projects/l2-simulator-a
 相机外参由本入口以 systemd drop-in 同步到本站端。当前默认值沿用用户确认已实验验证的
 Exploration 原场景配置；更换场景时需同步对应参数。
 
+Unity 遥测不设置通道频率或总带宽上限：RGB、深度、点云和里程计有新值即唤醒
+编码发送，处理不及时只保留各通道最新待发值。meta 和健康报告保持每秒自然生产。
+传感器采样、编码、现有 Zenoh router 链路及消费者处理仍决定实际频率；本机部署
+不表示整条遥测链使用共享内存。
+`SIM_UNITY_SENSOR_RATE_HZ` 仅用于 native Player 的源采样，默认 30 Hz，须为正有限值，
+不设置最大值；original/editor 的源采样由原场景控制。
+点云体素和点数配置继续用于空间降采样，不限制发送频率。
+旧 `SIM_CAMERA_MAX_HZ`、`SIM_DEPTH_MAX_HZ`、`SIM_CLOUD_MAX_HZ`、`SIM_ODOM_MAX_HZ`、
+`SIM_TELEMETRY_MBIT` 已删除；本地覆盖如有这些键须删除，入口仍按未知配置报错。
+升级后通过 `make down → make sim-prepare → make up` 重新准备并生成配套配置，
+不要把新 JSON 单独写入仍运行旧发送器的活动栈。
+
 namespace 若属于参考工作区，须由原工作区停止原栈后再启动新版，或者为新版
 配置独立 namespace 和空闲端口。Unity 必须连接相同配置端口。固定站端服务
 属于其它检出时，启动前报告冲突；可执行新版 make down 统一关闭本机站端后再启动。
